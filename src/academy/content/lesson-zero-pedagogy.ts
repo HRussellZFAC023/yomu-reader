@@ -1,12 +1,29 @@
 import classroomExpressionJson from '../../../public/academy/content/lessons/lesson-zero-classroom-expressions.v1.json';
 import type { ClassroomExpressionSessionDefinition } from '../domain/classroom-expression-session';
-import { createGroundedDefinitionRegistry, type GroundedDefinitionRegistry } from '../domain/grounded-definition-registry';
+import {
+    createGroundedDefinitionRegistry,
+    type GroundedDefinitionRegistry,
+} from '../domain/grounded-definition-registry';
 import type { GroundedDefinitionRef } from '../domain/grounded-lesson';
 import type { LessonZeroActivity, LessonZeroPackageData } from './lesson-zero-schema';
 import { validateLessonZeroClassroomExpressions } from './lesson-zero-classroom-expressions';
-import { createLessonZeroDefinitionRecords, LESSON_ZERO_CLASSROOM_ACTIVITY_BINDINGS, lessonZeroCanonicalReading, lessonZeroErrorId, lessonZeroFeedbackId, lessonZeroNearbyExampleId, lessonZeroProbesForBinding, lessonZeroReviewSeedId, type LessonZeroClassroomActivityBinding } from './lesson-zero-pedagogy-definitions';
+import {
+    createLessonZeroDefinitionRecords,
+    LESSON_ZERO_CLASSROOM_ACTIVITY_BINDINGS,
+    lessonZeroCanonicalReading,
+    lessonZeroErrorId,
+    lessonZeroFeedbackId,
+    lessonZeroNearbyExampleId,
+    lessonZeroProbesForBinding,
+    lessonZeroReviewSeedId,
+    type LessonZeroClassroomActivityBinding,
+} from './lesson-zero-pedagogy-definitions';
 
-
+export {
+    LESSON_ZERO_CLASSROOM_ACTIVITY_BINDINGS,
+    LESSON_ZERO_CLASSROOM_EXPRESSIONS_SHA256,
+    LESSON_ZERO_CONTENT_SHA256,
+} from './lesson-zero-pedagogy-definitions';
 
 export interface LessonZeroPedagogy {
     readonly classroom: ClassroomExpressionSessionDefinition;

@@ -1,5 +1,3 @@
-// Filesystem/subprocess inputs, including generic helpers called by this test.
-// @yomu-reads docs/public/pwa-icon-*.png docs/public/apple-touch-icon.png docs/public/favicon-32x32.png docs/public/screenshots/study-pwa-*.png public/newtab/** public/icons/** docs/public/study/** docs/public/newtab/** docs/public/icons/**
 import { existsSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 

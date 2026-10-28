@@ -1,5 +1,3 @@
-// Filesystem/subprocess inputs, including generic helpers called by this test.
-// @yomu-reads public/academy/** docs/academy/**
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
 import fs from 'node:fs';

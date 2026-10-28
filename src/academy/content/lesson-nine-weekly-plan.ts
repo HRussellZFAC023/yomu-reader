@@ -1,6 +1,12 @@
 import { getAuthoredWeekRegistration, type LoadedAuthoredWeekPackage } from './lesson-content-registry';
 import { ACADEMY_ASSESSED_ANSWER_SUPPORT } from '../domain/activity-runtime';
-import type { WeeklyPlanChoiceRound, WeeklyPlanPairRound, WeeklyPlanTypedRound, WeeklyPlanWeekdayOption, WeeklyPlanWorkbookModel } from '../minigames/weekly-plan-workbook';
+import type {
+    WeeklyPlanChoiceRound,
+    WeeklyPlanPairRound,
+    WeeklyPlanTypedRound,
+    WeeklyPlanWeekdayOption,
+    WeeklyPlanWorkbookModel,
+} from '../minigames/weekly-plan-workbook';
 import type { LessonActivityBeat } from '../ui/lesson-activity-chapter';
 
 const PACKAGE_ID = 'l1-l09';
@@ -62,7 +68,7 @@ const GENKI_PROBLEMS = [
     ]),
 ] as const;
 
-function createLessonNineWeeklyPlanModel(loaded: LoadedAuthoredWeekPackage): WeeklyPlanWorkbookModel {
+export function createLessonNineWeeklyPlanModel(loaded: LoadedAuthoredWeekPackage): WeeklyPlanWorkbookModel {
     assertExactPackageSources(loaded);
     const rounds = Object.freeze([
         pairRound(1, 'monday-today', 'きょう は げつようび です。', 'ka', 'nichi'),

@@ -14,7 +14,7 @@ export interface AudioManifest {
     readonly sfx: readonly SfxEntry[];
 }
 
-interface ThemeTrackEntry {
+export interface ThemeTrackEntry {
     readonly slot: ThemeSlot;
     readonly bus: 'music' | 'ambience';
     readonly trackId: string;
@@ -25,7 +25,7 @@ interface ThemeTrackEntry {
     readonly rights: AudioRights;
 }
 
-interface SfxEntry {
+export interface SfxEntry {
     readonly cue: SfxCue;
     readonly mediaKey: string;
     readonly gain: number;
@@ -69,7 +69,7 @@ export function parseAudioManifest(value: unknown): AudioManifest {
     return manifest;
 }
 
-function mediaUrlFor(mediaKey: string): string {
+export function mediaUrlFor(mediaKey: string): string {
     const routeKey = mediaKey.startsWith(STORAGE_AUDIO_PREFIX)
         ? mediaKey.slice(STORAGE_AUDIO_PREFIX.length)
         : mediaKey;

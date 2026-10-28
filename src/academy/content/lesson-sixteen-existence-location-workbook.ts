@@ -9,7 +9,7 @@ const GENKI_SHA256 = 'a4af27440a6e72bde55d011df350acd921199a0b558eb168ec46b380a3
 const GENKI_SCRIPT_SHA256 = 'aad41fec9195385ef13a7e8280c6b2292c48d8857dfbcabd9c93c82fe968733a';
 const GENKI_TASK_ID = 'genki-2e:l1-l16:lesson-4-workbook-1' as const;
 
-function createLessonSixteenExistenceLocationWorkbookModel(): ExistenceLocationWorkbookModel {
+export function createLessonSixteenExistenceLocationWorkbookModel(): ExistenceLocationWorkbookModel {
     const rounds = Object.freeze([
         classify(1, 'moodle-sea-fish', 'うみ／さかな', 'うみに さかなが います。', 'animate'),
         classify(2, 'moodle-fish-shop-fish', 'さかなや／さかな', 'さかなやに さかなが います。', 'animate'),

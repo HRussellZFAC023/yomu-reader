@@ -179,19 +179,6 @@ export async function closeSmokeBrowserAndServer(browser, server) {
     await closeServer(server);
 }
 
-// A merged cell borrows its host's browser, owns every context it creates, and
-// must leave any already-loaded host pages alive even when an assertion fails.
-export async function withSmokeContexts(browser, run) {
-    const existing = new Set(browser.contexts());
-    try {
-        return await run();
-    } finally {
-        for (const context of browser.contexts()) {
-            if (!existing.has(context)) await context.close();
-        }
-    }
-}
-
 /** Consistent touch viewport and page-error capture for native-control fixtures. */
 export async function newTouchSmokePage(browser, viewport, onError) {
     const page = await browser.newPage({ viewport, hasTouch: true });
@@ -1184,7 +1171,7 @@ export async function launchOptionalBrowser(browserType, browserName, options) {
     }
 }
 
-function isMissingBrowserExecutable(error) {
+export function isMissingBrowserExecutable(error) {
     const message = String(error?.message ?? '');
     return message.includes("Executable doesn't exist");
 }

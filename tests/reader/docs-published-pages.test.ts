@@ -1,0 +1,372 @@
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import path from 'node:path';
+import { describe, expect, it } from 'vitest';
+import {
+    internalDocsExcludeGlobs,
+    isInternalDocPath,
+    navigationRoutes,
+    sitemapItemsForRoutes,
+    sitemapRouteKey,
+    withHostedAppSitemapItems,
+} from '../../config/docs/published-pages';
+import {
+    LEGACY_DOC_HASH_REDIRECTS,
+    LEGACY_DOC_REDIRECTS,
+} from '../../config/docs/legacy-redirects';
+import {
+    MEMBERSHIP_NAV,
+    docsNav,
+    hostedShellNavMarkup,
+    hostedShellNavRoutes,
+    siteNavRoutes,
+} from '../../src/reader/app/site-nav';
+import {
+    PUBLISHED_WEBSITE_ROUTES,
+    websiteNavigationLabel,
+} from '../../docs/.vitepress/locales/site-locales';
+import { publishedWebsiteRouteDefinitions } from '../../docs/.vitepress/locales/route-catalog';
+import { DEFAULT_SETTINGS } from '../../src/reader/settings';
+
+const ROOT = process.cwd();
+const DOCS = path.join(ROOT, 'docs');
+
+// Every page yomureader.com is meant to publish, as VitePress sitemap urls
+// (docs-relative, cleanUrls applied). Anything else under docs/ is a working
+// note that must stay in the repo and off the site.
+const ACTIVE_PUBLIC_ROUTES = [...PUBLISHED_WEBSITE_ROUTES];
+const JAPANESE_PUBLIC_ROUTES = publishedWebsiteRouteDefinitions('ja')
+    .map(definition => `ja/${definition.route}`);
+
+const LEGACY_REDIRECT_ROUTES = Object.keys(LEGACY_DOC_REDIRECTS)
+    .map(routeFor)
+    .sort();
+
+// Static app routes are copied from docs/public rather than routed by
+// VitePress. Keep both PDF URL shapes explicit: a reported bare-route 404 must
+// not return while the index.html link continues to look healthy.
+const PUBLIC_STATIC_ROUTES = [
+    { route: '/pdf-reader/', file: 'docs/public/pdf-reader/index.html' },
+    { route: '/pdf-reader/index.html', file: 'docs/public/pdf-reader/index.html' },
+] as const;
+
+function readProjectFile(file: string): string {
+    return readFileSync(path.join(ROOT, file), 'utf8');
+}
+
+function docsMarkdownFiles(directory = DOCS): string[] {
+    return readdirSync(directory, { withFileTypes: true }).flatMap(entry => {
+        const entryPath = path.join(directory, entry.name);
+        if (entry.isDirectory()) {
+            return entry.name === '.vitepress' ? [] : docsMarkdownFiles(entryPath);
+        }
+        if (!entry.isFile() || path.extname(entry.name) !== '.md') return [];
+        return [path.relative(DOCS, entryPath).split(path.sep).join('/')];
+    });
+}
+
+// Whether a redirect target names a published page, and a heading on it when it
+// carries an anchor.
+function publishes(target: string): boolean {
+    const [route, anchor] = target.split('#');
+    const japanese = route.startsWith('/ja/');
+    const key = sitemapRouteKey(route.replace(/^\/ja\//, '/'));
+    const definition = publishedWebsiteRouteDefinitions(japanese ? 'ja' : 'en')
+        .find(candidate => sitemapRouteKey(candidate.route) === key);
+    if (!definition) return false;
+    return !anchor || readProjectFile(`docs/${definition.source}`).includes(`{#${anchor}}`);
+}
+
+function routeFor(relativePath: string): string {
+    return relativePath.replace(/(^|\/)index\.md$/, '$1').replace(/\.md$/, '');
+}
+
+describe('published docs pages', () => {
+    it('publishes both PDF reader URL shapes', () => {
+        expect(PUBLIC_STATIC_ROUTES.map(entry => entry.route)).toEqual([
+            '/pdf-reader/',
+            '/pdf-reader/index.html',
+        ]);
+        for (const entry of PUBLIC_STATIC_ROUTES) {
+            expect(existsSync(path.join(ROOT, entry.file)), `${entry.route} is missing ${entry.file}`).toBe(true);
+        }
+    });
+
+    it('routes only the user-facing pages', () => {
+        const published = docsMarkdownFiles()
+            .filter(file => !isInternalDocPath(file))
+            .map(routeFor)
+            .sort();
+
+        expect(published).toEqual([
+            ...ACTIVE_PUBLIC_ROUTES,
+            ...JAPANESE_PUBLIC_ROUTES,
+            ...LEGACY_REDIRECT_ROUTES,
+        ].sort());
+    });
+
+    it('keeps engineering notes, QA probes, and reviewer notes off the site', () => {
+        const internal = [
+            'academy/STATUS.md',
+            'academy/shared-study-srs.md',
+            'academy/story/dossiers/rie.md',
+            'carryover-workstream-2026-07-18.md',
+            'dev/browser-store-automation.md',
+            'dev/check-exit-code-incident-2026-07-18.md',
+            'dev/check-performance.md',
+            'multilingual/README.md',
+            'multilingual/roster-source.md',
+            'nuclear-backlog-2026-07-16.md',
+            'operations/cloudflare-data-recovery.md',
+            'operations/cloudflare-data-recovery-drill-2026-07-29.md',
+            'public/academy/vendor/kanjivg/ATTRIBUTION.md',
+            'qa/ANNOTATION-FIX-PROBE-20260715.md',
+            'store-review-notes.md',
+        ];
+
+        for (const file of internal) {
+            expect(isInternalDocPath(file), file).toBe(true);
+        }
+        for (const file of ['index.md', 'features.md', 'guides/study-setup.md', 'tools/japanese-ocr.md']) {
+            expect(isInternalDocPath(file), file).toBe(false);
+        }
+    });
+
+    it('links every published page from the site navigation', () => {
+        // The nav lives in src/reader/app/site-nav.ts so the docs pages and all
+        // three hosted shells render one list instead of four that drift.
+        // Search both: config.mts still holds the sidebar, and a page reachable
+        // from either counts as linked.
+        const sources = [
+            readProjectFile('docs/.vitepress/config.mts'),
+            readProjectFile('src/reader/app/site-nav.ts'),
+        ].join('\n');
+
+        for (const route of ACTIVE_PUBLIC_ROUTES) {
+            const bare = sitemapRouteKey(route);
+            const linked = sources.includes(`link: '/${bare}'`) || sources.includes(`link: '/${bare}/'`);
+            expect(linked, `/${bare} is published but nothing links to it`).toBe(true);
+        }
+    });
+
+    it('keeps every old feature and guide URL as a redirect into the learning path', () => {
+        const config = readProjectFile('docs/.vitepress/config.mts');
+        expect(config).toContain('legacyDocsRedirect(pageData.relativePath)');
+        expect(config).toContain('legacyDocsHashRedirects(relativePath)');
+        expect(config).toContain("'http-equiv': 'refresh'");
+        expect(config).toContain('location.replace(target)');
+
+        for (const [file, target] of Object.entries(LEGACY_DOC_REDIRECTS)) {
+            expect(existsSync(path.join(DOCS, file)), file).toBe(true);
+            // A Japanese stub lands on the Japanese page, an English one on English.
+            const japanese = file.startsWith('ja/');
+            expect(target.startsWith('/ja/'), file).toBe(japanese);
+            const published = japanese ? JAPANESE_PUBLIC_ROUTES : ACTIVE_PUBLIC_ROUTES;
+            expect(sitemapRouteKey(target).replace(/^ja\//, '')).toMatch(/^(?:learn$|desktop$|faq$|install$)/);
+            expect(published.map(sitemapRouteKey)).toContain(sitemapRouteKey(target));
+            expect(publishes(target), target).toBe(true);
+        }
+        for (const redirects of Object.values(LEGACY_DOC_HASH_REDIRECTS)) {
+            for (const target of Object.values(redirects)) {
+                expect(publishes(target), target).toBe(true);
+            }
+        }
+    });
+
+    it('keeps the reader\'s phone-Anki help link landing on its answer', () => {
+        // MOBILE_ANKI_SETUP_DOCS_URL in the reader, and every installed build,
+        // still links the old setup page's anchor.
+        const anchor = '#use-desktop-anki-from-a-phone-ipad-or-android';
+        expect(readProjectFile('src/reader/settings/status-lines.ts')).toContain(`learn/your-own-setup${anchor}`);
+        expect(LEGACY_DOC_HASH_REDIRECTS['learn/your-own-setup.md'][anchor]).toBe('/faq#anki-on-a-phone');
+        expect(LEGACY_DOC_HASH_REDIRECTS['getting-started.md'][anchor]).toBe('/faq#anki-on-a-phone');
+        expect(readProjectFile('docs/faq.md')).toContain('## Can I add to Anki from my phone? {#anki-on-a-phone}');
+    });
+
+    it('wires the exclusion list and the sitemap filter into the VitePress config', () => {
+        const config = readProjectFile('docs/.vitepress/config.mts');
+
+        expect(config).toContain('srcExclude: internalDocsExcludeGlobs');
+        expect(config).toContain('sitemapItemsForRoutes(items, linkedRoutes)');
+        // Nothing in the nav links a home page (the logo does), so the route
+        // list names both; without them sitemap.xml omitted / and /ja/.
+        expect(config).toContain("const linkedRoutes = navigationRoutes([\n    { link: '/' },\n    { link: '/ja/' },");
+        const homes = sitemapItemsForRoutes([{ url: '' }, { url: 'ja/' }], navigationRoutes([{ link: '/' }, { link: '/ja/' }]));
+        expect(homes.map(item => item.url)).toEqual(['', 'ja/']);
+        expect(internalDocsExcludeGlobs).toContain('academy/**/*.md');
+    });
+});
+
+describe('published product claims', () => {
+    it('says Yomu is for learning Japanese and claims no other learning languages', () => {
+        // Owner decision 2026-10-07: Yomu is Japanese-only. The site used to
+        // count 33 learning targets on the homepage, the FAQ, the setup page and
+        // a per-language grammar table; none of that may come back. The settings
+        // reference is generated from the reader's own setting labels, so the
+        // reader owns its wording and it is not scanned here.
+        const homepage = readProjectFile('docs/index.md');
+        const catalogue = readProjectFile('docs/.vitepress/locales/docs-prose-catalog.ts');
+        expect(homepage).toContain('>Read Japanese. Stay with the story.</h1>');
+        expect(catalogue).toContain("'Read Japanese. Stay with the story.': '日本語を読む。物語の続きを楽しむ。'");
+
+        const claims = docsMarkdownFiles()
+            .filter(file => !isInternalDocPath(file))
+            .flatMap(file => [...readProjectFile(`docs/${file}`)
+                .matchAll(/\b\d+\s+(?:learning\s+)?(?:languages?|targets?)\b|\blearning (?:languages?|targets?)\b/giu)]
+                .map(match => `${file}: ${match[0]}`));
+        expect(claims).toEqual([]);
+    });
+
+    it('names every service a lookup reaches by default, before any key is added', () => {
+        // Opening a word asks each definition source that is on by default and
+        // needs no key. The privacy page once listed them only under "services
+        // you connect", as if nothing left the device until you connected one.
+        const NEEDS_A_KEY = new Set(['wanikani']);
+        const NAMES: Record<string, string> = { jiten: 'Jiten', jpdb: 'JPDB', bunpro: 'Bunpro', wanikani: 'WaniKani' };
+        const keyless = Object.entries(DEFAULT_SETTINGS)
+            .flatMap(([key, value]) => {
+                const provider = /^(\w+)DefinitionsEnabled$/u.exec(key)?.[1];
+                return provider && value === true && !NEEDS_A_KEY.has(provider) ? [NAMES[provider]] : [];
+            });
+        expect(keyless.sort()).toEqual(['Bunpro', 'JPDB', 'Jiten']);
+        for (const file of ['docs/privacy/index.md', 'README.md']) {
+            const lookupLine = readProjectFile(file).split('\n').find(line => /word you (?:open|look up) goes to/u.test(line));
+            expect(lookupLine, file).toBeDefined();
+            for (const name of keyless) expect(lookupLine, `${file}: ${name}`).toContain(name);
+        }
+    });
+
+    it('keeps Japanese lookup backed by published dictionary supply', () => {
+        const catalogue = JSON.parse(
+            readProjectFile('config/dictionaries/published/v1/catalog.json'),
+        ) as {
+            entries?: Array<{
+                headwordLanguages?: string[];
+                distribution?: { state?: string };
+            }>;
+        };
+        const suppliedHeadwordLanguages = new Set(
+            (catalogue.entries ?? [])
+                .filter(entry => entry.distribution?.state === 'published' || entry.distribution?.state === 'upstream')
+                .flatMap(entry => entry.headwordLanguages ?? [])
+                .map(language => language.toLowerCase().replace(/_/gu, '-').split('-')[0]),
+        );
+        expect(suppliedHeadwordLanguages.has('ja')).toBe(true);
+    });
+
+});
+
+describe('one navbar everywhere', () => {
+    const SHELLS = ['docs/public/pdf-reader/index.html', 'docs/public/video-player/index.html'];
+
+    it('stamps the same site nav into every standalone hosted shell', () => {
+        // The two static shells are served outside the VitePress theme, so their
+        // menus are stamped from the canonical list at build time. A list edit
+        // without a rebuild leaves them behind, which is how they ended up
+        // pointing Study and Stats at the retired /newtab/ route.
+        const expected = hostedShellNavMarkup('../', ' '.repeat(12));
+
+        for (const shell of SHELLS) {
+            const source = readProjectFile(shell);
+            const start = source.indexOf('<!-- yomu:site-nav:start -->');
+            const end = source.indexOf('<!-- yomu:site-nav:end -->');
+            expect(start, `${shell} has no site-nav markers`).toBeGreaterThan(0);
+            expect(end).toBeGreaterThan(start);
+            const stamped = source.slice(start + '<!-- yomu:site-nav:start -->'.length, end).trim();
+            expect(stamped, `${shell} is stamped from a stale nav — run scripts/sync-docs-userscript.cjs`)
+                .toBe(expected.trim());
+        }
+    });
+
+    it('opens Study from the FAQ instead of a VitePress 404', () => {
+        // Study is a static app in docs/public, not a docs page. A plain
+        // in-site link is claimed by the router, which renders "PAGE NOT FOUND".
+        const faq = readProjectFile('docs/faq.md');
+        expect(faq).toContain('<a href="/study/#settings=dictionaries" target="_self">');
+        expect(faq).not.toContain('](/study/#');
+    });
+
+    it('keeps Membership carrying target="_self" on every surface', () => {
+        // VitePress's router claims in-site link clicks on window and skips any
+        // anchor with a target, which is the only reason the membership popover
+        // gets to open instead of the router navigating away.
+        expect(MEMBERSHIP_NAV.target).toBe('_self');
+        const more = docsNav().find(item => (item as { text: string }).text === 'More') as { items: unknown[] };
+        expect(more.items).toContainEqual({ text: 'Donate', link: '/membership', target: '_self' });
+
+        const membership = hostedShellNavRoutes('/').find(link => link.text === 'Donate');
+        expect(membership?.target).toBe('_self');
+        for (const shell of SHELLS) {
+            expect(readProjectFile(shell)).toContain('<a href="../membership" target="_self" data-site-nav-item');
+        }
+    });
+
+    it('keeps every nav label\'s Japanese in step with the website locale catalogue', () => {
+        // The static shells read data-nav-ja in applyInterfaceLanguage; Study's
+        // renderSiteNavLink chooses route.ja while rendering. VitePress reads
+        // the semantic website catalogue, so assert both consumers agree.
+
+        for (const route of siteNavRoutes()) {
+            expect(websiteNavigationLabel(route.text, 'ja')).toBe(route.ja);
+        }
+    });
+});
+
+describe('sitemap filtering', () => {
+    it('collects same-site routes from nested navigation and ignores externals', () => {
+        const routes = navigationRoutes([
+            { text: 'Install', link: '/getting-started' },
+            { text: 'Stats', link: '/study/?mode=stats' },
+            { text: 'Source', link: 'https://github.com/example/repo' },
+            { text: 'More', items: [{ text: 'Privacy', link: '/privacy' }] },
+        ]);
+
+        expect([...routes].sort()).toEqual(['getting-started', 'privacy', 'study']);
+    });
+
+    it('keeps linked pages and drops unlinked ones, index and directory urls alike', () => {
+        const routes = navigationRoutes([
+            { text: 'Overview', link: '/' },
+            { text: 'Privacy', link: '/privacy' },
+            { text: 'Apps', link: '/tools/' },
+        ]);
+        const items = [
+            { url: '' },
+            { url: 'privacy/' },
+            { url: 'tools/' },
+            { url: 'nuclear-backlog-2026-07-16' },
+        ];
+
+        expect(sitemapItemsForRoutes(items, routes)).toEqual([
+            { url: '' },
+            { url: 'privacy/' },
+            { url: 'tools/' },
+        ]);
+    });
+
+    // The hosted apps are static files in docs/public, so VitePress never routes
+    // them and `transformItems` never sees them: all three were missing from the
+    // live sitemap (20 <loc> entries, measured 2026-07-30) while being indexable
+    // 200 pages the home page leads with.
+    it('adds the hosted app surfaces the sitemap can never discover', () => {
+        expect(withHostedAppSitemapItems([{ url: 'faq' }], url => ({ url }))).toEqual([
+            { url: 'faq' },
+            { url: 'study/' },
+            { url: 'video-player/' },
+            { url: 'pdf-reader/' },
+        ]);
+    });
+
+    it('does not duplicate a hosted route that VitePress already published', () => {
+        const items = [{ url: 'study' }];
+        expect(withHostedAppSitemapItems(items, url => ({ url }))).toEqual([
+            { url: 'study' },
+            { url: 'video-player/' },
+            { url: 'pdf-reader/' },
+        ]);
+    });
+
+    // One URL shape per app, the Academy's deliberate sitemap exclusion, and the
+    // shells' social metadata all live in tests/reader/technical-seo.test.ts,
+    // which sweeps README.md, src/reader/app/constants.ts and the nav definition
+    // as well as the docs pages. Only the helper's own contract is asserted here.
+});

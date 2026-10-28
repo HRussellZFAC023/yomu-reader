@@ -1,4 +1,3 @@
-import '../../src/reader/companions/register-build-companions';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { AnkiLookupResult } from '../../src/reader/anki/index';

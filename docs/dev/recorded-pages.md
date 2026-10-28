@@ -90,9 +90,9 @@ a Mechanism Fixture (see Follow-ups).
   whole author `<ruby>` (on the Aozora page itself Yomu reads each text run
   alone). `clamp-cards-mechanism-fixture` sets the paragraphs as synopsis
   cards whose text is a 3-line `-webkit-line-clamp`. Both keep the recording's
-  text and ruby; `page-ruby-metrics-smoke.mjs` (including its clamp-healing cells)
+  text and ruby; `page-ruby-metrics-smoke.mjs` and `clamp-row-heal-smoke.mjs`
   serve them in place of the recorded document.
-- The lifecycle cells in `page-ruby-metrics-smoke.mjs` use `aozora-paragraphs-mechanism-fixture`
+- `page-ruby-lifecycle-smoke.mjs` uses `aozora-paragraphs-mechanism-fixture`
   with the recording's original text and ruby. It activates hide, pause and resume in
   Chromium and touch WebKit at iPad size, checking that every authored ruby
   keeps its base, reading and fallback punctuation after each transition, and

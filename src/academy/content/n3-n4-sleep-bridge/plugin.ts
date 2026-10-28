@@ -1,7 +1,35 @@
-import { ACADEMY_ASSESSED_ANSWER_SUPPORT, type ActivityController, type ActivityEvaluation, type ActivityHost, type ActivityPlugin, type GradeResult, type ReviewSeed, type ValidationIssue } from '../../domain/activity-runtime';
-import { assessedJapanese, gradeFromScore, japanese, localized, localizedNodes, setPending, showEvaluation, statusRegion, text, validateFeedback, validatePassScore } from '../../minigames/activity-kit/shared';
+import {
+    ACADEMY_ASSESSED_ANSWER_SUPPORT,
+    createActivityRuntime,
+    type ActivityController,
+    type ActivityEvaluation,
+    type ActivityHost,
+    type ActivityPlugin,
+    type GradeResult,
+    type ReviewSeed,
+    type ValidationIssue,
+} from '../../domain/activity-runtime';
+import {
+    assessedJapanese,
+    gradeFromScore,
+    japanese,
+    localized,
+    localizedNodes,
+    setPending,
+    showEvaluation,
+    statusRegion,
+    text,
+    validateFeedback,
+    validatePassScore,
+} from '../../minigames/activity-kit/shared';
 import { N3_N4_SLEEP_BRIDGE_PROVENANCE, N3_N4_SLEEP_BRIDGE_SOURCE_SEGMENTS } from './source';
-import { N3_N4_SLEEP_BRIDGE_ACTIVITY_KIND, type N3N4SleepBridgeModel, type N3N4SleepBridgeQuestion, type N3N4SleepBridgeReviewTarget, type N3N4SleepBridgeResponse } from './types';
+import {
+    N3_N4_SLEEP_BRIDGE_ACTIVITY_KIND,
+    type N3N4SleepBridgeModel,
+    type N3N4SleepBridgeQuestion,
+    type N3N4SleepBridgeReviewTarget,
+    type N3N4SleepBridgeResponse,
+} from './types';
 
 export const n3N4SleepBridgePlugin: ActivityPlugin<N3N4SleepBridgeModel, N3N4SleepBridgeResponse> = {
     kind: N3_N4_SLEEP_BRIDGE_ACTIVITY_KIND,
@@ -10,6 +38,10 @@ export const n3N4SleepBridgePlugin: ActivityPlugin<N3N4SleepBridgeModel, N3N4Sle
     grade: gradeN3N4SleepBridge,
     toReviewSeeds: n3N4SleepBridgeReviewSeeds,
 };
+
+export function createN3N4SleepBridgeRuntime() {
+    return createActivityRuntime([n3N4SleepBridgePlugin]);
+}
 
 export function validateN3N4SleepBridge(model: N3N4SleepBridgeModel): readonly ValidationIssue[] {
     const issues: ValidationIssue[] = [];

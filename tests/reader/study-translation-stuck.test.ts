@@ -1,4 +1,3 @@
-import '../../src/reader/companions/register-build-companions';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { StudySourceController } from '../../src/reader/study/sources';

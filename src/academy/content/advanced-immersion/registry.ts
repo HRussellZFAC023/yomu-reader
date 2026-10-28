@@ -9,3 +9,9 @@ if (validationIssues.length) {
 }
 
 export const ADVANCED_IMMERSION_PACKAGES: readonly AdvancedImmersionPackage[] = Object.freeze([packageRecord]);
+
+export function resolveAdvancedImmersionPackage(id: string): AdvancedImmersionPackage {
+    const found = ADVANCED_IMMERSION_PACKAGES.find(candidate => candidate.id === id);
+    if (!found) throw new TypeError(`Unknown advanced immersion package: ${id}`);
+    return found;
+}

@@ -1,9 +1,15 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import storySource from '../../src/academy/content/story-sources/s1e01-the-blank-atlas.v2.json';
-import { createLessonZeroVowelSoundMap, LESSON_ZERO_VOWEL_SOUND_MAP_ID } from '../../src/academy/content/lesson-zero-vowel-sound-map';
-import { createAcademyActivityRuntime, kanaSoundMapManifest, type KanaSoundMapResponse } from '../../src/academy/minigames';
-import { createLessonZeroVowelDictation } from '../../src/academy/content/lesson-zero-vowel-dictation';
+import {
+    createLessonZeroVowelSoundMap,
+    LESSON_ZERO_VOWEL_SOUND_MAP_ID,
+} from '../../src/academy/content/lesson-zero-vowel-sound-map';
+import {
+    createAcademyActivityRuntime,
+    kanaSoundMapManifest,
+    type KanaSoundMapResponse,
+} from '../../src/academy/minigames';
 
 afterEach(() => document.body.replaceChildren());
 
@@ -201,50 +207,5 @@ describe('Lesson Zero kana sound map', () => {
         expect(css).toContain('@media (prefers-reduced-motion: reduce)');
         expect(css).toContain('animation-duration: 0.01ms');
         expect(css).toContain('color: var(--academy-paper-ink)');
-    });
-});
-
-describe('kana-dictation behavior', () => {
-    afterEach(() => document.body.replaceChildren());
-
-    describe('Lesson Zero vowel dictation', () => {
-
-        it('grades typed sound-to-kana production and emits canonical repair seeds', () => {
-            const runtime = createAcademyActivityRuntime();
-            const model = createLessonZeroVowelDictation();
-            const pass = runtime.evaluate(model, 'あいうえお');
-            expect(pass.attempt).toMatchObject({
-                activityId: model.id, responseKind: 'kana-input', outcome: 'pass', score: 1,
-            });
-            expect(pass.reviewSeeds).toHaveLength(5);
-            expect(pass.reviewSeeds.map(seed => [seed.content.expression, seed.reason])).toEqual([
-                ['あ', 'new-learning'], ['い', 'new-learning'], ['う', 'new-learning'],
-                ['え', 'new-learning'], ['お', 'new-learning'],
-            ]);
-            const lapse = runtime.evaluate(model, 'あいえうお');
-            expect(lapse.result).toMatchObject({ outcome: 'lapse', errorTags: ['vowel-dictation-order'] });
-            expect(lapse.reviewSeeds.every(seed => seed.reason === 'repair')).toBe(true);
-        });
-
-        it('plays each authored sound and commits only through the keyboard-accessible form', async () => {
-            const host = document.createElement('main');
-            const playPronunciation = vi.fn(async () => ({ dispose() {} }));
-            const evaluations = vi.fn();
-            document.body.append(host);
-            createAcademyActivityRuntime().mount(createLessonZeroVowelDictation(), {
-                replace(view) { host.replaceChildren(view); }, announce() {}, playPronunciation,
-            }, evaluations);
-            const plays = [...host.querySelectorAll<HTMLButtonElement>('.academy-typed-response-play')];
-            expect(plays).toHaveLength(5);
-            plays[2]!.click();
-            await vi.waitFor(() => expect(playPronunciation).toHaveBeenCalledWith('う', 'う'));
-            const input = host.querySelector<HTMLInputElement>('.academy-typed-response-input')!;
-            input.value = 'あいうえお';
-            host.querySelector<HTMLFormElement>('form')!.requestSubmit();
-            await vi.waitFor(() => expect(
-                host.querySelector('.academy-typed-response')?.getAttribute('data-outcome'),
-            ).toBe('pass'));
-            expect(evaluations).toHaveBeenCalledOnce();
-        });
     });
 });

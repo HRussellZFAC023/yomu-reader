@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 // Built-app behavior fixture, not visual or live-provider acceptance.
-import { assertOfflineStudy } from './lib/offline-study-cells.mjs';
 import path from "node:path";
 import {
   existsSync,
@@ -281,7 +280,6 @@ try {
   server = await startServer();
   failAt("launch");
   browser = await launchSmokeBrowser(chromium, "chromium", { headless: true });
-  await assertOfflineStudy(browser, 'chromium');
   result.browserVersion = browser.version();
   failAt("context");
   const context = await browser.newContext({

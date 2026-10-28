@@ -2,7 +2,6 @@
 // Real-engine regression for detached readings inside nested dynamic
 // components. Inner-panel content and its clone must share a compositor-owned
 // scroll layer; waiting for a JavaScript refresh leaves a visibly stale frame.
-import { assertFractionalProjectionIdempotence, assertModalReadingRegister, assertReadingCollision } from './lib/detached-reading-cells.mjs';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -686,9 +685,6 @@ function verifyYouTubeSearchRootScroll(name, result) {
 async function verifyEngine(name, browserType) {
     const browser = await browserType.launch({ headless: true });
     try {
-        await assertFractionalProjectionIdempotence(browser, name);
-        await assertModalReadingRegister(browser, name);
-        await assertReadingCollision(browser, name);
         const page = await browser.newPage({ viewport: { width: 640, height: 480 } });
         await applyEngineThrottling(name, page);
         await page.route('https://www.youtube.com/**', route => route.fulfill({

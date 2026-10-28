@@ -34,3 +34,22 @@ export const N1_SOUND_DISCRIMINATION_PROVENANCE = Object.freeze({
     }),
     sourceMediaState: 'local-reference-not-delivered' as const,
 }) satisfies N1SoundDiscriminationModel['provenance'];
+
+export function canonicalN1SoundDiscriminationSourceLocus(): string {
+    const source = N1_SOUND_DISCRIMINATION_PROVENANCE;
+    return [
+        source.sourceId,
+        source.sourceDocumentSha256,
+        String(source.sourceDocumentByteLength),
+        source.sourcePageImageSha256,
+        String(source.sourcePageImageByteLength),
+        source.sourceAudioSha256,
+        String(source.sourceAudioByteLength),
+        String(source.sourceLocus.pdfPage),
+        String(source.sourceLocus.printedPage),
+        source.sourceLocus.section,
+        source.sourceLocus.item,
+        source.sourceLocus.exercise,
+        source.sourceLocus.track,
+    ].join('\n') + '\n';
+}

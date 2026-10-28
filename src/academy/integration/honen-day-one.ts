@@ -1,9 +1,13 @@
-import type { CurriculumActivityKind, CurriculumAugmentation, CurriculumSourceReceipt } from '../domain/curriculum-augmentation';
+import type {
+    CurriculumActivityKind,
+    CurriculumAugmentation,
+    CurriculumSourceReceipt,
+} from '../domain/curriculum-augmentation';
 
-const HONEN_DAY_ONE_COURSE_ID = '6a6538d092ef865026522aa5' as const;
+export const HONEN_DAY_ONE_COURSE_ID = '6a6538d092ef865026522aa5' as const;
 const HONEN_DAY_ONE_LESSON_ID = 'lesson:foundation-00' as const;
 
-type HonenLearningStage =
+export type HonenLearningStage =
     | 'guided-exposure'
     | 'guided-retrieval'
     | 'independent-retrieval'
@@ -12,12 +16,31 @@ type HonenLearningStage =
     | 'spaced-return'
     | 'learner-choice';
 
-interface HonenActivityMapping {
+export interface HonenActivityMapping {
     readonly id: string;
     readonly kind: CurriculumActivityKind;
 }
 
-interface HonenVowelContrast {
+export interface HonenTopicMapping {
+    readonly unitId: string;
+    readonly topicId: string;
+    readonly title: string;
+    readonly yomuLessonId: typeof HONEN_DAY_ONE_LESSON_ID;
+    readonly yomuActivityId: string;
+    readonly stage: HonenLearningStage;
+    readonly activities: readonly HonenActivityMapping[];
+    readonly flashcardIdStem: string;
+}
+
+export interface HonenCardMapping {
+    readonly id: string;
+    readonly topicId: string;
+    readonly yomuLessonId: typeof HONEN_DAY_ONE_LESSON_ID;
+    readonly yomuActivityId: string;
+    readonly stage: HonenLearningStage;
+}
+
+export interface HonenVowelContrast {
     readonly itemIds: readonly string[];
     readonly sourceQuestionId: string;
     readonly cue: Readonly<{ en: string; ja: string }>;
@@ -45,7 +68,7 @@ const topic = (
     activities: Object.freeze(activities),
 });
 
-const HONEN_DAY_ONE_TOPICS: readonly HonenTopicMapping[] = Object.freeze([
+export const HONEN_DAY_ONE_TOPICS: readonly HonenTopicMapping[] = Object.freeze([
     topic(
         '6a653ad5d566c39cf2fd3c09',
         '6a653ad6033103525883c229',
@@ -321,7 +344,18 @@ const HONEN_DAY_ONE_TOPICS: readonly HonenTopicMapping[] = Object.freeze([
     ),
 ]);
 
-const HONEN_DAY_ONE_SOURCE_RECEIPTS: readonly CurriculumSourceReceipt[] = Object.freeze([
+export const HONEN_DAY_ONE_CARD_MAPPINGS: readonly HonenCardMapping[] = Object.freeze(
+    HONEN_DAY_ONE_TOPICS.flatMap(topicMapping =>
+        Array.from({ length: 5 }, (_, index) => Object.freeze({
+            id: `${topicMapping.flashcardIdStem}${index + 1}`,
+            topicId: topicMapping.topicId,
+            yomuLessonId: topicMapping.yomuLessonId,
+            yomuActivityId: topicMapping.yomuActivityId,
+            stage: topicMapping.stage,
+        }))),
+);
+
+export const HONEN_DAY_ONE_SOURCE_RECEIPTS: readonly CurriculumSourceReceipt[] = Object.freeze([
     Object.freeze({
         sourceId: 'jp-15e7854e24fc99a1',
         sha256: '15e7854e24fc99a13ad8a328674fbb535a20195ef62746e4fe20063ba659367a',
@@ -404,15 +438,4 @@ export function honenDayOneAugmentation(
         renderOwner: 'yomu',
         sourceReceipts: HONEN_DAY_ONE_SOURCE_RECEIPTS,
     });
-}
-
-interface HonenTopicMapping {
-    readonly unitId: string;
-    readonly topicId: string;
-    readonly title: string;
-    readonly yomuLessonId: typeof HONEN_DAY_ONE_LESSON_ID;
-    readonly yomuActivityId: string;
-    readonly stage: HonenLearningStage;
-    readonly activities: readonly HonenActivityMapping[];
-    readonly flashcardIdStem: string;
 }

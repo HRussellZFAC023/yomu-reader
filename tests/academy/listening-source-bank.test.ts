@@ -1,5 +1,3 @@
-// Filesystem/subprocess inputs, including generic helpers called by this test.
-// @yomu-reads public/academy/** docs/academy/** src/academy/content/listening/source-bank/** tmp/listening-source-bank/**
 import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import { homedir } from 'node:os';
@@ -20,6 +18,7 @@ import {
     type ListeningSourceBankEntry,
     type ListeningTranscriptLine,
 } from '../../src/academy/content/listening/source-bank/listening-source-bank';
+import { sha256File } from './helpers/hash-memo';
 
 interface MutableManifest {
     levels: Record<string, {
@@ -268,7 +267,7 @@ for (const entry of listListeningSourceBankEntries()) {
     const verifyLocalSource = localSourceExists ? it : it.skip;
     verifyLocalSource(`local source bytes: ${entry.level} (skips explicitly when ${localSourcePath} is absent)`, () => {
         expect(fs.statSync(localSourcePath).size).toBe(entry.source.bytes);
-        expect(sha256Bytes(fs.readFileSync(localSourcePath))).toBe(entry.source.sha256);
+        expect(sha256File(localSourcePath)).toBe(entry.source.sha256);
     });
 }
 

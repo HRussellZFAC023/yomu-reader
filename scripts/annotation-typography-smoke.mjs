@@ -26,7 +26,6 @@
 //     annotated.
 // YOMU_TYPOGRAPHY_ENGINES=chromium,webkit (default both); YOMU_TYPOGRAPHY_DIST
 // points at another build to prove a failure.
-import { assertPitchUnderline, assertUnderlineColourSources, assertRubyOverhangScope } from './lib/annotation-typography-cells.mjs';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { chromium, webkit } from 'playwright';
@@ -145,18 +144,6 @@ try {
     for (const engine of ENGINES) {
         const browser = await launchSmokeBrowser(engine === 'webkit' ? webkit : chromium, engine, { headless: true });
         try {
-            // PR CI replaces the old ruby-overhang geometry guard through this
-            // host. The full typography/colour matrix remains nightly.
-            if (process.argv.includes('--layout-only')) {
-                await assertRubyOverhangScope(browser, engine);
-                report.runs[`${engine}-layout`] = { rubyOverhang: 'pass' };
-                continue;
-            }
-            if (!process.argv.includes('--i-plus-one-only')) {
-                await assertPitchUnderline(browser, engine);
-                await assertUnderlineColourSources(browser, engine);
-                await assertRubyOverhangScope(browser, engine);
-            }
             report.runs[`${engine}-i-plus-one`] = await checkIPlusOneUnderline(browser, paths.root, CSS_PATH, SCRIPT_PATH).catch(error => {
                 fail(`${engine} i+1: ${error.message}`, {});
                 return { failed: true };

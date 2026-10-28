@@ -1,6 +1,9 @@
 import lessonPackage from '../../../public/academy/content/lessons/013-l1-l12.json';
 import { ACADEMY_ASSESSED_ANSWER_SUPPORT } from '../domain/activity-runtime';
-import type { PreferenceWorkbookModel, PreferenceWorkbookRound } from '../minigames/preference-workbook';
+import type {
+    PreferenceWorkbookModel,
+    PreferenceWorkbookRound,
+} from '../minigames/preference-workbook';
 import type { LessonActivityBeat } from '../ui/lesson-activity-chapter';
 
 const PACKAGE_ID = 'l1-l12' as const;
@@ -51,7 +54,7 @@ const GENKI_PROBLEMS = [
     ['fish', 'fish', '私は魚が好きでも嫌いでもないです', 'わたしはさかながすきでもきらいでもないです'],
 ] as const;
 
-function createLessonTwelvePreferenceWorkbookModel(): PreferenceWorkbookModel {
+export function createLessonTwelvePreferenceWorkbookModel(): PreferenceWorkbookModel {
     assertExactPackageSources();
     const rounds = Object.freeze([
         ...MOODLE_PROBLEMS.map((source, index) => moodleRound(source, index + 1)),

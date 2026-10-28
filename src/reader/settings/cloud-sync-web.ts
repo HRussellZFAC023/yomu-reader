@@ -101,6 +101,7 @@ function cacheAuthRedirectToken(candidate: OAuthRedirectCandidate): void {
     };
 }
 
+// fallow-ignore-next-line unused-export
 export async function uploadCloudSettingsToCloud(
     settings: ReaderSettings,
     authorization?: CloudSettingsAuthorization,
@@ -122,6 +123,7 @@ export async function uploadCloudSettingsToCloud(
     return { syncedAt: snapshot.syncedAt, fileId: file.id, modifiedTime: file.modifiedTime };
 }
 
+// fallow-ignore-next-line unused-export
 export async function downloadCloudSettingsFromCloud(
     authorization?: CloudSettingsAuthorization,
 ): Promise<CloudSettingsSyncSnapshot | null> {

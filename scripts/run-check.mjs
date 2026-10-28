@@ -1,212 +1,217 @@
 #!/usr/bin/env node
-// Content-addressed local gate. CI always forces the full graph.
-import { randomUUID } from 'node:crypto';
+// Parallel `npm run check` orchestrator. The old chain ran 8 stages back to back;
+// the stage graph actually has three independent lanes that only join at verify:
+//
+//   lane typecheck: tsc --noEmit
+//   lane tests:     test:ci
+//   lane build:     build -> sync-docs-userscript
+//   serial tail:    build:academy* -> test:academy -> docs:build
+//   join:           verify
+//
+// *build:academy here skips academy:lessons:validate because the full Academy
+// suite (a strict superset) runs against that deterministic build. Standalone
+// `npm run build:academy` keeps its gate.
+//
+// Wall clock becomes max(lanes) instead of sum(stages). The tests lane keeps
+// vitest fork counts at cores-2 (see run-ci-tests.mjs / vitest configs), leaving
+// headroom for the build lane; suites never run concurrently with each other,
+// which is what historically OOM-killed workers (exit 137).
+//
+// YOMU_CHECK_RELEASE=1 (set by check:release) forces byte-level hashing and full
+// academy re-sync in every stage that supports caching.
+import { spawn } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
-import { StageRunner, buildEnv, testEnvironment, cacheOptions } from './lib/stage-runner.mjs';
-import { git, stageKey, writeJson } from './lib/stage-cache.mjs';
-import { testPlan, testInputs } from './lib/affected-tests.mjs';
-import { typecheckInputsAsync } from './lib/typecheck-inputs.mjs';
-import { hostedSyncSourceInputs, toolingStageContract, academyBuildInputs, readerBuildInputs, workerStageInputs } from './lib/gate-inputs.mjs';
-import { selectAffectedTests } from './lib/test-selection.mjs';
-import { captureRetentionInputs } from './lib/content-addressed-retention.mjs';
-import { buildDocs } from './run-docs-build.mjs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { vitestOutputIndicatesFailure } from './lib/check-log-guard.mjs';
 import { artifactDrift, describeArtifactDrift, hasUncommittedSourceEdits } from './lib/artifact-drift.mjs';
 import { offLockfilePackages } from './lib/dependency-tree-drift.mjs';
-import { hostedTemplates, hostedTemplateInputs } from './lib/hosted-template-inputs.mjs';
-import { workerBudget } from './lib/test-workers.mjs';
 
-const ROOT = join(import.meta.dirname, '..');
-const LOG_DIR = join(ROOT, 'artifacts/check-logs');
+const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
+const LOG_DIR = join(ROOT, 'artifacts', 'check-logs');
 mkdirSync(LOG_DIR, { recursive: true });
-const options = cacheOptions();
-const runner = new StageRunner(ROOT, options);
+const startedAt = Date.now();
+const timings = [];
 let artifactDriftAdvisory = false;
+
+// Captured before any stage can rebuild anything: were there local edits that
+// would legitimately explain regenerated output? Read now, because the gate's
+// own stages dirty the tree as they run.
 const startedWithSourceEdits = hasUncommittedSourceEdits(ROOT);
-if (startedWithSourceEdits) console.log('[check] tree has uncommitted edits; artifact drift is advisory. A clean-tree pass is required to prove committed output.');
-const releaseCheck = process.env.YOMU_CHECK_RELEASE === '1';
-const localBudget = Number(process.env.YOMU_CI_MAX_WORKERS ?? process.env.VITEST_MAX_FORKS) || workerBudget();
-const overlapCompiler = !releaseCheck && !options.noCache && localBudget >= 9;
-const parallelAcademy = overlapCompiler && localBudget >= 10;
-const checkSession = randomUUID();
-process.env.YOMU_CHECK_SESSION = checkSession;
-const reservations = { compiler: overlapCompiler ? 4 : 0, tooling: 0, audits: 0 };
-const reserve = (lane, slots) => {
-    reservations[lane] = slots;
-    writeJson(join(LOG_DIR, 'compiler-budget.json'), { session: checkSession, reserved: Object.values(reservations).reduce((sum, value) => sum + value, 0) });
-};
-reserve('compiler', reservations.compiler);
-const common = ['scripts/run-check.mjs', 'scripts/lib/affected-tests.mjs'];
-const stage = (name, command, inputs, extra = {}) => ({ name, command, inputs: [...common, ...inputs], ...extra });
-const run = (...args) => runner.run(stage(...args));
-const all = ['**', '!docs/.vitepress/dist/**', '!docs/.vitepress/cache/**', '!docs/.vitepress/.temp/**'];
-const source = ['src/**', 'tests/**', 'workers/**', 'config/**', '!config/ci/content-addressed-retention.json', 'scripts/**', 'vite.config.ts', 'tsconfig*.json'];
-const buildInputs = readerBuildInputs(ROOT);
-const testEnv = [...testEnvironment, 'VITEST_MAX_FORKS', 'YOMU_VITEST_FORK_HEAP_MB', 'YOMU_CHECK_RELEASE', 'YOMU_CI_MAX_WORKERS', 'YOMU_CI_SHARDED', 'YOMU_CI_TEST_TIMEOUT_MS'];
-const syncSources = hostedSyncSourceInputs(ROOT);
-const compilerInputList = typecheckInputsAsync(ROOT);
-const history = [
-    git(ROOT, ['rev-parse', '--is-shallow-repository']),
-    git(ROOT, ['for-each-ref', '--merged=HEAD', '--format=%(refname) %(objectname)', 'refs/tags/v*']),
-    git(ROOT, ['log', '-80', '--format=%H', '--', 'docs/public/yomu.user.js']),
-];
-const committed = git(ROOT, ['ls-tree', '-r', process.env.YOMU_COMMIT_TO_CHECK ?? 'HEAD', '--', 'package.json', 'dist', 'docs/public', 'public/academy']);
-async function planTests(suite) {
-    runner.refresh();
-    const plan = testPlan(ROOT, runner.snapshot, { noCache: options.noCache, suite });
-    if (!plan.full) Object.assign(plan, await selectAffectedTests(ROOT, plan.changed, { config: suite === 'academy' ? 'config/vite/academy.config.ts' : undefined }));
-    writeFileSync(join(LOG_DIR, `affected-tests-${suite}.json`), JSON.stringify(plan));
-    console.log(`[check] ${suite}: ${plan.full ? 'full suite' : 'affected selection'}; ${plan.reason}`);
-    return plan;
+// Announced up front, not only in the verdict 4 minutes later. A dirty tree
+// disarms the stale-artifact check for the whole run, and an operator who is
+// told that at the start can clean the tree instead of reading the PASS at the
+// end as proof of something it never tested.
+if (startedWithSourceEdits) {
+    console.log('[check] tree has uncommitted edits — the stale-artifact check will REPORT drift, not fail on it. Re-run on a clean tree to prove HEAD ships current artifacts.');
 }
 
-// Retention receives frozen working-tree headers/inventory; committed-artifacts
-// already reads Git. Neither can race dist's replacement in the build lane.
-const preflights = [
-    run('committed-artifacts', 'npm run -s check:artifacts', ['scripts/check-committed-artifacts.mjs', 'scripts/lib/**'], { extra: committed, env: ['YOMU_COMMIT_TO_CHECK'] }),
-    run('smoke-workflow-coverage', 'node scripts/check-smoke-workflow-coverage.mjs', ['scripts/**', '.github/workflows/**']),
-    run('css-has-invalidation', 'npm run -s check:css-has', ['src/**/*.css', 'scripts/check-css-has-invalidation.mjs', 'scripts/lib/css-has-invalidation.mjs']),
-    run('recorded-pages', 'npm run -s check:recorded-pages', ['scripts/fixtures/recorded/**', 'scripts/check-recorded-pages.mjs', 'scripts/lib/recorded-*.mjs']),
-];
-const readerBuild = run('build', 'npm run -s build', buildInputs, {
-        env: buildEnv,
-        restoreOutputs: true, canonicalizesOutputs: true,
-        outputs: ['config/dictionaries/published/v1/runtime-catalog.json', 'dist/**', '!dist/academy/**', '!dist/newtab/index.html', '!dist/newtab/sw.js', '!dist/newtab/version.json', '!dist/newtab/manifest.webmanifest'],
-});
-const compileAcademy = async () => {
-    runner.refresh();
-    await run('compile-academy', 'node node_modules/vite/bin/vite.js build --config config/vite/academy.config.ts', academyBuildInputs(ROOT), {
-        restoreOutputs: true, stableInputs: true,
-        outputs: ['dist/academy/**'],
-        env: ['YOMU_CHECK_RELEASE', 'YOMU_ACADEMY_BUILD_DIR'],
-    });
-};
-const academyCompilation = parallelAcademy ? compileAcademy() : null;
-// Observe early rejection now; build still awaits and propagates the original.
-if (academyCompilation) academyCompilation.catch(() => {});
-const build = (async () => {
-    await readerBuild;
-    runner.refresh();
-    const sync = run('sync-docs-userscript', 'node scripts/sync-docs-userscript.cjs', [...syncSources, 'public/newtab/**', 'scripts/**', 'config/**', '!config/ci/content-addressed-retention.json', 'tsconfig*.json', 'docs/public/pdf-reader/**', 'docs/public/video-player/**', 'docs/public/hosted-reader-worker.js', ...hostedTemplates.map(path => `!${path}`)], {
-        extra: [history, hostedTemplateInputs(ROOT)],
-        canonicalizesOutputs: true,
-        restoreOutputs: true,
-        diskInputs: [...syncSources, 'dist/yomu.user.js', 'dist/yomu.css', 'dist/greasyfork/**', 'dist/newtab/app.js', 'dist/newtab/styles.css'],
-        outputs: ['config/ci/content-addressed-retention.json', 'dist/newtab/index.html', 'dist/newtab/sw.js', 'dist/newtab/version.json', 'dist/newtab/manifest.webmanifest', 'docs/public/yomu.user.js', 'docs/public/yomu.css', 'docs/public/yomu.*.css', 'docs/public/greasyfork/**', 'docs/public/study/**', 'docs/public/newtab/**', 'docs/public/hosted-runtime-graph.js', 'docs/public/hosted-appearance-settings.js', 'docs/public/pdf-reader/index.html', 'docs/public/pdf-reader/sw.js', 'docs/public/video-player/index.html', 'docs/public/video-player/sw.js'],
-    });
-    await sync;
-    if (academyCompilation) await academyCompilation;
-    else await compileAcademy();
-    runner.refresh();
-    await run('build-academy', 'node scripts/sync-academy.cjs', ['public/academy/**', 'scripts/sync-academy.cjs', 'scripts/lib/academy-*.cjs'], {
-        restoreOutputs: true,
-        diskInputs: ['docs/public/hosted-runtime-graph.js', 'docs/public/yomu.css', 'dist/academy/**'],
-        outputs: ['docs/public/academy/**'],
-        env: ['YOMU_CHECK_RELEASE', 'YOMU_SYNC_ACADEMY_FORCE', 'YOMU_ACADEMY_OUTPUT_DIR', 'YOMU_ACADEMY_BUILD_DIR'],
-    });
-})();
-// Reader build uses five slots; tsc reserves four. A tenth slot can compile
-// Academy independently. Small/forced/release checks keep the serial graph.
-
-async function sourceRatchets() {
-    await run('complexity-ratchet', 'node scripts/complexity-audit.mjs', source, { env: ['YOMU_COMPLEXITY_MAX'] });
-    await run('file-size-ratchet', 'node scripts/file-size-audit.mjs', source, { env: ['YOMU_FILE_SIZE_THRESHOLD'] });
-    await run('dead-code-ratchet', 'RAYON_NUM_THREADS=1 npm run -s quality:dead-code', all);
+function stage(name, command, options = {}) {
+    return { name, command, ...options };
 }
-// Academy owns the spare slot first. Audits then overlap tests and stay within
-// the shared worker budget rather than holding the test lane behind the ratchets.
-const audits = (async () => {
-    await Promise.all([readerBuild, academyCompilation]);
-    reserve('audits', overlapCompiler ? 1 : 0);
-    try { await sourceRatchets(); } finally { reserve('audits', 0); }
-})();
-const inventory = (async () => {
-    await build;
-    runner.refresh();
-    const retention = captureRetentionInputs(ROOT);
-    writeFileSync(join(LOG_DIR, 'retention-inputs.json'), JSON.stringify(retention));
-    await Promise.all([
-    run('repository-hygiene', 'npm run -s check:repository', ['scripts/check-repository-hygiene.mjs', 'scripts/lib/academy-build-manifest.cjs', 'docs/**', '!docs/public/**', '!docs/.vitepress/dist/**', '!docs/.vitepress/cache/**', '!docs/.vitepress/.temp/**', 'docs/public/academy/manifest.json'], { extra: Object.keys(runner.snapshot) }),
-    run('content-addressed-retention', 'node scripts/prune-content-addressed-assets.mjs --check --snapshot=artifacts/check-logs/retention-inputs.json', ['scripts/lib/content-addressed-retention.mjs', 'scripts/prune-content-addressed-assets.mjs', 'config/ci/content-addressed-retention.json'], { extra: stageKey({ command: 'retention-inputs', inputs: retention, extra: history }) }),
-    ]);
-})();
-const tooling = (async () => {
-    if (!overlapCompiler) await build;
-    else await readerBuild;
-    const inputs = await compilerInputList;
-    runner.refresh();
-    const contract = toolingStageContract(runner.snapshot, inputs);
-    reserve('tooling', overlapCompiler ? 2 : 0);
-    try {
-        // node:test owns negative-probe output; its exit status is authoritative.
-        await run('tooling-tests', 'node --test --test-concurrency=2 tests/tooling/*.test.mjs', contract.inputs, { extra: contract.extra });
-    } finally { reserve('tooling', 0); }
-})();
-const typecheck = (async () => {
-    try {
-        if (!overlapCompiler) await build;
-        runner.refresh();
-        const inputs = await compilerInputList;
-        await run('typecheck', 'npm run -s typecheck', inputs, {
-            diskInputs: inputs, stableInputs: true, extra: ROOT,
-            outputs: ['artifacts/typecheck/tsconfig.tsbuildinfo'], restoreOutputs: true,
-        });
-    } finally { reserve('compiler', 0); }
-})();
-const tests = (async () => {
-    // Readers inspect shipped bytes through fs. Plan/key them after writers,
-    // never against an old snapshot while build/sync replace their inputs.
-    await build;
-    const [readerPlan, academyPlan] = localBudget >= 2
-        ? await Promise.all([planTests('reader'), planTests('academy')])
-        : [await planTests('reader'), await planTests('academy')];
-    if (!releaseCheck && !readerPlan.full && !academyPlan.full) {
-        await run('test-local', 'node scripts/run-local-tests.mjs', testInputs, {
-            test: true, extra: { reader: readerPlan, academy: academyPlan }, env: testEnv, diskInputs: ['dist/**', 'docs/public/**'],
-        });
-    } else {
-        await typecheck;
-        await run('test-reader', readerPlan.full || releaseCheck ? 'npm run -s test:ci' : 'node scripts/run-affected-tests.mjs reader', testInputs, {
-            test: true, extra: readerPlan.full ? 'full' : readerPlan, env: testEnv, diskInputs: ['dist/**', 'docs/public/**'],
-        });
-        if (readerPlan.full) readerPlan.saveFullPass();
-        await run('test-academy', academyPlan.full || releaseCheck ? 'npm run -s test:academy' : 'node scripts/run-affected-tests.mjs academy', testInputs, {
-            test: true, env: testEnv, extra: academyPlan.full ? 'full' : academyPlan, diskInputs: ['dist/**', 'docs/public/**'],
-        });
-        if (academyPlan.full) academyPlan.saveFullPass();
-    }
-})();
-const diagnostics = (async () => {
-    await Promise.all([tests, typecheck]);
-    runner.refresh();
-    await run('test-workers', 'npm run -s test:workers', workerStageInputs(ROOT, runner.snapshot), { test: true, env: testEnv });
 
-})();
-for (const promise of [audits, inventory, tooling]) promise.catch(() => {});
-const docs = (async () => {
-    await Promise.all([diagnostics, tooling, audits, inventory]);
-    await buildDocs(runner, 'precheck');
-    runner.refresh();
-    await run('userscript-weight', 'node scripts/check-userscript-weight.cjs', ['scripts/check-userscript-weight.cjs', 'scripts/lib/**'], { diskInputs: ['dist/yomu.user.js', 'dist/greasyfork/**'] });
-    // docs:build's own cache verifies both pre-checks and the rendered outputs.
-    await buildDocs(runner, 'render', { materialize: releaseCheck || options.noCache });
-})();
-const results = await Promise.allSettled([...preflights, typecheck, build, tests, diagnostics, tooling, audits, inventory, docs]);
-const failures = results.filter(result => result.status === 'rejected');
+// Test stages keep a log-content backstop: if a future child prints a Vitest
+// failure summary but still exits 0, the gate must fail anyway. The 2026-07-18
+// report was traced to zsh pipeline status outside this process, not an
+// in-repo swallow path. Never turns a failure into a pass.
+function testStage(name, command) {
+    return stage(name, command, { guardTestLog: true });
+}
+
+function runStage({ name, command, guardTestLog = false }) {
+    const start = Date.now();
+    console.log(`[check] start ${name}`);
+    return new Promise((resolve, reject) => {
+        const child = spawn('sh', ['-c', command], { cwd: ROOT, env: process.env });
+        const output = [];
+        child.stdout.on('data', chunk => output.push(chunk));
+        child.stderr.on('data', chunk => output.push(chunk));
+        child.on('error', reject);
+        // 'close' (not 'exit') so stdio is fully drained before the log is
+        // written and scanned — 'exit' can fire with output still in flight.
+        child.on('close', (code, signal) => {
+            const seconds = (Date.now() - start) / 1000;
+            timings.push({ name, seconds });
+            // Full per-stage output always lands on disk, pass or fail, so a
+            // green run's test/build logs stay inspectable.
+            writeFileSync(join(LOG_DIR, `${name.replace(/[^a-z0-9:-]+/gi, '_')}.log`), Buffer.concat(output));
+            if (code === 0 && signal == null && guardTestLog) {
+                const swallowed = vitestOutputIndicatesFailure(Buffer.concat(output).toString('utf8'));
+                if (swallowed) {
+                    process.stderr.write(`\n[check] FAIL ${name} (exit 0 but ${swallowed}, ${seconds.toFixed(1)}s) — full output:\n`);
+                    process.stderr.write(Buffer.concat(output));
+                    reject(new Error(`${name} exited 0 but ${swallowed}`));
+                    return;
+                }
+            }
+            if (code === 0 && signal == null) {
+                console.log(`[check] pass  ${name} (${seconds.toFixed(1)}s)`);
+                resolve();
+            } else {
+                // Print the failing stage's FULL output — never truncate failures.
+                const cause = signal ? `signal ${signal}` : `exit ${code}`;
+                process.stderr.write(`\n[check] FAIL ${name} (${cause}, ${seconds.toFixed(1)}s) — full output:\n`);
+                process.stderr.write(Buffer.concat(output));
+                reject(new Error(`${name} failed with ${cause}`));
+            }
+        });
+    });
+}
+
+async function lane(...stages) {
+    for (const s of stages) await runStage(s);
+}
+
+// Both of these read the repository as it is, so they run before the build lane
+// can regenerate anything. check:artifacts reads committed bytes out of git and
+// so is immune to stage order; running it first just fails fast.
 try {
-    if (failures.length) throw new AggregateError(failures.map(result => result.reason), 'check stages failed');
-    runner.refresh();
-    // verify always runs last, including its untracked/ignored disk products.
-    await run('verify', `npm run -s verify${releaseCheck || options.noCache ? '' : ' -- --local-gate'}`, [], { uncached: true });
-    if (!reportArtifactDrift()) throw new Error('artifact drift');
-    runner.summary(true);
-    if (artifactDriftAdvisory) console.log('[check] artifact-drift advisory only, NOT enforced');
-} catch (error) {
-    console.error(error);
-    runner.summary(false);
-    process.exitCode = 1;
+    await runStage(stage('repository-hygiene', 'npm run -s check:repository'));
+    await runStage(stage('content-addressed-retention', 'node scripts/prune-content-addressed-assets.mjs --check'));
+    await runStage(stage('committed-artifacts', 'npm run -s check:artifacts'));
+    await runStage(stage('smoke-workflow-coverage', 'node scripts/check-smoke-workflow-coverage.mjs'));
+    // A body-anchored or combinator-followed :has() in the injected sheet made
+    // Chromium restyle every host page on each DOM insertion (W1-40). Milliseconds.
+    await runStage(stage('css-has-invalidation', 'npm run -s check:css-has'));
+    await runStage(stage('recorded-pages', 'npm run -s check:recorded-pages'));
+} catch {
+    printSummary(false);
+    process.exit(1);
 }
 
+// Release-path academy scope (owner rule): the release gate runs
+// build:academy:prevalidated below, NOT the full academy test suite. The
+// suite depends on local-only corpora (yomu-academy:moodle-raw-manifest
+// lives outside the repository), so on a CI tag build it can never pass —
+// including it failed every Release workflow since v1.6.241 and silently
+// stopped GitHub release publishing while Deploy Docs kept shipping.
+// Local `npm run check` keeps the full suite.
+const releaseCheck = process.env.YOMU_CHECK_RELEASE === '1';
+
+const lanes = [
+    // tests/workers/** needs the node environment, so it lives behind its own
+    // config and the default `vitest run` include never reached it: both dictionary
+    // Worker suites had never run in CI. Fast enough to ride the typecheck lane.
+    lane(
+        stage('typecheck', 'npm run -s typecheck'),
+        testStage('test:workers', 'npm run -s test:workers'),
+        // The complexity ratchet only holds if something runs it. It was reachable
+        // only through `npm run qa`, which no workflow invoked and which could not
+        // pass anyway (51 functions over the threshold, exit 1), so nothing had
+        // held the line. Now baselined per function in
+        // config/quality/complexity-baseline.json and enforced here: a new
+        // offender fails, and so does a recorded one getting worse, which a
+        // count-only baseline could not see.
+        stage('complexity-ratchet', 'node scripts/complexity-audit.mjs'),
+        // Same shape as the complexity ratchet, for the other half of A35.23: the
+        // repository had no file-size gate at all, and two reader files are over
+        // 10,000 lines. Existing debt is baselined per file in
+        // config/quality/file-size-baseline.json and only growth fails, so it is a
+        // ratchet rather than a wall. ~1s of line counting.
+        stage('file-size-ratchet', 'node scripts/file-size-audit.mjs'),
+        // Fast replay of compact evidence from the pinned published dictionaries.
+        // Any hit or miss changing under the recorded runtime/lookup contract
+        // requires a fresh authoritative archive measurement and baseline.
+        // Third ratchet, previously reachable only from ci.yml's `fallow` job —
+        // so a release check never saw new dead code. config/quality/dead-code-baseline.json
+        // may only shrink. ~2s of static analysis, no browser, no network.
+        //
+        // The browser-bound half of the release gate is NOT here:
+        // smoke:layout-regressions launches chromium + firefox + webkit for all
+        // 14 of its members, which check:release deliberately does not require
+        // locally. ci.yml runs it in the `layout-smoke` job and release.yml runs
+        // it through smoke:release immediately after check:release, so it is
+        // gated — just not in this process.
+        stage('dead-code-ratchet', 'npm run -s quality:dead-code'),
+    ),
+    lane(testStage('test:ci', 'npm run -s test:ci')),
+    lane(
+        stage('build', 'npm run -s build'),
+        stage('sync-docs-userscript', 'node scripts/sync-docs-userscript.cjs'),
+    ),
+];
+
+const results = await Promise.allSettled(lanes);
+const failures = results.filter(r => r.status === 'rejected');
+if (failures.length) {
+    for (const f of failures) console.error(`[check] ${f.reason.message}`);
+    printSummary(false);
+    process.exit(1);
+}
+
+try {
+    // The metadata header is final only after the build lane has rewritten its
+    // immutable @require URL. Count the main script and every unconditional
+    // dependency before spending time on the hosted Academy/docs tail.
+    await runStage(stage('userscript-weight', 'node scripts/check-userscript-weight.cjs'));
+} catch {
+    printSummary(false);
+    process.exit(1);
+}
+
+// The tail stays serial after the parallel lanes. Academy provenance tests read
+// dist/academy/app.js and the synced hosted bytes, so build those exact artifacts
+// before the suite; sync-academy must never race the tests that inspect them.
+try {
+    await runStage(stage('build:academy (prevalidated)', 'npm run -s build:academy:prevalidated'));
+    if (!releaseCheck) await runStage(testStage('test:academy', 'npm run -s test:academy'));
+    await runStage(stage('docs:build', 'npm run -s docs:build'));
+    await runStage(stage('verify', 'npm run -s verify'));
+} catch {
+    printSummary(false);
+    process.exit(1);
+}
+
+if (!reportArtifactDrift()) {
+    printSummary(false);
+    process.exit(1);
+}
+printSummary(true);
+
+// See scripts/lib/artifact-drift.mjs: `verify` compares bytes this pipeline has
+// just written, so it can never see a stale COMMITTED artifact. This can -- the
+// gate rewriting tracked build output on a commit with nothing to explain it
+// means the committed copy was out of date.
 function reportArtifactDrift() {
     const drifted = artifactDrift(ROOT);
     const { ok, lines, advisory = false } = describeArtifactDrift({
@@ -220,4 +225,17 @@ function reportArtifactDrift() {
     artifactDriftAdvisory = advisory;
     for (const line of lines) (ok ? console.log : console.error)(line);
     return ok;
+}
+
+function printSummary(passed) {
+    const total = (Date.now() - startedAt) / 1000;
+    console.log('\n[check] stage timings:');
+    for (const t of timings.sort((a, b) => b.seconds - a.seconds)) {
+        console.log(`  ${t.seconds.toFixed(1).padStart(7)}s  ${t.name}`);
+    }
+    // The last line of a gate run is the one people quote. It has to carry the
+    // caveat, or "PASS" gets reported as a clean bill of health for a check
+    // that was downgraded to a note.
+    const caveat = passed && artifactDriftAdvisory ? ' — artifact-drift advisory only, NOT enforced' : '';
+    console.log(`[check] ${passed ? 'PASS' : 'FAIL'} in ${total.toFixed(1)}s (wall clock)${caveat}`);
 }

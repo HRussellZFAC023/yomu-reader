@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict';
 import { writeFileSync } from 'node:fs';
-import { waitForSmokeLayout } from './smoke-wait-helpers.mjs';
 
 // Layout regression checks on the built product and recorded YouTube shell.
 // The long cue and tap counters belong to the stability smoke's mechanism track.
@@ -25,7 +24,7 @@ export async function assertCaptionGeometry(page, engine, out, longCue, popupMod
         await page.evaluate(() => { scrollTo(0,0); document.querySelector('video').currentTime = 9.5; });
         await page.waitForFunction(text => document.querySelector('.jpdb-subtitle-primary .jpdb-reader-word')?.dataset.sentence === text, longCue);
         await settle();
-        await waitForSmokeLayout(page, '.jpdb-subtitle-player,.jpdb-reader-popover');
+        await page.waitForTimeout(300);
         const geometry = await page.evaluate(() => {
             const rect = selector => document.querySelector(selector).getBoundingClientRect().toJSON();
             const primary = document.querySelector('.jpdb-subtitle-primary');
@@ -117,21 +116,21 @@ async function assertPopupRotation(page, engine, out, mode) {
     for (const [width,height] of [[834,1194],[1194,834]]) {
         await page.setViewportSize({width,height});
         await page.evaluate(()=>scrollTo(0,0));
-        await waitForSmokeLayout(page, '.jpdb-subtitle-player,.jpdb-reader-popover');
+        await page.waitForTimeout(300);
         await page.locator('.jpdb-subtitle-primary .jpdb-reader-word').first().tap();
         await page.locator('.jpdb-reader-popover').waitFor();
-        await waitForSmokeLayout(page, '.jpdb-subtitle-player,.jpdb-reader-popover');
+        await page.waitForTimeout(300);
         const initial = await snapshot(`${mode}-${width}x${height}`);
         assert.equal(initial.sheet,mode==='sheet'||(mode==='auto'&&height>width),`${engine}: incorrect popup presentation`);
         await page.setViewportSize({width:height,height:width});
-        await waitForSmokeLayout(page, '.jpdb-subtitle-player,.jpdb-reader-popover');
+        await page.waitForTimeout(300);
         await snapshot(`${mode}-rotated-from-${width}x${height}`);
         await page.keyboard.press('Escape');
         await page.locator('.jpdb-reader-popover').waitFor({state:'hidden'});
     }
     await page.setViewportSize({width:834,height:1194});
     await page.evaluate(()=>scrollTo(0,0));
-    await waitForSmokeLayout(page, '.jpdb-subtitle-player,.jpdb-reader-popover');
+    await page.waitForTimeout(300);
     return measurements;
 }
 

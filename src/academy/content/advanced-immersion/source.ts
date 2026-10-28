@@ -39,6 +39,12 @@ export const ADVANCED_IMMERSION_QUARANTINE: readonly AdvancedImmersionQuarantine
     quarantine('soya-n3-reading-audio', 'soya-audio'),
 ]);
 
+export function canonicalAdvancedImmersionSourceItemPayload(
+    segments = ADVANCED_IMMERSION_SOURCE_SEGMENTS,
+): string {
+    return `${ADVANCED_IMMERSION_PROVENANCE.sourceItemId}\n${segments.map(segment => segment.text).join('\n')}\n`;
+}
+
 function segment(id: string, text: string, translation: string): AdvancedImmersionSourceSegment {
     return Object.freeze({ id, text, translation });
 }

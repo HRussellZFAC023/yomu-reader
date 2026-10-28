@@ -159,7 +159,7 @@ interface ResolvedCoverage {
  * English, which for an example source would mean quietly serving English
  * sentences to someone reading a language Tatoeba has not been mapped for.
  */
-function coverageFor(targetLanguage: string): ResolvedCoverage | null {
+export function coverageFor(targetLanguage: string): ResolvedCoverage | null {
     const base = targetLanguage.trim().toLowerCase().split(/[-_]/u)[0] ?? '';
     const id = TATOEBA_LANGUAGE_ALIASES[base] ?? base;
     const entry = TATOEBA_COVERAGE[id as LearnerLanguageId];

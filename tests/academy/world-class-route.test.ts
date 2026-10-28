@@ -1,5 +1,3 @@
-// Filesystem inputs owned by this route host.
-// @yomu-reads public/academy/content/curriculum/class-week-cast.v1.json public/academy/content/lessons/**
 import fs from 'node:fs';
 import path from 'node:path';
 import { ACADEMY_LESSON_CONTENT_REGISTRY } from '../../src/academy/content/lesson-content-registry';

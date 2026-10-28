@@ -12,7 +12,7 @@
  *
  * Add a name here in the same commit that renders it.
  */
-const NEW_TAB_ACTIONS = [
+export const NEW_TAB_ACTIONS = [
     // Shell: overflow menu, app nav, site nav, support banner.
     'settings',
     'theme',
@@ -87,7 +87,7 @@ export type NewTabAction = (typeof NEW_TAB_ACTIONS)[number];
 const NEW_TAB_ACTION_NAMES: ReadonlySet<string> = new Set<string>(NEW_TAB_ACTIONS);
 
 /** Narrows a value read back out of the DOM to the known action vocabulary. */
-function isNewTabAction(value: string | null | undefined): value is NewTabAction {
+export function isNewTabAction(value: string | null | undefined): value is NewTabAction {
     return typeof value === 'string' && NEW_TAB_ACTION_NAMES.has(value);
 }
 

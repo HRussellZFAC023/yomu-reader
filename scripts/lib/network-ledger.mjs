@@ -215,7 +215,7 @@ function addToHostSummary(row, entry) {
 }
 
 /** Throws with the offending requests listed when the count is out of range. */
-function assertLedgerCount(ledger, filter, { min = 0, max = Number.POSITIVE_INFINITY, label = describeFilter(filter) } = {}) {
+export function assertLedgerCount(ledger, filter, { min = 0, max = Number.POSITIVE_INFINITY, label = describeFilter(filter) } = {}) {
     const matches = ledger.requests(filter);
     if (matches.length >= min && matches.length <= max) return matches;
     const range = max === Number.POSITIVE_INFINITY ? `at least ${min}` : `${min}..${max}`;
@@ -226,6 +226,10 @@ function assertLedgerCount(ledger, filter, { min = 0, max = Number.POSITIVE_INFI
 function describeEntry(entry) {
     const after = entry.trustedInteractionBefore ? ', after interaction' : '';
     return `${entry.method} ${entry.url.slice(0, 160)} (+${entry.sinceStartMs} ms, ${entry.channel}${after})`;
+}
+
+export function assertNoRequestsBeforeInteraction(ledger, host, label = `requests to ${host} before a trusted interaction`) {
+    return assertLedgerCount(ledger, { host, beforeInteraction: true }, { max: 0, label });
 }
 
 function describeFilter(filter) {

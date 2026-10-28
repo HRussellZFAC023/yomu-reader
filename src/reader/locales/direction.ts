@@ -27,8 +27,8 @@ import type { TextDirection } from './types';
  * chrome, which is what the CSS sweep converts.
  */
 
-const READER_INTERFACE_DIR_ATTRIBUTE = 'data-yomu-interface-dir';
-const READER_INTERFACE_LOCALE_ATTRIBUTE = 'data-yomu-interface-locale';
+export const READER_INTERFACE_DIR_ATTRIBUTE = 'data-yomu-interface-dir';
+export const READER_INTERFACE_LOCALE_ATTRIBUTE = 'data-yomu-interface-locale';
 
 /** Unicode isolate controls, for plain-text contexts that cannot hold markup. */
 const FIRST_STRONG_ISOLATE = '⁨';

@@ -1,4 +1,3 @@
-import '../../src/reader/companions/register-build-companions';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { cardHighlightScopeAttributes, highlightCardTargetScopes, isCardHighlightWord, renderCardHighlightedTextHtml } from '../../src/reader/cards/highlight';

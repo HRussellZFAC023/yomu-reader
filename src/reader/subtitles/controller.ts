@@ -8084,8 +8084,8 @@ export class SubtitlePlayerController {
     }
 
     private syncFullscreenState(): void {
-        if (!document.documentElement) return;
-        // Fullscreen, observer and viewport signals invalidate the cache, never
+        // Every caller of this is a discrete fullscreen-relevant signal
+        // (observer batch, fullscreenchange, refresh, viewport change) — never
         // the per-sample geometry path — so a fresh host query here is cheap
         // and keeps direct syncFullscreenState() calls authoritative.
         this.fullscreenHost.invalidateHostCache();

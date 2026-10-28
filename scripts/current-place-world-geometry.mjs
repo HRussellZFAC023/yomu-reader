@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import academyBuildAssets from './lib/academy-build-files.cjs';
+import academyBuildAssets from './lib/academy-build-manifest.cjs';
 const { academyBuildFile, academyProofTemplate } = academyBuildAssets;
 import { existsSync, mkdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import path from 'node:path';

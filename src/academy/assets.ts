@@ -1,17 +1,43 @@
-import { ACADEMY_CAST_STANDARDIZATION_COVERAGE, ACADEMY_CAST_STANDARDIZATION_GALLERIES, ACADEMY_CAST_STANDARDIZATION_JOURNAL_REVIEW, ACADEMY_CAST_STANDARDIZATION_RUNTIME_ASSETS } from './domain/cast-standardization-manifest';
-import { ACADEMY_STORY_ART_RUNTIME_ASSETS } from './domain/story-art-manifest';
+import {
+    ACADEMY_CAST_STANDARDIZATION_COVERAGE,
+    ACADEMY_CAST_STANDARDIZATION_GALLERIES,
+    ACADEMY_CAST_STANDARDIZATION_JOURNAL_REVIEW,
+    ACADEMY_CAST_STANDARDIZATION_RUNTIME_ASSETS,
+} from './domain/cast-standardization-manifest';
+import {
+    ACADEMY_STORY_ART_COVERAGE,
+    ACADEMY_STORY_ART_RUNTIME_ASSETS,
+} from './domain/story-art-manifest';
 import { ACADEMY_LEARNING_ART_RUNTIME_ASSETS } from './domain/learning-art-manifest';
 import { ACADEMY_CAST } from './domain/cast-registry';
 import { createDefaultCastPortraitResolver } from './domain/default-cast-portrait';
 import { existingCastPortraitHomes } from './domain/cast-portrait-placements';
 
-interface AcademyResponsivePresentation {
+export type AcademyRuntimeAssetKind =
+    | 'background'
+    | 'character-sprite'
+    | 'event-art'
+    | 'item-art'
+    | 'learning-visual'
+    | 'protagonist-portrait';
+export type AcademyRuntimeAssetStatus = 'approved' | 'review-preview';
+
+export interface AcademyResponsivePresentation {
     readonly mobile: {
         readonly strategy: 'art-directed-crop';
         readonly sourceVariant: 'wide';
         readonly objectPosition: string;
         readonly purpose: string;
     };
+}
+
+export interface AcademyRuntimeAssetRecord {
+    readonly kind: AcademyRuntimeAssetKind;
+    readonly status: AcademyRuntimeAssetStatus;
+    readonly runtimeHomes: readonly [string, ...string[]];
+    readonly provenance: 'current-production' | 'recovered-academy-tree' | 'regenerated-house-style';
+    readonly files: Readonly<Record<string, `/academy/art/${string}`>>;
+    readonly responsivePresentation?: AcademyResponsivePresentation;
 }
 
 function runtimeAsset<const T extends AcademyRuntimeAssetRecord>(record: T): T {
@@ -107,11 +133,137 @@ export const ACADEMY_RUNTIME_ASSET_REGISTRY = {
     'item.cafe-order-scene': runtimeAsset({ kind: 'item-art', status: 'approved', runtimeHomes: ['reward:cafe:inspectable-order-scene'], provenance: 'recovered-academy-tree', files: { default: '/academy/art/items/cafe-order-scene__v001.jpg' } }),
 } as const satisfies Readonly<Record<string, AcademyRuntimeAssetRecord>>;
 
-type AcademyRuntimeAssetId = keyof typeof ACADEMY_RUNTIME_ASSET_REGISTRY;
+export type AcademyRuntimeAssetId = keyof typeof ACADEMY_RUNTIME_ASSET_REGISTRY;
+
+interface AcademyLessonAssetBinding {
+    readonly sceneAssetId: AcademyRuntimeAssetId;
+    readonly sourceSceneReference: string;
+    readonly approvedCastAssetIds: Readonly<Record<string, AcademyRuntimeAssetId>>;
+    readonly reviewOnlyCastCandidates: Readonly<Record<string, AcademyRuntimeAssetId>>;
+    readonly itemAssetIds: readonly AcademyRuntimeAssetId[];
+    readonly sourceMedia: readonly {
+        readonly purpose: 'source-homework-worksheet';
+        readonly path: `/academy/content/lessons/${string}`;
+        readonly sha256: string;
+    }[];
+}
+
+/**
+ * Lesson-local art bindings record only assets that cleared their runtime gate.
+ * A cast name is not permission to substitute an unapproved or placeholder face.
+ */
+export const ACADEMY_LESSON_ASSET_BINDINGS = {
+    'l1-l01': {
+        sceneAssetId: 'location.classroom',
+        sourceSceneReference: 'academy/art/scenes/classroom-first-evening-wide.webp',
+        approvedCastAssetIds: {
+            rie: 'character.rie.neutral-glasses',
+            aakash: 'character.aakash.neutral-route-map-burgundy-hoodie-front-near-front-fullbody-v010',
+        },
+        reviewOnlyCastCandidates: {},
+        itemAssetIds: ['item.classroom-belongings'],
+        sourceMedia: [{
+            purpose: 'source-homework-worksheet',
+            path: '/academy/content/lessons/l1-l01/moodle-hw-chapter-1-1-greeting-page-1.png',
+            sha256: '26fc7617addb2af8f85678b0e5dacf30518eeadfb030dbbb3d27dd2f54948100',
+        }],
+    },
+} as const satisfies Readonly<Record<string, AcademyLessonAssetBinding>>;
 
 export type AcademyItemAssetId = {
     [K in AcademyRuntimeAssetId]: typeof ACADEMY_RUNTIME_ASSET_REGISTRY[K]['kind'] extends 'item-art' ? K : never;
 }[AcademyRuntimeAssetId];
+
+type PurposefulAssetKind = 'background' | 'event-art' | 'item-art';
+
+type AcademyPurposefulAssetId = {
+    [K in AcademyRuntimeAssetId]: typeof ACADEMY_RUNTIME_ASSET_REGISTRY[K]['kind'] extends PurposefulAssetKind ? K : never;
+}[AcademyRuntimeAssetId];
+
+type PurposefulAssetCoverage<K extends AcademyPurposefulAssetId> = {
+    readonly purpose: typeof ACADEMY_RUNTIME_ASSET_REGISTRY[K]['kind'] extends 'background'
+        ? 'world-scene'
+        : typeof ACADEMY_RUNTIME_ASSET_REGISTRY[K]['kind'] extends 'event-art'
+            ? 'story-event'
+            : 'inspectable-item';
+    readonly primaryUse: typeof ACADEMY_RUNTIME_ASSET_REGISTRY[K]['runtimeHomes'][number];
+};
+
+type PurposefulAssetCoverageLedger = {
+    readonly [K in AcademyPurposefulAssetId]: PurposefulAssetCoverage<K>;
+};
+
+interface AcademyItemPresentationCoverageEntry {
+    readonly presentation: 'world-reward-prop' | 'inspectable-source-prop';
+    readonly primaryUse: string;
+}
+
+/** Exhaustive typed purpose coverage for non-character art with a runtime job. */
+export const ACADEMY_PURPOSEFUL_ASSET_COVERAGE = {
+    ...ACADEMY_STORY_ART_COVERAGE,
+    'location.home': { purpose: 'world-scene', primaryUse: 'location:home' },
+    'location.campus-ensemble': { purpose: 'world-scene', primaryUse: 'access:campus-ensemble' },
+    'location.entrance': { purpose: 'world-scene', primaryUse: 'access:entrance' },
+    'location.classroom-entrance': { purpose: 'world-scene', primaryUse: 'scene:blank-atlas:mission-speaking' },
+    'location.street': { purpose: 'world-scene', primaryUse: 'activity:rainy-directions' },
+    'location.station': { purpose: 'world-scene', primaryUse: 'activity:station-announcements' },
+    'location.station-platform': { purpose: 'world-scene', primaryUse: 'activity:station-platform-transfer' },
+    'location.ramen': { purpose: 'world-scene', primaryUse: 'activity:ramen-ordering' },
+    'location.park': { purpose: 'world-scene', primaryUse: 'activity:park-weather-sketchbook' },
+    'location.konbini': { purpose: 'world-scene', primaryUse: 'activity:counter-shopping' },
+    'location.japan-centre': { purpose: 'world-scene', primaryUse: 'activity:gift-counter' },
+    'location.classroom': { purpose: 'world-scene', primaryUse: 'lesson-zero' },
+    'location.library': { purpose: 'world-scene', primaryUse: 'review:due-queue' },
+    'location.bookshop': { purpose: 'world-scene', primaryUse: 'activity:bookshop-catalogue' },
+    'location.cafe': { purpose: 'world-scene', primaryUse: 'location:cafe' },
+    'location.language-lab': { purpose: 'world-scene', primaryUse: 'activity:listening-shadowing' },
+    'location.writing-studio': { purpose: 'world-scene', primaryUse: 'activity:kanji-doodle' },
+    'location.cafeteria': { purpose: 'world-scene', primaryUse: 'location:cafeteria' },
+    'location.shrine': { purpose: 'world-scene', primaryUse: 'location:shrine' },
+    'location.temple': { purpose: 'world-scene', primaryUse: 'location:temple' },
+    'location.izakaya': { purpose: 'world-scene', primaryUse: 'location:izakaya' },
+    'location.restaurant': { purpose: 'world-scene', primaryUse: 'location:restaurant' },
+    'location.clinic': { purpose: 'world-scene', primaryUse: 'location:clinic' },
+    'location.pharmacy': { purpose: 'world-scene', primaryUse: 'location:pharmacy' },
+    'location.office': { purpose: 'world-scene', primaryUse: 'location:office' },
+    'location.hotel': { purpose: 'world-scene', primaryUse: 'location:hotel' },
+    'location.ryokan': { purpose: 'world-scene', primaryUse: 'location:ryokan' },
+    'location.airport': { purpose: 'world-scene', primaryUse: 'location:airport' },
+    'location.festival': { purpose: 'world-scene', primaryUse: 'location:festival' },
+    'location.shotengai': { purpose: 'world-scene', primaryUse: 'location:shotengai' },
+    'location.train': { purpose: 'world-scene', primaryUse: 'location:train' },
+    'location.supermarket': { purpose: 'world-scene', primaryUse: 'location:supermarket' },
+    'location.post-office': { purpose: 'world-scene', primaryUse: 'location:post-office' },
+    'location.museum': { purpose: 'world-scene', primaryUse: 'location:museum' },
+    'location.tokyo-station': { purpose: 'world-scene', primaryUse: 'location:tokyo-station' },
+    'event.rainy-directions': { purpose: 'story-event', primaryUse: 'scene:aakash-rainy-directions' },
+    'event.empty-microphone-rehearsal': { purpose: 'story-event', primaryUse: 'scene:empty-microphone:host-drops-out' },
+    'event.withheld-panel-handoff': { purpose: 'story-event', primaryUse: 'scene:last-revision:what-stays-out-of-frame' },
+    'event.atlas-finale-next-page': { purpose: 'story-event', primaryUse: 'scene:atlas-closes:what-the-template-was' },
+    'item.station-ticket': { purpose: 'inspectable-item', primaryUse: 'reward:station:platform-ticket' },
+    'item.konbini-shopping-list': { purpose: 'inspectable-item', primaryUse: 'reward:konbini:shopping-receipt' },
+    'item.ramen-quantity-board': { purpose: 'inspectable-item', primaryUse: 'reward:ramen:order-ticket' },
+    'item.classroom-belongings': { purpose: 'inspectable-item', primaryUse: 'reward:classroom:board-note' },
+    'item.library-photo-album': { purpose: 'inspectable-item', primaryUse: 'reward:library:review-bookmark' },
+    'item.street-direction-map': { purpose: 'inspectable-item', primaryUse: 'reward:street:directions-map' },
+    'item.japan-centre-omiyage-tag': { purpose: 'inspectable-item', primaryUse: 'reward:japan-centre:omiyage-tag' },
+    'item.cafe-order-scene': { purpose: 'inspectable-item', primaryUse: 'reward:cafe:inspectable-order-scene' },
+} as const satisfies PurposefulAssetCoverageLedger;
+
+/**
+ * Item art stays attached to a specific earned-world presentation. This keeps
+ * a recovered image from becoming generic decoration elsewhere.
+ */
+export const ACADEMY_ITEM_PRESENTATION_COVERAGE = {
+    'item.station-ticket': { presentation: 'world-reward-prop', primaryUse: 'reward:station:platform-ticket' },
+    'item.konbini-shopping-list': { presentation: 'world-reward-prop', primaryUse: 'reward:konbini:shopping-receipt' },
+    'item.ramen-quantity-board': { presentation: 'world-reward-prop', primaryUse: 'reward:ramen:order-ticket' },
+    'item.classroom-belongings': { presentation: 'world-reward-prop', primaryUse: 'reward:classroom:board-note' },
+    'item.library-photo-album': { presentation: 'world-reward-prop', primaryUse: 'reward:library:review-bookmark' },
+    'item.street-direction-map': { presentation: 'world-reward-prop', primaryUse: 'reward:street:directions-map' },
+    'item.japan-centre-omiyage-tag': { presentation: 'world-reward-prop', primaryUse: 'reward:japan-centre:omiyage-tag' },
+    'item.cafe-order-scene': { presentation: 'inspectable-source-prop', primaryUse: 'reward:cafe:inspectable-order-scene' },
+} as const satisfies Readonly<Record<AcademyItemAssetId, AcademyItemPresentationCoverageEntry>>;
 
 function assetFile(id: AcademyRuntimeAssetId, variant: string): `/academy/art/${string}` {
     const files = ACADEMY_RUNTIME_ASSET_REGISTRY[id].files as Readonly<Record<string, `/academy/art/${string}`>>;
@@ -337,22 +489,3 @@ export const ACADEMY_PLATE_RESPONSIVE_PRESENTATION: Readonly<Partial<Record<Acad
     home: ACADEMY_RUNTIME_ASSET_REGISTRY['location.home'].responsivePresentation,
     campusEnsemble: ACADEMY_RUNTIME_ASSET_REGISTRY['location.campus-ensemble'].responsivePresentation,
 };
-
-interface AcademyRuntimeAssetRecord {
-    readonly kind: AcademyRuntimeAssetKind;
-    readonly status: AcademyRuntimeAssetStatus;
-    readonly runtimeHomes: readonly [string, ...string[]];
-    readonly provenance: 'current-production' | 'recovered-academy-tree' | 'regenerated-house-style';
-    readonly files: Readonly<Record<string, `/academy/art/${string}`>>;
-    readonly responsivePresentation?: AcademyResponsivePresentation;
-}
-
-type AcademyRuntimeAssetKind =
-    | 'background'
-    | 'character-sprite'
-    | 'event-art'
-    | 'item-art'
-    | 'learning-visual'
-    | 'protagonist-portrait';
-
-type AcademyRuntimeAssetStatus = 'approved' | 'review-preview';

@@ -9,3 +9,9 @@ if (validationIssues.length) {
 }
 
 export const N2_EXTENSIVE_READING_PACKAGES: readonly N2ExtensiveReadingPackage[] = Object.freeze([packageRecord]);
+
+export function resolveN2ExtensiveReadingPackage(id: string): N2ExtensiveReadingPackage {
+    const found = N2_EXTENSIVE_READING_PACKAGES.find(candidate => candidate.id === id);
+    if (!found) throw new TypeError(`Unknown N2 extensive-reading package: ${id}`);
+    return found;
+}

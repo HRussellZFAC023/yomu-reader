@@ -1,4 +1,3 @@
-import '../../../src/reader/companions/register-build-companions';
 import { describe, expect, it, vi } from 'vitest';
 import { userFacingCopyKeyOf } from '../../../src/reader/app/user-facing-errors';
 import {

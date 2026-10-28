@@ -21,3 +21,14 @@ export const N2_EVENT_INFORMATION_PROVENANCE = Object.freeze({
         learnerActivityText: 'original-yomu-authored' as const,
     }),
 }) satisfies N2EventInformationModel['provenance'];
+
+export function canonicalN2EventInformationSourceLocus(): string {
+    return [
+        N2_EVENT_INFORMATION_PROVENANCE.sourceId,
+        N2_EVENT_INFORMATION_PROVENANCE.sourceDocumentSha256,
+        String(N2_EVENT_INFORMATION_PROVENANCE.sourceDocumentByteLength),
+        N2_EVENT_INFORMATION_PROVENANCE.relativePath,
+        N2_EVENT_INFORMATION_PROVENANCE.sourceItemId,
+        N2_EVENT_INFORMATION_PROVENANCE.sourceItemJsonSha256,
+    ].join('\n') + '\n';
+}

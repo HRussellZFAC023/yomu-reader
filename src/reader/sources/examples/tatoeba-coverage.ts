@@ -88,6 +88,21 @@ const TRANSLATION_ONLY_CODES: Readonly<Record<string, string>> = Object.freeze({
     ur: 'urd',
 });
 
+/**
+ * The twelve configured languages with no open sentence audio source. Derived
+ * from the matrix rather than written twice, so a future snapshot cannot leave
+ * the UI claiming audio the data no longer has.
+ */
+export function languagesWithoutSentenceAudio(): readonly LearnerLanguageId[] {
+    return (Object.keys(TATOEBA_COVERAGE) as LearnerLanguageId[])
+        .filter(id => TATOEBA_COVERAGE[id].sentenceAudioRows === 0);
+}
+
+export function limitedCorpusLanguages(): readonly LearnerLanguageId[] {
+    return (Object.keys(TATOEBA_COVERAGE) as LearnerLanguageId[])
+        .filter(id => TATOEBA_COVERAGE[id].limitedCorpus === true);
+}
+
 /** Tatoeba codes for an OUTPUT language, used for the translation filter. */
 export function tatoebaTranslationCode(outputLanguage: string): string | null {
     const base = outputLanguage.trim().toLowerCase().split(/[-_]/u)[0] ?? '';

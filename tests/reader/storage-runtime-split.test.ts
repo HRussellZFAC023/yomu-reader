@@ -1,6 +1,3 @@
-// Filesystem/subprocess inputs, including generic helpers called by this test.
-// @yomu-reads docs/public/greasyfork/yomu-runtime.user.js
-// @yomu-imports src/reader/app/storage-runtime-bridge.ts
 import { readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import path from 'node:path';

@@ -1,12 +1,9 @@
-import '../../../src/reader/companions/register-build-companions';
-import { NewTabController } from '../../../src/reader/newtab/controller';
-import { NewTabRuntime } from '../../../src/reader/newtab/runtime';
-import { searchWordDetailHtml } from '../../../src/reader/newtab/search-view';
-import type { NewTabSearchDetailViewContext } from '../../../src/reader/newtab/search-view';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
     registerReaderHelpersCleanup,
     DEFAULT_SETTINGS,
+    NewTabController,
+    NewTabRuntime,
     ReaderApp,
     appendKnownAnkiRenderedWord,
     appendRenderedReaderWord,
@@ -16,6 +13,7 @@ import {
     emptyCardRenderData,
     registerRenderedWordPrivateState,
     renderedWordPrivateValue,
+    searchWordDetailHtml,
     setInnerHtml,
     testAozoraCard,
     testFallbackCard,
@@ -27,6 +25,7 @@ import type {
     CardRenderData,
     JPDBCard,
     JPDBToken,
+    NewTabSearchDetailViewContext,
     YomitanTermEntry,
 } from './fixtures';
 
@@ -877,11 +876,11 @@ describe('reader helpers', () => {
             reading: 'さくいん',
             source: 'jpdb',
         };
-        for (let index = 0; index < 4; index += 1) {
+        for (let index = 0; index < 2400; index += 1) {
             const word = document.createElement('span');
             word.className = 'jpdb-reader-word jpdb-not-in-deck';
             registerRenderedWordPrivateState(word, {
-                vid: String(index === 0 ? lookupCard.vid : 901000 + index),
+                vid: String(901000 + index),
                 sid: String(index),
             });
             word.textContent = `単語${index}`;
@@ -1065,10 +1064,80 @@ describe('reader helpers', () => {
         }
     });
 
+    it('colors every unique rendered Anki token from cache beyond two thousand words', async () => {
+        const app = new ReaderApp();
+        const container = document.createElement('div');
+        const tokenCount = 2405;
+        const tokens: JPDBToken[] = Array.from({ length: tokenCount }, (_, index): JPDBToken => ({
+            card: {
+                ...card,
+                vid: 880000 + index,
+                sid: index,
+                rid: 0,
+                spelling: `確認${index}`,
+                reading: 'かくにん',
+                source: 'jpdb',
+            },
+            start: 0,
+            end: 3,
+            length: 3,
+            rubies: [],
+            pitchClass: '',
+        }));
+        tokens.forEach(token => {
+            appendRenderedReaderWord(token.card, {
+                className: 'jpdb-reader-word jpdb-not-in-deck',
+                parent: container,
+            });
+        });
+        document.body.append(container);
+        const findCachedStatusBatch = vi.fn(async (cards: JPDBCard[]): Promise<AnkiLookupResult[]> => cards.map((lookupCard, index) => ({
+            state: 'known',
+            notes: [],
+            primary: {
+                noteId: 9000 + index,
+                primaryCardId: 9900 + index,
+                cardIds: [9900 + index],
+                state: 'known',
+                deckNames: ['Cache'],
+                modelName: 'Imported Core',
+                fields: { Word: lookupCard.spelling },
+                tags: [],
+                reps: 1,
+                lapses: 0,
+            },
+        })));
+        const internals = app as unknown as {
+            settings: typeof DEFAULT_SETTINGS;
+            anki: { findCachedStatusBatch: typeof findCachedStatusBatch };
+            enrichAnkiWords(tokens: JPDBToken[], roots?: ParentNode[]): Promise<void>;
+        };
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            ankiEnabled: true,
+            wordTextColorSource: 'anki',
+        };
+        internals.anki = { findCachedStatusBatch };
+
+        try {
+            await internals.enrichAnkiWords(tokens, [container]);
+
+            expect(findCachedStatusBatch).toHaveBeenCalledTimes(1);
+            const [lookedUpCards] = findCachedStatusBatch.mock.calls[0] ?? [];
+            expect(lookedUpCards).toHaveLength(tokenCount);
+            expect(lookedUpCards?.at(0)?.spelling).toBe('確認0');
+            expect(lookedUpCards?.at(-1)?.spelling).toBe(`確認${tokenCount - 1}`);
+            expect(container.querySelectorAll('.jpdb-reader-word.anki-known')).toHaveLength(tokenCount);
+        } finally {
+            container.remove();
+            app.destroy();
+        }
+    });
+
     it('dedupes large warmup Anki recolor passes by card key instead of rendered word count', async () => {
         const app = new ReaderApp();
-        const uniqueCount = 4;
-        const repeatCount = 3;
+        const uniqueCount = 37;
+        const repeatCount = 90;
         const { container, cards, findCachedStatusBatch } = createRepeatedAnkiWordCacheFixture({
             uniqueCount,
             repeatCount,
@@ -1107,8 +1176,8 @@ describe('reader helpers', () => {
 
     it('reuses the rendered-word index for document warmup recolor instead of rescanning the page', async () => {
         const app = new ReaderApp();
-        const uniqueCount = 4;
-        const repeatCount = 3;
+        const uniqueCount = 48;
+        const repeatCount = 60;
         const { container, cards, findCachedStatusBatch } = createRepeatedAnkiWordCacheFixture({
             uniqueCount,
             repeatCount,

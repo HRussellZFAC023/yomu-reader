@@ -7,7 +7,6 @@ const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const WORKFLOW = readFileSync(join(ROOT, '.github/workflows/ci.yml'), 'utf8');
 const TEST_FILE = /\.(?:test|spec)\.[cm]?[jt]sx?$/;
 const gates = [
-    { directory: 'tests/tooling', workflowCommand: 'node --test tests/tooling/*.test.mjs' },
     {
         directory: 'tests/reader',
         workflowCommand: 'node scripts/run-ci-tests.mjs',

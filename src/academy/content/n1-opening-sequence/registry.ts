@@ -11,3 +11,9 @@ if (validationIssues.length) {
 }
 
 export const N1_OPENING_SEQUENCE_PACKAGES: readonly N1OpeningSequencePackage[] = Object.freeze([packageRecord]);
+
+export function resolveN1OpeningSequencePackage(id: string): N1OpeningSequencePackage {
+    const found = N1_OPENING_SEQUENCE_PACKAGES.find(candidate => candidate.id === id);
+    if (!found) throw new TypeError(`Unknown N1 opening-sequence package: ${id}`);
+    return found;
+}

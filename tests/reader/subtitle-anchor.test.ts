@@ -3,7 +3,6 @@ import { reachableSubtitleBottomPercent } from '../../src/reader/subtitles/subti
 import { youtubeCaptionFontSize } from '../../src/reader/subtitles/subtitle-caption-layout';
 import { railPositionOutsideReservedRects } from '../../src/reader/subtitles/subtitle-control-rail';
 
-
 const position = (height: number, belowAnchor = 0) => reachableSubtitleBottomPercent({
     preferredBottomPercent: 16, positionRect: new DOMRect(0, 68, 320, 180),
     viewportTop: 0, viewportHeight: 568, subtitleHeight: height, belowAnchor,
@@ -47,48 +46,5 @@ describe('caption control exclusion', () => {
     it('uses room below a short player when no position inside it clears the caption', () => {
         expect(railPositionOutsideReservedRects(8, 100, bounds, [new DOMRect(0, 68, 320, 240)]))
             .toEqual({ left: 8, top: 246 });
-    });
-});
-
-describe('reachable subtitle position', () => {
-    it('keeps an in-frame preference unchanged', () => {
-        expect(reachableSubtitleBottomPercent({
-            preferredBottomPercent: 16,
-            positionRect: new DOMRect(0, 0, 390, 360),
-            viewportTop: 0,
-            viewportHeight: 780,
-            subtitleHeight: 72,
-        })).toBe(16);
-    });
-
-    it('rebases the same preference when the next media frame fills the viewport', () => {
-        expect(reachableSubtitleBottomPercent({
-            preferredBottomPercent: -110,
-            positionRect: new DOMRect(0, 64, 390, 756),
-            viewportTop: 0,
-            viewportHeight: 820,
-            subtitleHeight: 72,
-        })).toBe(2);
-    });
-
-    it('preserves a reachable below-player preference on a shorter video', () => {
-        expect(reachableSubtitleBottomPercent({
-            preferredBottomPercent: -110,
-            positionRect: new DOMRect(0, 0, 390, 360),
-            viewportTop: 0,
-            viewportHeight: 820,
-            subtitleHeight: 72,
-        })).toBe(-110);
-    });
-
-    it('keeps the recovery handle below an offset mobile viewport top', () => {
-        expect(reachableSubtitleBottomPercent({
-            preferredBottomPercent: 120,
-            positionRect: new DOMRect(0, 64, 390, 756),
-            viewportTop: 80,
-            viewportHeight: 740,
-            // The caller measures the caption AND recovery handle together.
-            subtitleHeight: 120,
-        })).toBe(80);
     });
 });

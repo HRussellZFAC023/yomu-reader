@@ -1,5 +1,3 @@
-// Filesystem inputs owned by this test.
-// @yomu-reads public/academy/** docs/public/academy/art/** docs/public/academy/audio/** docs/public/academy/content/**
 import fs from 'node:fs';
 import path from 'node:path';
 import { createSourceLibrary } from '../../src/academy/domain/source-library';
@@ -8,9 +6,10 @@ import { validateLessonZeroGrounding } from '../../src/academy/content/lesson-ze
 import type { LessonZeroContent } from '../../src/academy/content/lesson-zero';
 import {
     LESSON_ZERO_KANA_SEQUENCE,
+    LESSON_ZERO_SOURCE_MEDIA,
 } from '../../src/academy/content/lesson-zero-source-material';
 import { createLessonZeroProof } from '../../src/academy/ui/lesson-zero-proof';
-import { sha256Bytes } from './helpers/asset-hash';
+import { filesHaveSameContent, sha256File } from './helpers/hash-memo';
 
 const expressions = {
     neutral: { still: '/rie-neutral.png' },
@@ -490,8 +489,33 @@ describe('Lesson 0 source-led proof', () => {
             expect(urls).toHaveLength(hashes.length);
             for (const [index, url] of urls.entries()) {
                 const relative = url.replace(/^\/academy\//u, 'academy/');
-                expect(sha256Bytes(fs.readFileSync(path.resolve('public', relative)))).toBe(hashes[index]);
-                expect(fs.readFileSync(path.resolve('docs/public', relative)).equals(fs.readFileSync(path.resolve('public', relative)))).toBe(true);
+                expect(sha256File(path.resolve('public', relative))).toBe(hashes[index]);
+                expect(filesHaveSameContent(path.resolve('docs/public', relative), path.resolve('public', relative))).toBe(true);
+            }
+        }
+    });
+
+    it('ships every Lesson Zero source asset as offline public bytes at its runtime URL', () => {
+        const urls = [
+            LESSON_ZERO_SOURCE_MEDIA.writingSystem,
+            LESSON_ZERO_SOURCE_MEDIA.hiraganaARow,
+            LESSON_ZERO_SOURCE_MEDIA.genkiGreetings,
+            LESSON_ZERO_SOURCE_MEDIA.genkiGreetingsAudio,
+            ...LESSON_ZERO_SOURCE_MEDIA.classroomPhrases,
+            LESSON_ZERO_SOURCE_MEDIA.provenance,
+        ];
+        for (const url of urls) {
+            expect(url).toMatch(/^\/academy\/content\/lessons\/lesson-zero\//u);
+            const relative = url.replace(/^\//u, '');
+            const sourceBytes = fs.readFileSync(path.resolve('public', relative));
+            const servedBytes = fs.readFileSync(path.resolve('docs/public', relative));
+            expect(sourceBytes.byteLength).toBeGreaterThan(0);
+            expect(servedBytes).toEqual(sourceBytes);
+            if (url.endsWith('.png')) {
+                expect(sourceBytes.subarray(0, 8).toString('hex')).toBe('89504e470d0a1a0a');
+            } else if (url.endsWith('.mp3')) {
+                const signature = sourceBytes.subarray(0, 3).toString('hex');
+                expect(signature === '494433' || signature.startsWith('fff')).toBe(true);
             }
         }
     });

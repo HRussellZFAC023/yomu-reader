@@ -25,3 +25,17 @@ export const N2_APARTMENT_MOVING_PROVENANCE = Object.freeze({
         learnerActivityText: 'original-yomu-authored' as const,
     }),
 }) satisfies N2ApartmentMovingProvenance;
+
+export function canonicalN2ApartmentMovingSourceLocus(): string {
+    const source = N2_APARTMENT_MOVING_PROVENANCE;
+    return [
+        source.sourceId,
+        source.sourceDocumentSha256,
+        String(source.sourceDocumentByteLength),
+        source.relativePath,
+        source.sourceLocus.pdfPages,
+        source.sourceLocus.printedPages,
+        source.sourceLocus.section,
+        source.sourceLocus.item,
+    ].join('\n') + '\n';
+}

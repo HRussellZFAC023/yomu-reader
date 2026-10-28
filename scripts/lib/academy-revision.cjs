@@ -138,21 +138,7 @@ function academyRevision(sourcePaths, entries) {
     return `s1-${digest.digest('hex').slice(0, 12)}`;
 }
 
-// A shared installation's revision marker says nothing about this destination.
-// Prove every allowlisted payload byte, including tracked directory contents.
-function academyRuntimeDeliveryMatches(sources, entries, readHosted) {
-    return sources.every(([source, target]) => {
-        for (const [label, bytes] of entries(source)) {
-            const relative = label === source ? '' : label.slice(source.length + 1);
-            const hosted = readHosted(relative ? `${target}/${relative}` : target);
-            if (hosted === null || !Buffer.from(bytes).equals(Buffer.from(hosted))) return false;
-        }
-        return true;
-    });
-}
-
 module.exports = {
-    academyRuntimeDeliveryMatches,
     HOSTED_DEPENDENCIES,
     REVISION_PATTERN,
     REVISION_TOKEN,

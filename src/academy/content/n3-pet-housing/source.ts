@@ -29,6 +29,12 @@ export const N3_PET_HOUSING_QUARANTINE: readonly N3PetHousingQuarantine[] = Obje
     quarantine('soya-source-audio', 'soya-audio'),
 ]);
 
+export function canonicalN3PetHousingSourceItemPayload(
+    segments = N3_PET_HOUSING_SOURCE_SEGMENTS,
+): string {
+    return `${N3_PET_HOUSING_PROVENANCE.sourceItemId}\n${segments.map(segment => segment.text).join('\n')}\n`;
+}
+
 function quarantine(
     id: string,
     sourceFamily: N3PetHousingQuarantine['sourceFamily'],

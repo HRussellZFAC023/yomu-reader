@@ -1,7 +1,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
-const { BUILD_MANIFEST, renderAcademyTemplate } = require('./lib/academy-build-manifest.cjs');
+const { BUILD_MANIFEST, renderAcademyTemplate, academyEmittedFilesMatch } = require('./lib/academy-build-manifest.cjs');
 // The source set and the digest formula live in the shared module so that
 // scripts/check-committed-artifacts.mjs can recompute this exact number from
 // the bytes at HEAD. Two copies of a hash definition is one copy that rots.
@@ -11,7 +11,6 @@ const {
     academyRevision,
     academyRevisionSourcePaths,
     academyRuntimeSources,
-    academyRuntimeDeliveryMatches,
 } = require('./lib/academy-revision.cjs');
 
 const root = path.resolve(__dirname, '..');
@@ -38,9 +37,9 @@ if (process.env.YOMU_SYNC_ACADEMY_REVISION_ONLY === '1') {
 // is content-derived, so any source change forces a real sync. Force with
 // YOMU_SYNC_ACADEMY_FORCE=1 (check:release sets it).
 // The marker lives OUTSIDE the destination so it never ships with the site;
-// the full payload comparison also repairs partial or damaged destinations.
-// Keep it worktree-local because node_modules may point at a shared install.
-const revisionMarker = process.env.YOMU_ACADEMY_OUTPUT_DIR ? `${destination}.revision` : path.join(root, 'artifacts', 'academy-sync-revision');
+// the destination-existence check keeps a stale marker from skipping a sync
+// after the destination was deleted.
+const revisionMarker = process.env.YOMU_ACADEMY_OUTPUT_DIR ? `${destination}.revision` : path.join(root, 'node_modules', '.cache', 'yomu-academy-sync-revision');
 const forceSync = process.env.YOMU_SYNC_ACADEMY_FORCE === '1' || process.env.YOMU_CHECK_RELEASE === '1';
 if (!forceSync && fs.existsSync(destination) && fs.existsSync(revisionMarker) && fs.readFileSync(revisionMarker, 'utf8') === revision && generatedDeliveryMatches()) {
     console.log(`Academy runtime already synced at ${revision}; skipping copy.`);
@@ -132,7 +131,7 @@ function proofDirectory(value) {
 
 function generatedDeliveryMatches() {
     const read = file => fs.existsSync(file) && fs.statSync(file).isFile() ? fs.readFileSync(file) : null;
-    if (!academyRuntimeDeliveryMatches(runtimeSources, workingTreeEntries, file => read(path.join(destination, file)))) return false;
+    if (!academyEmittedFilesMatch(readJson(BUILD_MANIFEST), file => read(path.join(buildDirectory, file)), file => read(path.join(destination, file)))) return false;
     return templates.every(([source, target]) => {
         const hosted = read(path.join(destination, target));
         const expected = renderAcademyTemplate(fs.readFileSync(path.join(root, source), 'utf8'), revision, readJson(BUILD_MANIFEST));

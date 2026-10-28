@@ -1,0 +1,670 @@
+import { describe, expect, it } from 'vitest';
+import {
+    CUSTOM_FONT_FAMILY_VALUE,
+    DEFAULT_SETTINGS,
+    KANJI_SIMILAR_WORDS_SOURCE_ID,
+    SETTINGS_CSS,
+    expectFontFamilyOptions,
+    installShortcutCapture,
+    labelForControl,
+    localizeSettingsForm,
+    normalizeReaderSettings,
+    optionText,
+    orderedKanjiSourceIds,
+    readFormSettings,
+    registerSettingsFormCleanup,
+    renderSettingsForm,
+    renderSettingsTestForm,
+    settingsText,
+    settingsTone,
+    syncSubtitlePreview,
+    topLevelLegendForControl,
+    topLevelLegendsForControl,
+} from './fixtures';
+
+const STATUS_COLOR_SOURCE_VALUES = ['status', 'jpdb', 'anki'] as const;
+
+function statusColorSourceLabels(form: HTMLFormElement, name: string): string[] {
+    return STATUS_COLOR_SOURCE_VALUES.map(value => optionText(form, name, value));
+}
+
+function expectDistinctStatusColorSourceLabels(form: HTMLFormElement): void {
+    form.querySelectorAll<HTMLSelectElement>('select[name$="ColorSource"]').forEach(select => {
+        const labels = statusColorSourceLabels(form, select.name);
+        expect(new Set(labels).size, `${select.name} repeats a study-status label`).toBe(labels.length);
+    });
+}
+
+describe('settings form localization', () => {
+    registerSettingsFormCleanup();
+
+    it('keeps hover lookup timing with Reader settings', () => {
+        const form = document.createElement('form');
+        form.innerHTML = renderSettingsForm(DEFAULT_SETTINGS, 'https://jpdb.io/settings');
+
+        localizeSettingsForm(form, 'ja');
+
+        expect(topLevelLegendsForControl(form, 'shortcuts.hoverLookup')).toEqual(['リーダー', 'ショートカット']);
+        expect(Array.from(form.querySelectorAll<HTMLInputElement>('input[name="shortcuts.hoverLookup"]')).map(input =>
+            input.closest('label')?.textContent?.trim(),
+        )).toEqual(['ホバー中に押すキー', 'ホバー中に押すキー']);
+        expect(topLevelLegendForControl(form, 'hoverOpenDelayMs')).toBe('リーダー');
+        expect(form.querySelector<HTMLElement>('[data-hover-lookup-title]')?.textContent).toBe('ホバー検索');
+        expect(form.querySelector<HTMLFieldSetElement>('fieldset[data-legend-key="shortcuts"]')?.textContent).not.toContain('Hover open delay');
+    });
+
+    it('mirrors the hover lookup shortcut between Reader and Shortcuts', () => {
+        const form = document.createElement('form');
+        form.innerHTML = renderSettingsForm(DEFAULT_SETTINGS, 'https://jpdb.io/settings');
+        installShortcutCapture(form);
+
+        const hoverInputs = Array.from(form.querySelectorAll<HTMLInputElement>('input[name="shortcuts.hoverLookup"]'));
+        expect(hoverInputs).toHaveLength(2);
+
+        hoverInputs[1]!.dispatchEvent(new KeyboardEvent('keydown', {
+            key: 'H',
+            shiftKey: true,
+            bubbles: true,
+            cancelable: true,
+        }));
+
+        expect(hoverInputs.map(input => input.value)).toEqual(['Shift+H', 'Shift+H']);
+        expect(readFormSettings(new FormData(form), DEFAULT_SETTINGS).shortcuts.hoverLookup).toBe('Shift+H');
+
+        hoverInputs[0]!.dispatchEvent(new KeyboardEvent('keydown', {
+            key: 'Backspace',
+            bubbles: true,
+            cancelable: true,
+        }));
+
+        expect(hoverInputs.map(input => input.value)).toEqual(['', '']);
+        expect(readFormSettings(new FormData(form), {
+            ...DEFAULT_SETTINGS,
+            shortcuts: { ...DEFAULT_SETTINGS.shortcuts, hoverLookup: 'Shift+H' },
+        }).shortcuts.hoverLookup).toBe('');
+    });
+
+    it('keeps pitch accent color controls with Reader pitch settings', () => {
+        const form = document.createElement('form');
+        form.innerHTML = renderSettingsForm(DEFAULT_SETTINGS, 'https://jpdb.io/settings');
+
+        expect(topLevelLegendForControl(form, 'showPitchAccent')).toBe('Reader');
+        expect(topLevelLegendForControl(form, 'pitchColorHeiban')).toBe('Reader');
+    });
+
+    it('keeps diagnostic logging out of the Interface panel', () => {
+        const form = document.createElement('form');
+        form.innerHTML = renderSettingsForm(DEFAULT_SETTINGS, 'https://jpdb.io/settings');
+
+        localizeSettingsForm(form, 'ja');
+
+        expect(topLevelLegendForControl(form, 'enableLogging')).toBe('ヘルプ');
+        expect(labelForControl(form, 'enableLogging')).toContain('診断ログ');
+        expect(form.querySelector<HTMLElement>('[data-diagnostics-title]')?.textContent).toBe('診断');
+        expect(form.querySelector<HTMLElement>('[data-diagnostics-help]')?.textContent).toContain('コンソール');
+    });
+
+    it('localizes keyed legends and help without relying on fieldset order', () => {
+        const form = document.createElement('form');
+        form.innerHTML = renderSettingsForm(DEFAULT_SETTINGS, 'https://jpdb.io/settings');
+        const scroll = form.querySelector<HTMLElement>('.jpdb-reader-settings-scroll')!;
+        const audio = form.querySelector<HTMLFieldSetElement>('fieldset[data-legend-key="audio"]')!;
+        scroll.insertBefore(audio, scroll.firstElementChild);
+
+        localizeSettingsForm(form, 'ja');
+
+        expect(audio.querySelector('legend')?.textContent).toBe('音声');
+        expect(audio.querySelector<HTMLElement>('[data-help-key="audioHelp"]')?.textContent).toContain('{term}');
+        expect(form.querySelector<HTMLFieldSetElement>('fieldset[data-legend-key="reviews"] legend')?.textContent).toBe('復習');
+        expect(form.querySelector<HTMLElement>('[data-help-key="readerHelp"]')?.textContent).toContain('通常ホバー');
+    });
+
+    it('links major help text to the fieldsets it describes', () => {
+        const form = document.createElement('form');
+        form.innerHTML = renderSettingsForm(DEFAULT_SETTINGS, 'https://jpdb.io/settings');
+
+        for (const key of ['audio', 'immersionKit', 'reader', 'images', 'youTube', 'anki']) {
+            const fieldset = form.querySelector<HTMLFieldSetElement>(`fieldset[data-legend-key="${key}"]`)!;
+            const describedby = fieldset.getAttribute('aria-describedby');
+            expect(describedby).toBeTruthy();
+            expect(form.querySelector(`#${describedby}`)).not.toBeNull();
+        }
+        expect(form.querySelector<HTMLFieldSetElement>('fieldset[data-legend-key="kanji"]')?.getAttribute('aria-describedby')).toBeNull();
+    });
+
+    it('groups media settings into compact toggle and control grids', () => {
+        const form = renderSettingsTestForm(DEFAULT_SETTINGS);
+
+        const audioPanel = form.querySelector<HTMLElement>('[data-legend-key="audio"]')!;
+        const audioToggleGrid = audioPanel.querySelector<HTMLElement>('.jpdb-reader-settings-tgrid')!;
+        const audioControlGrid = audioPanel.querySelector<HTMLElement>('.jpdb-reader-settings-cgrid')!;
+
+        expect(audioToggleGrid.querySelector('input[name="audioEnabled"]')).not.toBeNull();
+        expect(audioToggleGrid.querySelector('select[name="audioAutoPlayMode"]')).toBeNull();
+        expect(audioControlGrid.querySelector('select[name="audioAutoPlayMode"]')).not.toBeNull();
+        // The source list and its proxy are setup most learners never touch:
+        // they wait in a closed disclosure under the everyday choices.
+        const audioSources = audioPanel.querySelector<HTMLDetailsElement>('details[data-settings-tuning]')!;
+        expect(audioSources.open).toBe(false);
+        expect(audioSources.querySelector('[data-audio-source-editor]')).not.toBeNull();
+        expect(audioSources.querySelector('input[name="corsProxyUrl"]')).not.toBeNull();
+        // The URL-token help describes those sources, so it opens with them.
+        expect(audioSources.querySelector('[data-help-key="audioHelp"]')).not.toBeNull();
+        expect(audioControlGrid.querySelector('input[name="corsProxyUrl"]')).toBeNull();
+
+        const immersionPanel = form.querySelector<HTMLElement>('[data-legend-key="immersionKit"]')!;
+        const immersionGrids = Array.from(immersionPanel.querySelectorAll<HTMLElement>('.jpdb-reader-settings-tgrid, .jpdb-reader-settings-cgrid'));
+
+        expect(immersionGrids[0]?.classList.contains('jpdb-reader-settings-tgrid')).toBe(true);
+        expect(immersionGrids[0]?.querySelector('input[name="immersionKitEnabled"]')).not.toBeNull();
+        expect(immersionGrids[1]?.classList.contains('jpdb-reader-settings-cgrid')).toBe(true);
+        expect(immersionGrids[1]?.querySelector('select[name="immersionKitExampleSource"]')).not.toBeNull();
+        expect(immersionGrids[1]?.querySelector('select[name="immersionKitSort"]')).toBeNull();
+        expect(immersionGrids[2]?.querySelector('input[name="immersionKitPlayOnImageClick"]')).not.toBeNull();
+    });
+
+    it('keeps mobile settings text controls at iOS no-zoom size after base input styling', () => {
+        const normalizedCss = SETTINGS_CSS.replace(/\s+/g, ' ');
+        const baseControlFontIndex = normalizedCss.indexOf('.jpdb-reader-settings input, .jpdb-reader-settings select, .jpdb-reader-settings textarea {');
+        const noZoomFontIndex = normalizedCss.indexOf('@media (hover: none), (pointer: coarse) { .jpdb-reader-settings input:not([type="checkbox"]):not([type="radio"]):not([type="color"]), .jpdb-reader-settings select, .jpdb-reader-settings textarea { font-size: max(16px, 1em) !important; } }');
+
+        expect(baseControlFontIndex).toBeGreaterThanOrEqual(0);
+        expect(noZoomFontIndex).toBeGreaterThan(baseControlFontIndex);
+        expect(normalizedCss).toContain('.jpdb-reader-settings .jpdb-reader-tag-chip-list, .jpdb-reader-settings .jpdb-reader-tag-add-row { display: flex; flex-wrap: wrap;');
+        expect(normalizedCss).toContain('.jpdb-reader-settings .jpdb-reader-tag-chip:hover, .jpdb-reader-settings .jpdb-reader-tag-chip:focus-visible { border-color: color-mix(in srgb, var(--jpdb-reader-text) 40%, var(--jpdb-reader-border));');
+        expect(normalizedCss).toContain('.jpdb-reader-settings .jpdb-reader-tag-chip:focus-visible { box-shadow: 0 0 0 3px var(--jpdb-reader-accent-soft);');
+        expect(normalizedCss).toContain('.jpdb-reader-settings .jpdb-reader-tag-add-row input, .jpdb-reader-settings .jpdb-reader-tag-add-row .jpdb-reader-btn { flex-basis: 100%; }');
+    });
+
+
+
+    it('shows Immersion Kit reveal audio autoplay enabled by default', () => {
+        const form = document.createElement('form');
+        form.innerHTML = renderSettingsForm(DEFAULT_SETTINGS, 'https://jpdb.io/settings');
+        const toggle = form.querySelector<HTMLInputElement>('input[name="immersionKitAutoPlayAudio"]');
+
+        expect(DEFAULT_SETTINGS.immersionKitAutoPlayAudio).toBe(true);
+        expect(toggle?.checked).toBe(true);
+        expect(toggle?.closest('label')?.textContent).toContain('reveal');
+    });
+
+    it('uses one autoplay selector while preserving an old silent profile on Save', () => {
+        const current = { ...DEFAULT_SETTINGS, autoPlayAudio: false, audioAutoPlayMode: 'hover' as const };
+        const form = renderSettingsTestForm(current);
+        const select = form.querySelector<HTMLSelectElement>('select[name="audioAutoPlayMode"]')!;
+
+        expect(form.querySelector('input[name="autoPlayAudio"]')).toBeNull();
+        expect(form.querySelector('input[name="audioTimeoutMs"]')).toBeNull();
+        expect(form.querySelector('select[name="audioSelectionMode"]')).toBeNull();
+        expect(optionText(form, 'audioAutoPlayMode', 'off')).toBe('Off');
+        expect(select.disabled).toBe(false);
+        expect(select.value).toBe('off');
+        expect(readFormSettings(new FormData(form), current)).toMatchObject({ autoPlayAudio: false, audioAutoPlayMode: 'hover' });
+
+        for (const mode of ['all', 'hover', 'tap'] as const) {
+            select.value = mode;
+            expect(readFormSettings(new FormData(form), current)).toMatchObject({ autoPlayAudio: true, audioAutoPlayMode: mode });
+        }
+        select.value = 'off';
+        expect(readFormSettings(new FormData(form), DEFAULT_SETTINGS).autoPlayAudio).toBe(false);
+    });
+
+    it('uses zero to disable the example cap and keeps old capped backups editable', () => {
+        const current = { ...DEFAULT_SETTINGS, immersionKitLimitEnabled: true, immersionKitLimit: 3 };
+        const form = renderSettingsTestForm(current);
+        const count = form.querySelector<HTMLInputElement>('input[name="immersionKitLimit"]')!;
+        expect(form.querySelector('input[name="immersionKitLimitEnabled"]')).toBeNull();
+        expect(count.value).toBe('3');
+        expect(readFormSettings(new FormData(form), current)).toMatchObject({ immersionKitLimitEnabled: true, immersionKitLimit: 3 });
+        count.value = '0';
+        expect(readFormSettings(new FormData(form), current)).toMatchObject({ immersionKitLimitEnabled: false, immersionKitLimit: 3 });
+        count.value = '5';
+        expect(readFormSettings(new FormData(form), current)).toMatchObject({ immersionKitLimitEnabled: true, immersionKitLimit: 5 });
+        const uncapped = renderSettingsTestForm(DEFAULT_SETTINGS);
+        expect(uncapped.querySelector<HTMLInputElement>('input[name="immersionKitLimit"]')?.value).toBe('0');
+    });
+
+    it('renders ready JPDB and disabled Anki status lights in settings', () => {
+        const form = renderSettingsTestForm({ ...DEFAULT_SETTINGS, apiKey: 'jpdb-key', ankiEnabled: false });
+        const jpdbStatus = settingsText(form, '[data-jpdb-status]');
+        const ankiStatus = settingsText(form, '[data-anki-status]');
+
+        expect(settingsTone(form, '[data-jpdb-status]')).toBe('success');
+        expect(jpdbStatus).toContain('Ready:');
+        expect(jpdbStatus).toContain('JPDB key set');
+        expect(jpdbStatus).not.toContain('Reviews:');
+        expect(jpdbStatus).not.toContain('Deck changes:');
+        expect(settingsTone(form, '[data-anki-status]')).toBe('pending');
+        expect(ankiStatus).toContain('Anki mining disabled');
+        expect(ankiStatus).not.toContain('Mobile Anki handoff');
+        expect(ankiStatus).not.toContain('Full Anki features use desktop AnkiConnect');
+    });
+
+    it('keeps the JPDB status focused on the key when review actions are disabled', () => {
+        const form = renderSettingsTestForm({ ...DEFAULT_SETTINGS, apiKey: 'jpdb-key', enableReviews: false, jpdbMiningEnabled: false });
+        const jpdbStatus = settingsText(form, '[data-jpdb-status]');
+
+        expect(settingsTone(form, '[data-jpdb-status]')).toBe('success');
+        expect(jpdbStatus).toContain('Ready:');
+        expect(jpdbStatus).toContain('JPDB key set');
+        expect(jpdbStatus).not.toContain('Reviews:');
+        expect(jpdbStatus).not.toContain('Deck changes:');
+    });
+
+    it('renders ready API status when only the Jiten key is set', () => {
+        const form = renderSettingsTestForm({ ...DEFAULT_SETTINGS, apiKey: '', jitenApiKey: 'ak_jiten-key' });
+        const apiStatus = settingsText(form, '[data-jpdb-status]');
+
+        expect(settingsTone(form, '[data-jpdb-status]')).toBe('success');
+        expect(apiStatus).toContain('Ready:');
+        expect(apiStatus).toContain('Jiten key set');
+        expect(apiStatus).not.toContain('JPDB-backed cards need a JPDB key');
+        expect(form.querySelector<HTMLElement>('[data-jiten-status]')).toBeNull();
+    });
+
+    it('keeps Jiten kanji source help distinct after localization', () => {
+        const form = renderSettingsTestForm({ ...DEFAULT_SETTINGS, apiKey: '', jitenApiKey: 'ak_jiten-key' });
+        const bothKeysForm = renderSettingsTestForm({ ...DEFAULT_SETTINGS, apiKey: 'jpdb-key', jitenApiKey: 'ak_jiten-key' });
+
+        localizeSettingsForm(form, 'en');
+        localizeSettingsForm(bothKeysForm, 'en');
+
+        expect(form.querySelector<HTMLElement>('[data-source-id="__kanji_stroke__"]')?.title).toBe('Stroke order preview and drawing pad.');
+        expect(form.querySelector<HTMLElement>('[data-source-id="__kanji_jpdb__"]')?.title).toBe('Jiten kanji facts, frequency, readings, words.');
+        expect(bothKeysForm.querySelector<HTMLElement>('[data-source-id="__kanji_jpdb__"]')?.title).toBe('Jiten kanji facts, frequency, readings, words.');
+        expect(form.querySelector('[data-source-id="__kanji_similar_words__"]')).toBeNull();
+        expect(form.textContent).not.toContain('Related vocabulary');
+        expect(form.textContent).not.toContain('Words using this kanji');
+        expect(orderedKanjiSourceIds({ ...DEFAULT_SETTINGS, apiKey: '', jitenApiKey: 'ak_jiten-key' })).not.toContain(KANJI_SIMILAR_WORDS_SOURCE_ID);
+    });
+
+    it('removes redundant Kanji detail controls while preserving saved detail settings', () => {
+        const current = {
+            ...DEFAULT_SETTINGS,
+            kanjiOriginKanjiMapEnabled: false,
+            kanjiOriginGraphEnabled: false,
+            kanjiOriginRadicalImagesEnabled: false,
+        };
+        const form = renderSettingsTestForm(current);
+        const kanjiPanel = form.querySelector<HTMLElement>('#jpdb-reader-settings-panel-kanji')!;
+
+        expect(kanjiPanel.dataset.settingsPanel).toBe('dictionaries');
+        expect(kanjiPanel.textContent).not.toContain('Show kanji facts and component graph');
+        expect(kanjiPanel.textContent).not.toContain('Show component graph');
+        expect(kanjiPanel.textContent).not.toContain('Show radical images');
+        expect(kanjiPanel.textContent).not.toContain('Similar word limit');
+        expect(kanjiPanel.querySelector('input[name="similarKanjiWordLimit"]')).toBeNull();
+        expect(readFormSettings(new FormData(form), current)).toMatchObject({
+            kanjiOriginKanjiMapEnabled: false,
+            kanjiOriginGraphEnabled: false,
+            kanjiOriginRadicalImagesEnabled: false,
+        });
+    });
+
+    it('renders pending JPDB status when the API key is missing', () => {
+        const form = renderSettingsTestForm({ ...DEFAULT_SETTINGS, apiKey: '' });
+        const jpdbStatus = settingsText(form, '[data-jpdb-status]');
+
+        expect(settingsTone(form, '[data-jpdb-status]')).toBe('pending');
+        expect(jpdbStatus).toContain('Needs setup:');
+        expect(jpdbStatus).toContain('No Jiten or JPDB key');
+        expect(jpdbStatus).not.toContain('Public lookup works');
+        expect(form.querySelector<HTMLElement>('[data-jiten-status]')).toBeNull();
+    });
+
+    it('programmatically describes disabled dependent controls', () => {
+        const form = document.createElement('form');
+        form.innerHTML = renderSettingsForm({ ...DEFAULT_SETTINGS, jpdbMiningEnabled: false }, 'https://jpdb.io/settings');
+        localizeSettingsForm(form, 'en');
+
+        const dependent = form.querySelector<HTMLInputElement>('input[name="addToForq"]')!;
+        const descriptionId = dependent.getAttribute('aria-describedby') ?? '';
+        const description = form.querySelector<HTMLElement>('#jpdb-reader-disabled-control-description');
+
+        expect(dependent.disabled).toBe(true);
+        expect(descriptionId.split(/\s+/)).toContain('jpdb-reader-disabled-control-description');
+        expect(description?.textContent).toContain('Controlled by another setting');
+    });
+
+    it('shows AnkiConnect and library availability in the Anki settings panel', () => {
+        const form = document.createElement('form');
+        form.innerHTML = renderSettingsForm({
+            ...DEFAULT_SETTINGS,
+            ankiEnabled: true,
+            ankiConnectUrl: 'http://192.168.1.8:8765',
+            ankiMobileHandoff: false,
+        }, 'https://jpdb.io/settings');
+        localizeSettingsForm(form, 'en');
+        const status = form.querySelector<HTMLElement>('[data-anki-status]')!;
+        const adapter = form.querySelector<HTMLElement>('[data-anki-library-availability]')!;
+
+        expect(status.closest('.jpdb-reader-settings-wide')).not.toBeNull();
+        expect(status.querySelector<HTMLElement>('.jpdb-reader-status-main')?.textContent).toContain('Checking AnkiConnect at http://192.168.1.8:8765');
+        expect(status.querySelector('.jpdb-reader-status-checklist')).toBeNull();
+        expect(status.textContent).toContain('Checking AnkiConnect at http://192.168.1.8:8765');
+        expect(status.textContent).not.toContain('Mobile Anki handoff');
+        expect(status.textContent).not.toContain('Full Anki features use desktop AnkiConnect');
+        expect(adapter.textContent).toContain('Scans decks/types and suggests mappings.');
+        const help = form.querySelector<HTMLElement>('[data-anki-setup-help]')!;
+        const helpLink = help.querySelector<HTMLAnchorElement>('a[href="https://ankiweb.net/shared/info/2055492159"]');
+        const docsLink = help.querySelector<HTMLAnchorElement>('a[href$="learn/your-own-setup#use-desktop-anki-from-a-phone-ipad-or-android"]');
+        expect(helpLink?.textContent).toContain('Open AnkiConnect add-on');
+        expect(docsLink?.textContent).toContain('Mobile Anki setup docs');
+        expect(help.textContent).toContain('Install AnkiConnect and keep desktop Anki open');
+        expect(help.textContent).toContain('webCorsOriginList');
+        expect(help.textContent).toContain('Mobile handoff creates notes only.');
+        expect(form.textContent).not.toContain('Scan Anki to choose from your decks and note types');
+    });
+
+    it('names each saved study-status colour policy distinctly', () => {
+        const form = document.createElement('form');
+        form.innerHTML = renderSettingsForm({
+            ...DEFAULT_SETTINGS,
+            apiKey: 'jpdb-key',
+            wordTextColorSource: 'status',
+        }, 'https://jpdb.io/settings');
+
+        const textColor = form.querySelector<HTMLSelectElement>('select[name="wordTextColorSource"]')!;
+        expect(optionText(form, 'wordTextColorSource', 'status')).toBe('All study statuses');
+        expect(textColor.value).toBe('status');
+        expect(readFormSettings(new FormData(form), DEFAULT_SETTINGS).wordTextColorSource).toBe('status');
+
+        localizeSettingsForm(form, 'ja');
+        expect(statusColorSourceLabels(form, 'wordTextColorSource')).toEqual([
+            'すべての学習状態',
+            'メインデッキの学習状態',
+            'Ankiの学習状態',
+        ]);
+        expectDistinctStatusColorSourceLabels(form);
+
+        const jitenForm = document.createElement('form');
+        jitenForm.innerHTML = renderSettingsForm({
+            ...DEFAULT_SETTINGS,
+            apiKey: '',
+            jitenApiKey: 'ak_jiten-key',
+            wordHighlightColorSource: 'jpdb',
+            wordTextColorSource: 'status',
+        }, 'https://jpdb.io/settings');
+
+        expect(optionText(jitenForm, 'wordTextColorSource', 'status')).toBe('All study statuses');
+        expect(optionText(jitenForm, 'wordHighlightColorSource', 'jpdb')).toBe('Primary deck status');
+        expect(optionText(jitenForm, 'newTabKanjiKeywordSource', 'auto')).toBe('Automatic');
+        expect(optionText(jitenForm, 'newTabKanjiKeywordSource', 'jpdb')).toBe('Jiten kanji facts (Jiten / JPDB)');
+        expect(labelForControl(jitenForm, 'jpdbDefinitionsEnabled')).toBe('');
+        expect(labelForControl(jitenForm, 'localDictionariesEnabled')).toBe('Show imported dictionary definitions');
+        expect(labelForControl(jitenForm, 'dictionarySourcesInitiallyExpanded')).toBe('');
+        expect(labelForControl(jitenForm, 'localDictionaryMaxResults')).toBe('');
+
+        // The labels describe stable policies rather than today's provider;
+        // adding or removing a credential must not silently rename a choice.
+        const academyForm = document.createElement('form');
+        academyForm.innerHTML = renderSettingsForm({
+            ...DEFAULT_SETTINGS,
+            apiKey: '',
+            jitenApiKey: '',
+            yomuLocalSrsEnabled: true,
+            wordTextColorSource: 'status',
+        }, 'https://jpdb.io/settings');
+
+        expect(optionText(academyForm, 'wordHighlightColorSource', 'jpdb')).toBe('Primary deck status');
+        expect(optionText(academyForm, 'wordTextColorSource', 'status')).toBe('All study statuses');
+        localizeSettingsForm(academyForm, 'en');
+        expect(optionText(academyForm, 'wordHighlightColorSource', 'jpdb')).toBe('Primary deck status');
+
+        const ankiForm = document.createElement('form');
+        ankiForm.innerHTML = renderSettingsForm({
+            ...DEFAULT_SETTINGS,
+            apiKey: '',
+            jitenApiKey: '',
+            ankiEnabled: true,
+            yomuLocalSrsEnabled: false,
+        }, 'https://jpdb.io/settings');
+        localizeSettingsForm(ankiForm, 'en');
+        expect(statusColorSourceLabels(ankiForm, 'wordTextColorSource')).toEqual([
+            'All study statuses',
+            'Primary deck status',
+            'Anki status',
+        ]);
+        expect(optionText(ankiForm, 'wordTextColorSource', 'pitch')).toBe('Pitch accent');
+        expect(optionText(ankiForm, 'wordTextColorSource', 'off')).toBe('None');
+        expectDistinctStatusColorSourceLabels(ankiForm);
+        expect(ankiForm.querySelector<HTMLElement>('[data-status-color-no-source]')?.hidden).toBe(true);
+
+        localizeSettingsForm(ankiForm, 'ja');
+        expect(statusColorSourceLabels(ankiForm, 'wordTextColorSource')).toEqual([
+            'すべての学習状態',
+            'メインデッキの学習状態',
+            'Ankiの学習状態',
+        ]);
+        expect(optionText(ankiForm, 'wordTextColorSource', 'pitch')).toBe('ピッチアクセント');
+        expect(optionText(ankiForm, 'wordTextColorSource', 'off')).toBe('なし');
+        expectDistinctStatusColorSourceLabels(ankiForm);
+
+        const decklessForm = document.createElement('form');
+        decklessForm.innerHTML = renderSettingsForm({
+            ...DEFAULT_SETTINGS,
+            apiKey: '',
+            jitenApiKey: '',
+            ankiEnabled: false,
+            yomuLocalSrsEnabled: false,
+        }, 'https://jpdb.io/settings');
+        localizeSettingsForm(decklessForm, 'en');
+        expect(optionText(decklessForm, 'wordHighlightColorSource', 'jpdb')).toBe('Primary deck status');
+        expect(optionText(decklessForm, 'wordTextColorSource', 'status')).toBe('All study statuses');
+        expectDistinctStatusColorSourceLabels(decklessForm);
+        expect(decklessForm.querySelector<HTMLElement>('[data-status-color-no-source]')?.hidden).toBe(false);
+    });
+
+    it('keeps subtitle preview color classes and status regions accessible', () => {
+        const form = document.createElement('form');
+        form.innerHTML = renderSettingsForm({
+            ...DEFAULT_SETTINGS,
+            subtitleHighlightColorSource: 'status',
+            subtitleUnderlineColorSource: 'pitch',
+            subtitleTextColorSource: 'anki',
+        }, 'https://jpdb.io/settings');
+
+        syncSubtitlePreview(form);
+
+        const preview = form.querySelector<HTMLElement>('[data-subtitle-preview]')!;
+        const previewWords = Array.from(preview.querySelectorAll<HTMLElement>('[data-settings-preview-lookup]'));
+        const dictionaryStatus = form.querySelector<HTMLElement>('[data-dictionary-status]')!;
+        expect(preview.classList.contains('jpdb-reader-subtitle-highlight-status')).toBe(true);
+        expect(preview.classList.contains('jpdb-reader-subtitle-underline-pitch')).toBe(true);
+        expect(preview.classList.contains('jpdb-reader-subtitle-text-review')).toBe(true);
+        expect(previewWords.length).toBeGreaterThan(0);
+        expect(previewWords.every(word => word.tabIndex === -1)).toBe(true);
+        expect(dictionaryStatus.getAttribute('role')).toBe('status');
+        expect(dictionaryStatus.getAttribute('aria-live')).toBe('polite');
+    });
+
+    it('previews native translation display mode and concealment strength', () => {
+        const form = document.createElement('form');
+        form.innerHTML = renderSettingsForm({
+            ...DEFAULT_SETTINGS,
+            subtitleSecondaryVisible: true,
+            subtitleNativeBlurred: true,
+            subtitleNativeBlurStrength: 17,
+        }, 'https://jpdb.io/settings');
+
+        syncSubtitlePreview(form);
+
+        const preview = form.querySelector<HTMLElement>('[data-subtitle-preview]')!;
+        const native = preview.querySelector<HTMLElement>('.jpdb-subtitle-secondary')!;
+        const mode = form.querySelector<HTMLSelectElement>('select[name="subtitleNativeDisplay"]')!;
+        const strength = form.querySelector<HTMLInputElement>('input[name="subtitleNativeBlurStrength"]')!;
+        expect(mode.value).toBe('blurred');
+        expect(native.classList.contains('jpdb-subtitle-secondary-blurred')).toBe(true);
+        expect(preview.style.getPropertyValue('--subtitle-native-blur-radius')).toBe('17px');
+        expect(strength.closest<HTMLElement>('label')?.hidden).toBe(false);
+
+        mode.value = 'hidden';
+        syncSubtitlePreview(form);
+
+        expect(native.hidden).toBe(true);
+        expect(strength.closest<HTMLElement>('label')?.hidden).toBe(true);
+    });
+
+    it('exposes video-safe autoplay and no page-dimming setting', () => {
+        const form = document.createElement('form');
+        form.innerHTML = renderSettingsForm(DEFAULT_SETTINGS, 'https://jpdb.io/settings');
+        const videoAudio = form.querySelector<HTMLInputElement>('input[name="suppressAutoAudioOnVideo"]')!;
+
+        expect(DEFAULT_SETTINGS.suppressAutoAudioOnVideo).toBe(true);
+        expect(videoAudio.checked).toBe(true);
+        // A lookup never dims the page, so there is nothing to switch off.
+        expect(form.querySelector('input[name="popoverBackdropEnabled"]')).toBeNull();
+        expect('popoverBackdropEnabled' in DEFAULT_SETTINGS).toBe(false);
+
+        videoAudio.checked = false;
+
+        const saved = readFormSettings(new FormData(form), DEFAULT_SETTINGS);
+        expect(saved.suppressAutoAudioOnVideo).toBe(false);
+    });
+
+    it('persists font presets, custom font stacks, pause panel, and navigation shortcuts', () => {
+        const form = document.createElement('form');
+        form.innerHTML = renderSettingsForm(DEFAULT_SETTINGS, 'https://jpdb.io/settings');
+        const readerFontFamily = form.querySelector<HTMLSelectElement>('select[name="readerFontFamily"]')!;
+        const customReaderFontFamily = form.querySelector<HTMLInputElement>('input[name="readerFontFamilyCustom"]')!;
+        const fontFamily = form.querySelector<HTMLSelectElement>('select[name="popupFontFamily"]')!;
+        const customFontFamily = form.querySelector<HTMLInputElement>('input[name="popupFontFamilyCustom"]')!;
+        const subtitleFontFamily = form.querySelector<HTMLSelectElement>('select[name="subtitleFontFamily"]')!;
+        const customSubtitleFontFamily = form.querySelector<HTMLInputElement>('input[name="subtitleFontFamilyCustom"]')!;
+        const fontWeight = form.querySelector<HTMLInputElement>('input[name="popupFontWeight"]')!;
+        const pausePanel = form.querySelector<HTMLInputElement>('input[name="subtitlePausePanel"]')!;
+        const shadowAutoPause = form.querySelector<HTMLInputElement>('input[name="subtitleShadowAutoPause"]')!;
+        const previousWord = form.querySelector<HTMLInputElement>('input[name="shortcuts.previousLookupWord"]')!;
+        const nextWord = form.querySelector<HTMLInputElement>('input[name="shortcuts.nextLookupWord"]')!;
+        const previousSubtitle = form.querySelector<HTMLInputElement>('input[name="shortcuts.previousSubtitle"]')!;
+        const nextSubtitle = form.querySelector<HTMLInputElement>('input[name="shortcuts.nextSubtitle"]')!;
+        const toggleSubtitles = form.querySelector<HTMLInputElement>('input[name="shortcuts.toggleSubtitleOverlay"]')!;
+
+        expect(readerFontFamily.value).toBe(DEFAULT_SETTINGS.readerFontFamily);
+        expect(fontFamily.value).toBe(DEFAULT_SETTINGS.popupFontFamily);
+        expectFontFamilyOptions(form, 'readerFontFamily', {
+            defaultLabel: 'Built-in font',
+            systemLabel: 'System UI',
+            customLabel: 'Custom...',
+            historicalLabel: 'Hiragino / Yu Gothic',
+            roundedLabel: 'Japanese rounded',
+        });
+        expectFontFamilyOptions(form, 'popupFontFamily', {
+            defaultLabel: 'Built-in font',
+            systemLabel: 'System UI',
+            customLabel: 'Custom...',
+            historicalLabel: 'Hiragino / Yu Gothic',
+            roundedLabel: 'Japanese rounded',
+        });
+        expectFontFamilyOptions(form, 'subtitleFontFamily', {
+            defaultLabel: 'Built-in font',
+            systemLabel: 'System UI',
+            customLabel: 'Custom...',
+            historicalLabel: 'Hiragino / Yu Gothic',
+            roundedLabel: 'Japanese rounded',
+        });
+        expect(subtitleFontFamily.value).toBe(DEFAULT_SETTINGS.subtitleFontFamily);
+        expect(fontWeight.value).toBe('450');
+        expect(pausePanel.checked).toBe(false);
+        expect(shadowAutoPause.checked).toBe(false);
+        expect(form.querySelector('select[name="subtitleTranscriptPlacement"]')).toBeNull();
+        expect(previousWord.value).toBe('Shift+ArrowLeft');
+        expect(nextWord.value).toBe('Shift+ArrowRight');
+        expect(previousSubtitle.value).toBe('A');
+        expect(nextSubtitle.value).toBe('D');
+        expect(DEFAULT_SETTINGS.shortcuts.toggleSubtitleOverlay).toBe('Shift+H');
+        expect(toggleSubtitles.value).toBe('Shift+H');
+
+        readerFontFamily.value = CUSTOM_FONT_FAMILY_VALUE;
+        customReaderFontFamily.value = '"Inter", system-ui, sans-serif';
+        fontFamily.value = CUSTOM_FONT_FAMILY_VALUE;
+        customFontFamily.value = '"Noto Sans JP", sans-serif';
+        subtitleFontFamily.value = CUSTOM_FONT_FAMILY_VALUE;
+        customSubtitleFontFamily.value = '"Yu Mincho", serif';
+        fontWeight.value = '420';
+        pausePanel.checked = true;
+        shadowAutoPause.checked = true;
+        previousWord.value = 'Alt+H';
+        nextWord.value = 'Alt+L';
+        previousSubtitle.value = 'Shift+A';
+        nextSubtitle.value = 'Shift+D';
+        toggleSubtitles.value = 'Ctrl+H';
+
+        const saved = readFormSettings(new FormData(form), { ...DEFAULT_SETTINGS, subtitleTranscriptPlacement: 'bottom' });
+
+        expect(saved.readerFontFamily).toBe('"Inter", system-ui, sans-serif');
+        expect(saved.popupFontFamily).toBe('"Noto Sans JP", sans-serif');
+        expect(saved.subtitleFontFamily).toBe('"Yu Mincho", serif');
+        expect(saved.popupFontWeight).toBe(420);
+        expect(saved.subtitlePausePanel).toBe(true);
+        expect(saved.subtitleShadowAutoPause).toBe(true);
+        expect(saved.subtitleTranscriptPlacement).toBe('bottom');
+        expect(saved.shortcuts.previousLookupWord).toBe('Alt+H');
+        expect(saved.shortcuts.nextLookupWord).toBe('Alt+L');
+        expect(saved.shortcuts.previousSubtitle).toBe('Shift+A');
+        expect(saved.shortcuts.nextSubtitle).toBe('Shift+D');
+        expect(saved.shortcuts.toggleSubtitleOverlay).toBe('Ctrl+H');
+    });
+
+    // Alt+Arrow was the default before 0.7.36; every record written since holds
+    // A/D or the learner's own keys, so a saved pair is never rewritten (ADR-0012).
+    it('keeps saved subtitle line shortcuts as chosen', () => {
+        const altArrows = normalizeReaderSettings({
+            ...DEFAULT_SETTINGS,
+            shortcuts: {
+                ...DEFAULT_SETTINGS.shortcuts,
+                previousSubtitle: 'Alt+ArrowLeft',
+                nextSubtitle: 'Alt+ArrowRight',
+            },
+        });
+
+        expect(altArrows.shortcuts.previousSubtitle).toBe('Alt+ArrowLeft');
+        expect(altArrows.shortcuts.nextSubtitle).toBe('Alt+ArrowRight');
+
+        const customized = normalizeReaderSettings({
+            ...DEFAULT_SETTINGS,
+            shortcuts: {
+                ...DEFAULT_SETTINGS.shortcuts,
+                previousSubtitle: 'Shift+A',
+                nextSubtitle: 'Shift+D',
+            },
+        });
+
+        expect(customized.shortcuts.previousSubtitle).toBe('Shift+A');
+        expect(customized.shortcuts.nextSubtitle).toBe('Shift+D');
+    });
+
+    it('renders Study shortcuts as configurable shortcut inputs', () => {
+        const form = document.createElement('form');
+        form.innerHTML = renderSettingsForm(DEFAULT_SETTINGS, 'https://jpdb.io/settings');
+        const reveal = form.querySelector<HTMLInputElement>('input[name="shortcuts.studyReveal"]')!;
+        const revealAlternate = form.querySelector<HTMLInputElement>('input[name="shortcuts.studyRevealAlternate"]')!;
+        const undo = form.querySelector<HTMLInputElement>('input[name="shortcuts.studyUndo"]')!;
+        const previous = form.querySelector<HTMLInputElement>('input[name="shortcuts.studyPrevious"]')!;
+        const next = form.querySelector<HTMLInputElement>('input[name="shortcuts.studyNext"]')!;
+
+        expect(form.textContent).not.toContain('Study page keys');
+        expect(form.textContent).not.toContain('Fixed keys');
+        expect(topLevelLegendForControl(form, 'shortcuts.studyReveal')).toBe('Shortcuts');
+        expect(reveal.value).toBe('Space');
+        expect(revealAlternate.value).toBe('Enter');
+        expect(undo.value).toBe('U');
+        expect(previous.value).toBe('ArrowLeft');
+        expect(next.value).toBe('ArrowRight');
+
+        reveal.value = 'R';
+        revealAlternate.value = '';
+        undo.value = 'Z';
+        previous.value = 'H';
+        next.value = 'L';
+
+        const saved = readFormSettings(new FormData(form), DEFAULT_SETTINGS);
+
+        expect(saved.shortcuts.studyReveal).toBe('R');
+        expect(saved.shortcuts.studyRevealAlternate).toBe('');
+        expect(saved.shortcuts.studyUndo).toBe('Z');
+        expect(saved.shortcuts.studyPrevious).toBe('H');
+        expect(saved.shortcuts.studyNext).toBe('L');
+    });
+
+});

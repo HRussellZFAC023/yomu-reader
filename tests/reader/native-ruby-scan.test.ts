@@ -1,4 +1,3 @@
-import '../../src/reader/companions/register-build-companions';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { applyTokensToScanTarget, collectFragmentTextTargetsIn, readerWordSurfaceText } from '../../src/reader/dom/index';

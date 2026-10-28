@@ -1,11 +1,15 @@
-// Filesystem/subprocess inputs, including generic helpers called by this test.
-// @yomu-reads public/academy/** docs/public/academy/** src/academy/audio/manifest.json workers/yomu-academy/media-manifest.json
 import { Blob as NodeBlob } from 'node:buffer';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
-import { AUTHORIZED_AUDIO_CATALOG, AUTHORIZED_AUDIO_MANIFEST, AUTHORIZED_AUDIO_PRECACHE_URLS, GROUNDED_LOCATION_THEME_SLOTS, audioPrecacheUrlsFromManifest, parseAudioManifest, catalogFromManifest, sfxSourcesFromManifest } from '../../src/academy/audio/manifest';
+import {
+    AUTHORIZED_AUDIO_CATALOG,
+    AUTHORIZED_AUDIO_MANIFEST,
+    AUTHORIZED_AUDIO_PRECACHE_URLS,
+    GROUNDED_LOCATION_THEME_SLOTS,
+    audioPrecacheUrlsFromManifest,
+    parseAudioManifest,
+} from '../../src/academy/audio/manifest';
 import { WORLD_EXPANSION_AUDIO_PROFILES, WORLD_LOCATION_AUDIO_PROFILES } from '../../src/academy/vn/world-location-audio';
-import { type AudioRights } from '../../src/academy/audio/types';
 
 const serviceWorkers = [
     'public/academy/sw.js',
@@ -181,103 +185,5 @@ describe('grounded Academy audio registry', () => {
         expect(audioPrecacheUrlsFromManifest(manifest, false)).toEqual([
             '/academy/media/audio/prototype/library.flac',
         ]);
-    });
-});
-
-describe('audio-manifest-sfx behavior', () => {
-    const releaseRights: AudioRights = {
-        owner: 'Henry Russell',
-        licence: 'Owner-attested educational use',
-        source: 'private local archive',
-        reviewed: true,
-        scope: 'release',
-    };
-
-    const manifestJson = {
-        version: 1,
-        themes: [
-            {
-                slot: 'campus.evening',
-                bus: 'music',
-                trackId: 'persona-evening',
-                title: 'Evening Theme',
-                mediaKey: 'persona/theme/evening.m4a',
-                loop: true,
-                gain: 0.8,
-                rights: releaseRights,
-            },
-            {
-                slot: 'library.quiet',
-                bus: 'ambience',
-                trackId: 'prototype-only',
-                title: 'Prototype pad',
-                mediaKey: 'persona/theme/pad.m4a',
-                loop: true,
-                gain: 0.5,
-                rights: { ...releaseRights, scope: 'private-prototype' },
-            },
-        ],
-        sfx: [
-            { cue: 'menu.confirm', mediaKey: 'shinday/sfx/confirm.m4a', gain: 1, rights: releaseRights },
-            { cue: 'page.turn', mediaKey: 'shinday/sfx/page.m4a', gain: 0.6, rights: { ...releaseRights, scope: 'private-prototype' } },
-        ],
-    };
-
-    describe('Academy audio manifest', () => {
-        it('parses entries and routes URLs through the protected media endpoint', () => {
-            const manifest = parseAudioManifest(manifestJson);
-            expect(manifest.themes).toHaveLength(2);
-            expect(catalogFromManifest(manifest)['campus.evening'].music?.url).toBe('/academy/media/audio/persona/theme/evening.m4a');
-            expect(catalogFromManifest(AUTHORIZED_AUDIO_MANIFEST)['campus.evening'].music?.url)
-                .toBe('/academy/media/audio/v1/persona/royal-days.opus');
-        });
-
-        it('rejects malformed entries: bad keys, gains, and unreviewed rights', () => {
-            const withTheme = (patch: Record<string, unknown>): unknown => ({
-                version: 1,
-                themes: [{ ...manifestJson.themes[0], ...patch }],
-                sfx: [],
-            });
-            expect(() => parseAudioManifest({ version: 2, themes: [], sfx: [] })).toThrow(/version/);
-            expect(() => parseAudioManifest(withTheme({ mediaKey: '../escape.m4a' }))).toThrow(/media key/);
-            expect(() => parseAudioManifest(withTheme({ gain: 1.5 }))).toThrow(/gain/);
-            expect(() => parseAudioManifest(withTheme({ rights: { ...releaseRights, reviewed: false } }))).toThrow(/rights/);
-            expect(() => parseAudioManifest(withTheme({ rights: { ...releaseRights, owner: ' ' } }))).toThrow(/rights/);
-            expect(() => parseAudioManifest(withTheme({ bus: 'sfx' }))).toThrow(/bus/);
-        });
-
-        it('loads the checked-in owner-approved catalog through protected media routes', () => {
-            const raw = JSON.parse(readFileSync(path.resolve('src/academy/audio/manifest.json'), 'utf8'));
-            const manifest = parseAudioManifest(raw);
-            const tracks = Object.values(catalogFromManifest(manifest, false)).flatMap(profile => [profile.music, profile.ambience]).filter(Boolean);
-            const sources = [...tracks, ...sfxSourcesFromManifest(manifest, false).values()];
-            expect(sources.length).toBe(manifest.themes.length + manifest.sfx.length);
-            for (const source of sources) expect(source?.url).toMatch(/^\/academy\/media\/audio\//);
-            expect(AUTHORIZED_AUDIO_MANIFEST).toEqual(manifest);
-            expect(AUTHORIZED_AUDIO_CATALOG['campus.evening'].music?.id).toBe('persona.royal-days');
-            expect(AUTHORIZED_AUDIO_CATALOG['lab.listening'].music).toBeUndefined();
-
-            const delivery = JSON.parse(readFileSync(path.resolve('workers/yomu-academy/media-manifest.json'), 'utf8')) as {
-                objects: Array<{ key: string; sha256: string }>;
-            };
-            const deliveredKeys = new Set(delivery.objects.map(object => object.key));
-            for (const key of [...manifest.themes.map(entry => entry.mediaKey), ...manifest.sfx.map(entry => entry.mediaKey)]) {
-                expect(deliveredKeys.has(key), key).toBe(true);
-            }
-        });
-        it('gates the catalog and SFX map on rights scope in release mode', () => {
-            const manifest = parseAudioManifest(manifestJson);
-
-            const releaseCatalog = catalogFromManifest(manifest, true);
-            expect(releaseCatalog['campus.evening'].music?.id).toBe('persona-evening');
-            expect(releaseCatalog['library.quiet'].ambience).toBeUndefined();
-
-            const prototypeCatalog = catalogFromManifest(manifest, false);
-            expect(prototypeCatalog['library.quiet'].ambience?.id).toBe('prototype-only');
-
-            const releaseSfx = sfxSourcesFromManifest(manifest, true);
-            expect([...releaseSfx.keys()]).toEqual(['menu.confirm']);
-            expect(sfxSourcesFromManifest(manifest, false).size).toBe(2);
-        });
     });
 });

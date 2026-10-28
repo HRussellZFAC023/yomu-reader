@@ -51,7 +51,7 @@ export const LEGACY_DOC_REDIRECTS = Object.freeze({
 // do installed builds that will never update that link.
 const PHONE_ANKI = '#use-desktop-anki-from-a-phone-ipad-or-android';
 
-const LEGACY_DOC_HASH_REDIRECTS = Object.freeze({
+export const LEGACY_DOC_HASH_REDIRECTS = Object.freeze({
     'getting-started.md': Object.freeze({ [PHONE_ANKI]: '/faq#anki-on-a-phone' }),
     'learn/week-one.md': Object.freeze({
         '#press-your-first-word': '/install#then',

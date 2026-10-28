@@ -23,6 +23,7 @@ if (!Array.isArray(spec.promotions)) throw new TypeError('Story-art spec require
 const authored = loadAuthoredNodes();
 const bindings = {};
 const runtimeAssets = {};
+const coverage = {};
 const ledgerAssets = [];
 
 for (const promotion of spec.promotions) {
@@ -73,6 +74,10 @@ for (const promotion of spec.promotions) {
         provenance: 'regenerated-house-style',
         files,
     };
+    coverage[promotion.assetId] = {
+        purpose: 'story-event',
+        primaryUse: promotion.nodeId,
+    };
     ledgerAssets.push({
         id: promotion.assetId.replaceAll('.', '-'),
         source: 'manifest:docs/academy/art/STORY-ART-PROMOTIONS.json',
@@ -98,7 +103,7 @@ assertUnique(
     'story delivery',
 );
 
-fs.writeFileSync(manifestFile, renderManifest(bindings, runtimeAssets));
+fs.writeFileSync(manifestFile, renderManifest(bindings, runtimeAssets, coverage));
 
 const usage = JSON.parse(fs.readFileSync(usageFile, 'utf8'));
 usage.assets = usage.assets.filter(asset =>
@@ -130,7 +135,7 @@ function loadAuthoredNodes() {
     return nodes;
 }
 
-function renderManifest(bindings, runtimeAssets) {
+function renderManifest(bindings, runtimeAssets, coverage) {
     return `export interface AcademyStoryArtBinding {
     readonly assetId: string;
     readonly sceneId: string;
@@ -148,6 +153,7 @@ export const ACADEMY_STORY_ART_BY_NODE = ${JSON.stringify(bindings, null, 4)} as
 
 export const ACADEMY_STORY_ART_RUNTIME_ASSETS = ${JSON.stringify(runtimeAssets, null, 4)} as const;
 
+export const ACADEMY_STORY_ART_COVERAGE = ${JSON.stringify(coverage, null, 4)} as const;
 `;
 }
 

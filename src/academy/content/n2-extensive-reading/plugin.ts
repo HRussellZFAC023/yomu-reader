@@ -1,7 +1,34 @@
-import { ACADEMY_ASSESSED_ANSWER_SUPPORT, type ActivityController, type ActivityEvaluation, type ActivityHost, type ActivityPlugin, type GradeResult, type ReviewSeed, type ValidationIssue } from '../../domain/activity-runtime';
-import { assessedJapanese, gradeFromScore, japanese, localized, localizedNodes, setPending, showEvaluation, statusRegion, text, validateFeedback, validatePassScore } from '../../minigames/activity-kit/shared';
+import {
+    ACADEMY_ASSESSED_ANSWER_SUPPORT,
+    createActivityRuntime,
+    type ActivityController,
+    type ActivityEvaluation,
+    type ActivityHost,
+    type ActivityPlugin,
+    type GradeResult,
+    type ReviewSeed,
+    type ValidationIssue,
+} from '../../domain/activity-runtime';
+import {
+    assessedJapanese,
+    gradeFromScore,
+    japanese,
+    localized,
+    localizedNodes,
+    setPending,
+    showEvaluation,
+    statusRegion,
+    text,
+    validateFeedback,
+    validatePassScore,
+} from '../../minigames/activity-kit/shared';
 import { N2_EXTENSIVE_READING_PROVENANCE, N2_EXTENSIVE_READING_SOURCE_PARAGRAPHS } from './source';
-import { N2_EXTENSIVE_READING_ACTIVITY_KIND, type N2ExtensiveReadingModel, type N2ExtensiveReadingQuestion, type N2ExtensiveReadingResponse } from './types';
+import {
+    N2_EXTENSIVE_READING_ACTIVITY_KIND,
+    type N2ExtensiveReadingModel,
+    type N2ExtensiveReadingQuestion,
+    type N2ExtensiveReadingResponse,
+} from './types';
 
 export const n2ExtensiveReadingPlugin: ActivityPlugin<N2ExtensiveReadingModel, N2ExtensiveReadingResponse> = {
     kind: N2_EXTENSIVE_READING_ACTIVITY_KIND,
@@ -10,6 +37,10 @@ export const n2ExtensiveReadingPlugin: ActivityPlugin<N2ExtensiveReadingModel, N
     grade: gradeN2ExtensiveReading,
     toReviewSeeds: n2ExtensiveReadingReviewSeeds,
 };
+
+export function createN2ExtensiveReadingRuntime() {
+    return createActivityRuntime([n2ExtensiveReadingPlugin]);
+}
 
 export function validateN2ExtensiveReading(model: N2ExtensiveReadingModel): readonly ValidationIssue[] {
     const issues: ValidationIssue[] = [];

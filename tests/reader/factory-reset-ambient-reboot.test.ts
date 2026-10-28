@@ -1,6 +1,3 @@
-// Filesystem/subprocess inputs, including generic helpers called by this test.
-// @yomu-reads none
-// @yomu-imports src/reader/app/factory-reset-coordinator.ts src/reader/settings/index.ts src/reader/app/startup.ts src/reader/dictionaries/archive-cache.ts
 import { execFileSync } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
 

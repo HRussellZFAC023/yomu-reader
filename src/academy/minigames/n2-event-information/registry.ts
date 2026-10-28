@@ -9,3 +9,9 @@ if (validationIssues.length) {
 }
 
 export const N2_EVENT_INFORMATION_PACKAGES: readonly N2EventInformationPackage[] = Object.freeze([packageRecord]);
+
+export function resolveN2EventInformationPackage(id: string): N2EventInformationPackage {
+    const found = N2_EVENT_INFORMATION_PACKAGES.find(candidate => candidate.id === id);
+    if (!found) throw new TypeError(`Unknown N2 event-information package: ${id}`);
+    return found;
+}

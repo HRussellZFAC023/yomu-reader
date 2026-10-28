@@ -32,7 +32,7 @@ export function profileDriverProvenance(entryPath, repositoryRoot) {
     };
 }
 
-function transitiveLocalImportFiles(entryPath, repositoryRoot) {
+export function transitiveLocalImportFiles(entryPath, repositoryRoot) {
     const root = resolve(repositoryRoot);
     const pending = [assertInsideRoot(resolve(entryPath), root)];
     const visited = new Set();

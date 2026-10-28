@@ -4,7 +4,13 @@ import { createPicturelessMenuReaderActivity } from '../activities/pictureless-m
 import { ACADEMY_ASSESSED_ANSWER_SUPPORT } from '../domain/activity-runtime';
 import type { LocalizedText } from '../domain/source-library';
 import type { KanjiWritingModel } from '../integration/yomu-bridge';
-import type { StateInspectionInteraction, StateInspectionModel, StateInspectionOption, StateInspectionRound, StateInspectionSourceVisual } from '../minigames/state-inspection';
+import type {
+    StateInspectionInteraction,
+    StateInspectionModel,
+    StateInspectionOption,
+    StateInspectionRound,
+    StateInspectionSourceVisual,
+} from '../minigames/state-inspection';
 import type { LessonActivityBeat } from '../ui/lesson-activity-chapter';
 
 const PACKAGE_ID = 'l2-l34';
@@ -15,7 +21,7 @@ const ARCHIVE_SHA256 = 'fef6a7e4dab4bfc85a5f02e7713837f771ab4a32b316522c5640896d
 const WORKSHEET_SHA256 = '0139b9a8eac967df4d2f159a9a64077b23e3225a04159eff6f601751d8ff9fbd';
 const SOURCE_TITLE = 'Kanji 7-肉、料、理、野、半、大、小_worksheets';
 
-const L2_L34_SOURCE_PAGES: StateInspectionModel['provenance']['moodle']['sourceSheets'] = Object.freeze([
+export const L2_L34_SOURCE_PAGES: StateInspectionModel['provenance']['moodle']['sourceSheets'] = Object.freeze([
     visual(
         1,
         'moodle-kanji-7-worksheet-page-1.png',

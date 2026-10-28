@@ -9,3 +9,9 @@ if (validationIssues.length) {
 }
 
 export const N2_POLICY_SCOPE_PACKAGES: readonly N2PolicyScopePackage[] = Object.freeze([packageRecord]);
+
+export function resolveN2PolicyScopePackage(id: string): N2PolicyScopePackage {
+    const found = N2_POLICY_SCOPE_PACKAGES.find(candidate => candidate.id === id);
+    if (!found) throw new TypeError(`Unknown N2 policy-scope package: ${id}`);
+    return found;
+}

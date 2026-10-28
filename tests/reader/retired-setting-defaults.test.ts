@@ -1,5 +1,3 @@
-// Filesystem inputs supplied to generic helpers are confined to these paths or temporary fixtures.
-// @yomu-reads none
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { ReaderSettings } from '../../src/reader/app/types';

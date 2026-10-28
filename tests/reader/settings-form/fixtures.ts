@@ -1,24 +1,31 @@
-
+import { readFileSync } from 'node:fs';
 import { expect } from 'vitest';
 import { diagnoseAnkiConnectFailure } from '../../../src/reader/anki/transport';
 import { uiText } from '../../../src/reader/app/i18n';
-import { JITEN_DEFINITION_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID } from '../../../src/reader/app/constants';
-
-
+import { ANKI_SOURCE_ID, JITEN_DEFINITION_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID } from '../../../src/reader/app/constants';
+import { INSTALL_GUIDE_URL } from '../../../src/reader/app/userscript-update';
+import { CURRENT_YOMU_VERSION } from '../../../src/reader/app/version';
 import { findRecommendedDictionary } from '../../../src/reader/dictionaries/recommended';
-import { normalizeReaderSettings } from '../../../src/reader/settings/index';
-
-import { applySettingsSearch, installShortcutCapture, localizeSettingsForm, readFormSettings, renderSettingsForm as renderFullSettingsForm } from '../../../src/reader/settings/form';
+import { accentToRgba, accessibleOcrBackgroundColor, accessibleOcrBackgroundOpacity, DEFAULT_SETTINGS as BASE_DEFAULT_SETTINGS, effectiveFuriganaMode, effectiveReaderTextColorSource, normalizeReaderSettings, shouldLookupAnkiStatus } from '../../../src/reader/settings/index';
+import { blendRgba, contrastRatio, cssColorToRgba, rgbaToHex } from '../../../src/reader/theme/color-utils';
+import { activateSettingsPanel, applySettingsSearch, installShortcutCapture, localizeSettingsForm, readFormSettings, renderHelpLinksPanel, renderSettingsForm as renderFullSettingsForm, syncSubtitlePreview } from '../../../src/reader/settings/form';
 import { JAPANESE_ROUNDED_FONT_FAMILY } from '../../../src/reader/settings/font-presets';
 import { CUSTOM_FONT_FAMILY_VALUE } from '../../../src/reader/settings/form-read';
 import { reconcileApiCredentialInputs } from '../../../src/reader/settings/dialog-controller';
-import { orderedDefinitionSourceIds } from '../../../src/reader/sources/sections';
+import { KANJI_SIMILAR_WORDS_SOURCE_ID, orderedDefinitionSourceIds, orderedKanjiSourceIds } from '../../../src/reader/sources/sections';
 import type { AnkiFieldMappingRole, AnkiFieldMappings, ReaderSettings } from '../../../src/reader/app/types';
 import { testEnSettings } from '../helpers/settings-fixture';
 
 // These tests assert English UI copy; pin the interface language for
 // deterministic string assertions regardless of the runtime default.
 export const DEFAULT_SETTINGS = testEnSettings();
+
+export function compositeOverWhiteHex(color: string): string {
+    const foreground = cssColorToRgba(color);
+    const white = cssColorToRgba('#ffffff');
+    if (!foreground || !white) throw new Error(`Unable to parse color ${color}`);
+    return rgbaToHex(blendRgba(foreground, white));
+}
 
 export const frequencySettings = {
     ...DEFAULT_SETTINGS,
@@ -29,6 +36,9 @@ export const frequencySettings = {
         { name: 'JPDB Freq', alias: 'JPDB Freq', enabled: false, priority: 3, type: 'frequency' as const },
     ],
 };
+
+export const SETTINGS_CSS = readFileSync('src/reader/styles/settings.css', 'utf8');
+export const FAQ_DOCS = readFileSync('docs/faq.md', 'utf8');
 const HISTORICAL_HIRAGINO_YU_GOTHIC_FONT = '"Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, sans-serif';
 export const AMBIGUOUS_SCAN_COPY = ['Manual scan', 'only'].join(' ');
 export const IMPORTED_ANKI_FIELD_MAPPINGS: AnkiFieldMappings = {
@@ -52,6 +62,16 @@ export function renderSettingsForm(
     });
 }
 
+export function topLevelLegendForControl(form: HTMLFormElement, controlName: string): string {
+    const control = form.querySelector<HTMLElement>(`[name="${controlName}"]`);
+    const fieldset = control?.closest<HTMLFieldSetElement>('fieldset[data-settings-panel]');
+    const legend = Array.from(fieldset?.children ?? []).find((child): child is HTMLElement =>
+        child instanceof HTMLElement && child.tagName === 'LEGEND',
+    );
+
+    return legend?.textContent ?? '';
+}
+
 export function topLevelLegendsForControl(form: HTMLFormElement, controlName: string): string[] {
     return Array.from(form.querySelectorAll<HTMLElement>(`[name="${controlName}"]`)).map(control => {
         const fieldset = control.closest<HTMLFieldSetElement>('fieldset[data-settings-panel]');
@@ -72,6 +92,10 @@ export function optionText(form: HTMLFormElement, controlName: string, value: st
     return option?.textContent ?? '';
 }
 
+export function checkboxValue(form: HTMLFormElement, controlName: string): boolean | undefined {
+    return form.querySelector<HTMLInputElement>(`input[name="${controlName}"]`)?.checked;
+}
+
 export function radioValue(form: HTMLFormElement, controlName: string): string | undefined {
     return form.querySelector<HTMLInputElement>(`input[name="${controlName}"]:checked`)?.value;
 }
@@ -86,6 +110,18 @@ export function renderSettingsTestForm(settings: typeof DEFAULT_SETTINGS): HTMLF
     return form;
 }
 
+export function renderJapaneseSettingsTestForm(): HTMLFormElement {
+    const form = renderSettingsTestForm({ ...DEFAULT_SETTINGS, ankiEnabled: true });
+    localizeSettingsForm(form, 'ja');
+    return form;
+}
+
+let sharedJapaneseSettingsForm: HTMLFormElement | undefined;
+export function sharedJapaneseSettingsTestForm(): HTMLFormElement {
+    sharedJapaneseSettingsForm ??= renderJapaneseSettingsTestForm();
+    return sharedJapaneseSettingsForm;
+}
+
 export function renderImportedAnkiFieldMappingsForm(): HTMLFormElement {
     return renderSettingsTestForm({
         ...DEFAULT_SETTINGS,
@@ -96,6 +132,10 @@ export function renderImportedAnkiFieldMappingsForm(): HTMLFormElement {
 
 export function settingsText(form: HTMLFormElement, selector: string): string {
     return form.querySelector<HTMLElement>(selector)?.textContent ?? '';
+}
+
+export function settingsTone(form: HTMLFormElement, selector: string): string | undefined {
+    return form.querySelector<HTMLElement>(selector)?.dataset.statusTone;
 }
 
 export function recommendedDictionaryButton(form: HTMLFormElement, id: string): HTMLButtonElement {
@@ -166,7 +206,38 @@ export function registerSettingsFormCleanup(): void {
 
 // Re-export the source symbols referenced directly inside the topic test bodies
 // so every split file imports from this single fixtures module.
-export { diagnoseAnkiConnectFailure, uiText, JITEN_DEFINITION_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID, findRecommendedDictionary, normalizeReaderSettings, applySettingsSearch, installShortcutCapture, localizeSettingsForm, readFormSettings, CUSTOM_FONT_FAMILY_VALUE, reconcileApiCredentialInputs, orderedDefinitionSourceIds };
+export {
+    diagnoseAnkiConnectFailure,
+    uiText,
+    ANKI_SOURCE_ID,
+    JITEN_DEFINITION_SOURCE_ID,
+    JPDB_DEFINITION_SOURCE_ID,
+    INSTALL_GUIDE_URL,
+    CURRENT_YOMU_VERSION,
+
+    findRecommendedDictionary,
+    accentToRgba,
+    accessibleOcrBackgroundColor,
+    accessibleOcrBackgroundOpacity,
+    BASE_DEFAULT_SETTINGS,
+    effectiveFuriganaMode,
+    effectiveReaderTextColorSource,
+    normalizeReaderSettings,
+    shouldLookupAnkiStatus,
+    contrastRatio,
+    activateSettingsPanel,
+    applySettingsSearch,
+    installShortcutCapture,
+    localizeSettingsForm,
+    readFormSettings,
+    renderHelpLinksPanel,
+    syncSubtitlePreview,
+    CUSTOM_FONT_FAMILY_VALUE,
+    reconcileApiCredentialInputs,
+    KANJI_SIMILAR_WORDS_SOURCE_ID,
+    orderedDefinitionSourceIds,
+    orderedKanjiSourceIds,
+};
 export type {
     AnkiFieldMappingRole,
     AnkiFieldMappings,

@@ -1,7 +1,34 @@
-import { ACADEMY_ASSESSED_ANSWER_SUPPORT, type ActivityController, type ActivityEvaluation, type ActivityHost, type ActivityPlugin, type GradeResult, type ReviewSeed, type ValidationIssue } from '../../domain/activity-runtime';
-import { assessedJapanese, gradeFromScore, japanese, localized, localizedNodes, setPending, showEvaluation, statusRegion, text, validateFeedback, validatePassScore } from '../../minigames/activity-kit/shared';
+import {
+    ACADEMY_ASSESSED_ANSWER_SUPPORT,
+    createActivityRuntime,
+    type ActivityController,
+    type ActivityEvaluation,
+    type ActivityHost,
+    type ActivityPlugin,
+    type GradeResult,
+    type ReviewSeed,
+    type ValidationIssue,
+} from '../../domain/activity-runtime';
+import {
+    assessedJapanese,
+    gradeFromScore,
+    japanese,
+    localized,
+    localizedNodes,
+    setPending,
+    showEvaluation,
+    statusRegion,
+    text,
+    validateFeedback,
+    validatePassScore,
+} from '../../minigames/activity-kit/shared';
 import { N2_POLICY_SCOPE_PROVENANCE } from './source';
-import { N2_POLICY_SCOPE_ACTIVITY_KIND, type N2PolicyScopeModel, type N2PolicyScopeQuestion, type N2PolicyScopeResponse } from './types';
+import {
+    N2_POLICY_SCOPE_ACTIVITY_KIND,
+    type N2PolicyScopeModel,
+    type N2PolicyScopeQuestion,
+    type N2PolicyScopeResponse,
+} from './types';
 
 export const n2PolicyScopePlugin: ActivityPlugin<N2PolicyScopeModel, N2PolicyScopeResponse> = {
     kind: N2_POLICY_SCOPE_ACTIVITY_KIND,
@@ -10,6 +37,10 @@ export const n2PolicyScopePlugin: ActivityPlugin<N2PolicyScopeModel, N2PolicySco
     grade: gradeN2PolicyScope,
     toReviewSeeds: n2PolicyScopeReviewSeeds,
 };
+
+export function createN2PolicyScopeRuntime() {
+    return createActivityRuntime([n2PolicyScopePlugin]);
+}
 
 export function validateN2PolicyScope(model: N2PolicyScopeModel): readonly ValidationIssue[] {
     const issues: ValidationIssue[] = [];

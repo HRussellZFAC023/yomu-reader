@@ -1,6 +1,6 @@
-import type { SfxCue } from './types';
+import type { AudioDirectorControl, SfxCue } from './types';
 
-type AcademySfxDomain =
+export type AcademySfxDomain =
     | 'vn'
     | 'speaker'
     | 'door'
@@ -123,7 +123,7 @@ export const SHINDAY_SFX_ASSETS = {
 
 export type ShindaySfxAssetId = keyof typeof SHINDAY_SFX_ASSETS;
 
-interface MappedAcademySfxCue {
+export interface MappedAcademySfxCue {
     readonly cue: string;
     readonly domain: AcademySfxDomain;
     readonly intent: string;
@@ -133,7 +133,7 @@ interface MappedAcademySfxCue {
     readonly deliveryKey: string;
 }
 
-interface GapAcademySfxCue {
+export interface GapAcademySfxCue {
     readonly cue: string;
     readonly domain: AcademySfxDomain;
     readonly intent: string;
@@ -143,9 +143,9 @@ interface GapAcademySfxCue {
     readonly candidates?: readonly string[];
 }
 
-type AcademySfxCueDefinition = MappedAcademySfxCue | GapAcademySfxCue;
+export type AcademySfxCueDefinition = MappedAcademySfxCue | GapAcademySfxCue;
 
-const ACADEMY_SEMANTIC_SFX_CUES = [
+export const ACADEMY_SEMANTIC_SFX_CUES = [
     mapped('vn.advance', 'vn', 'Advance a completed VN line or beat.', 'menu-change', 'scene.advance'),
     gap('vn.reveal', 'vn', 'Tick during progressive VN text reveal.', 'No short, neutral reveal tick has been auditioned or delivered.'),
     mapped('vn.choice.move', 'vn', 'Move focus between VN choices.', 'menu-cursor-move', 'menu.move'),
@@ -207,6 +207,14 @@ export function getAcademySfxCue(cue: AcademySemanticSfxCue): AcademySfxCueDefin
 export function resolveDirectorSfxCue(cue: AcademySemanticSfxCue): SfxCue | null {
     const definition = getAcademySfxCue(cue);
     return definition.status === 'mapped' ? definition.directorCue : null;
+}
+
+/** Play through the existing director boundary; returns false for documented gaps. */
+export function playAcademySfxCue(audio: AudioDirectorControl, cue: AcademySemanticSfxCue): boolean {
+    const directorCue = resolveDirectorSfxCue(cue);
+    if (!directorCue) return false;
+    audio.playSfx(directorCue);
+    return true;
 }
 
 function mapped<

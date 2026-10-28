@@ -48,7 +48,7 @@ function metricMap(metrics) {
 }
 
 /** Pure: CDP Performance.getMetrics deltas turned into per-second rates. */
-function cdpPerSecond(before, after, seconds) {
+export function cdpPerSecond(before, after, seconds) {
     const perSecond = (name, scale = 1) => round(((after[name] ?? 0) - (before[name] ?? 0)) * scale / Math.max(seconds, 0.001));
     return {
         taskMsPerSec: perSecond('TaskDuration', 1000),
@@ -62,7 +62,7 @@ function cdpPerSecond(before, after, seconds) {
 }
 
 /** Pure: the spin loop's raw totals turned into the numbers gates read. */
-function spinSummary({ wallMs, spunMs, gaps }, longGapMs = LONG_GAP_MS) {
+export function spinSummary({ wallMs, spunMs, gaps }, longGapMs = LONG_GAP_MS) {
     const longGaps = gaps.filter(gap => gap > longGapMs);
     return {
         wallMs: round(wallMs),

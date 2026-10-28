@@ -5,6 +5,8 @@ export interface FixedAmbientOperation {
     playbackTicks: number;
 }
 
+export function fixedAmbientOperationPlan(cycles: number): FixedAmbientOperation[];
+
 export function exerciseYoutubeFixedChurn(
     page: any,
     options: {

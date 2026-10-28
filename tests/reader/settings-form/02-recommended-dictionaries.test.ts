@@ -1,5 +1,3 @@
-// Filesystem/subprocess inputs, including generic helpers called by this test.
-// @yomu-reads README.md docs/**/*.md
 import { readFileSync } from 'node:fs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { userFacingError } from '../../../src/reader/app/user-facing-errors';

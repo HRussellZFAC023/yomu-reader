@@ -94,6 +94,27 @@ export function localeFallbackChain(value: unknown): LanguageTag[] {
     }
 }
 
+export function resolveSupportedLocale(
+    requested: unknown,
+    supported: readonly string[],
+    fallback: string,
+): LanguageTag {
+    const supportedByCanonical = new Map(
+        supported
+            .map(tag => [canonicalLanguageTag(tag), tag] as const)
+            .filter((entry): entry is readonly [string, string] => Boolean(entry[0])),
+    );
+    for (const candidate of localeFallbackChain(requested)) {
+        const match = supportedByCanonical.get(candidate);
+        if (match) return canonicalLanguageTag(match) ?? candidate;
+    }
+    const canonicalFallback = canonicalLanguageTag(fallback);
+    if (canonicalFallback && supportedByCanonical.has(canonicalFallback)) return canonicalFallback;
+    const firstSupported = supportedByCanonical.keys().next().value;
+    if (typeof firstSupported === 'string') return firstSupported;
+    return canonicalFallback ?? 'en';
+}
+
 function uniqueCanonicalTags(values: readonly string[]): LanguageTag[] {
     const seen = new Set<string>();
     const tags: LanguageTag[] = [];

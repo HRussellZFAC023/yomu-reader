@@ -1,11 +1,11 @@
-interface EarlyLibraryVocabularyStudyRow {
+export interface EarlyLibraryVocabularyStudyRow {
     readonly expression: string;
     readonly reading: string;
     readonly meaning: string;
     readonly studyStatus: 'canonical' | 'quarantined-source-ambiguity';
 }
 
-interface EarlyLibraryVocabularyStudyDefinition {
+export interface EarlyLibraryVocabularyStudyDefinition {
     readonly packageId: string;
     readonly sourceId: string;
     readonly componentType: 'vocabulary' | 'source-vocabulary-reference';
@@ -183,7 +183,7 @@ const DEFINITIONS = Object.freeze({
         }),
 } satisfies Readonly<Record<string, Definition>>);
 
-const EARLY_LIBRARY_VOCABULARY_PACKAGE_IDS = Object.freeze(
+export const EARLY_LIBRARY_VOCABULARY_PACKAGE_IDS = Object.freeze(
     Object.keys(DEFINITIONS) as (keyof typeof DEFINITIONS)[],
 );
 

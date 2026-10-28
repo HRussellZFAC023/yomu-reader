@@ -9,12 +9,11 @@ import { projectWorldPlace } from '../../src/academy/domain/world-locations';
 import { completedWorldPracticeEvaluation } from '../../src/academy/domain/world-practice-evidence';
 import { createLearnerEvidence } from '../../src/academy/evidence/learner-evidence';
 import { projectCharacterDirectory } from '../../src/academy/domain/progress-projections';
-import { type ReviewQueueService } from '../../src/academy/integration/yomu-bridge';
+import type { ReviewQueueService } from '../../src/academy/integration/yomu-bridge';
 import { createAcademyActivityRuntime } from '../../src/academy/minigames';
-import { type SentenceBuilderModel } from '../../src/academy/minigames/sentence-builder';
-import { type MinnaTrueFalseListeningModel } from '../../src/academy/minigames/minna-true-false-listening';
+import type { SentenceBuilderModel } from '../../src/academy/minigames/sentence-builder';
+import type { MinnaTrueFalseListeningModel } from '../../src/academy/minigames/minna-true-false-listening';
 import { groundedLessonForEvaluation, staticGroundedLessonResolver } from './fixtures/grounded-lesson';
-import { learnerHintTiersForActivity, progressiveHintChoiceId, progressiveHintTierFromChoiceId, remainingBeginnerHintTiers } from '../../src/academy/domain/learner-support';
 
 function reviewService(): ReviewQueueService {
     return {
@@ -238,39 +237,5 @@ describe('learner evidence deep module', () => {
 
         expect((await repository.readAll()).filter(event => event.kind === 'characters-encountered')).toHaveLength(1);
         expect(evidence.projection.encounteredCharacters.aakash?.encounterIds).toEqual(['story:rainy-directions']);
-    });
-});
-
-describe('learner-support behavior', () => {
-    describe('learner support evidence', () => {
-        const activityId = 'activity:beginner-constructed-response';
-
-        it('derives semantic hint progress from neutral persisted support evidence', () => {
-            const supportUses = [{
-                activityId,
-                supportKind: 'hint',
-                choiceId: progressiveHintChoiceId('task-meaning'),
-            }, {
-                activityId,
-                supportKind: 'transcript',
-                choiceId: progressiveHintChoiceId('vocabulary-reading'),
-            }, {
-                activityId: 'activity:another-response',
-                supportKind: 'hint',
-                choiceId: progressiveHintChoiceId('form-scaffold'),
-            }];
-
-            expect(learnerHintTiersForActivity(activityId, supportUses)).toEqual(['task-meaning']);
-            expect(remainingBeginnerHintTiers(activityId, supportUses)).toEqual([
-                'vocabulary-reading',
-                'form-scaffold',
-            ]);
-        });
-
-        it('uses stable IDs and ignores unrelated legacy hint choices', () => {
-            expect(progressiveHintChoiceId('form-scaffold')).toBe('progressive-hint:form-scaffold');
-            expect(progressiveHintTierFromChoiceId('progressive-hint:vocabulary-reading')).toBe('vocabulary-reading');
-            expect(progressiveHintTierFromChoiceId('progressive-hint:2')).toBeUndefined();
-        });
     });
 });

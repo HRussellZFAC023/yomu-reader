@@ -1,12 +1,23 @@
-import type { ClassroomExpressionItem, ClassroomExpressionProbe, ClassroomExpressionSessionDefinition } from '../domain/classroom-expression-session';
-import type { GroundedDefinitionKind, GroundedDefinitionRecord } from '../domain/grounded-definition-registry';
+import type {
+    ClassroomExpressionItem,
+    ClassroomExpressionProbe,
+    ClassroomExpressionSessionDefinition,
+} from '../domain/classroom-expression-session';
+import type {
+    GroundedDefinitionKind,
+    GroundedDefinitionRecord,
+} from '../domain/grounded-definition-registry';
 import type { GroundedAnswerConcealmentAuditArtifact } from '../domain/grounded-answer-concealment-audit';
-import { LESSON_ZERO_SOUND_SURFACE_ID, lessonZeroSoundAuditBinding, lessonZeroSoundRendererRef } from '../domain/lesson-zero-sound-grounding';
+import {
+    LESSON_ZERO_SOUND_SURFACE_ID,
+    lessonZeroSoundAuditBinding,
+    lessonZeroSoundRendererRef,
+} from '../domain/lesson-zero-sound-grounding';
 import type { LessonZeroPackageData } from './lesson-zero-schema';
 
 export const LESSON_ZERO_CONTENT_SHA256 =
     '504534364d2b92229af1a465a8f46267c2bd2f3c3cf89736c3b032d76435bb86';
-const LESSON_ZERO_CLASSROOM_EXPRESSIONS_SHA256 =
+export const LESSON_ZERO_CLASSROOM_EXPRESSIONS_SHA256 =
     'a809477602243d8b4833a5534e1315fafb8c5fc4f9ebc770569e413e509f90ff';
 
 const LESSON_CONTENT_ID = 'content:lesson-zero-v1';

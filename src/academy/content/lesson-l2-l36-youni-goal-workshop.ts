@@ -1,6 +1,25 @@
-import { ACADEMY_ASSESSED_ANSWER_SUPPORT, type ActivityController, type ActivityEvaluation, type ActivityHost, type ActivityModel, type ActivityPlugin, type GradeResult, type ReviewSeed, type ValidationIssue } from '../domain/activity-runtime';
+import {
+    ACADEMY_ASSESSED_ANSWER_SUPPORT,
+    type ActivityController,
+    type ActivityEvaluation,
+    type ActivityHost,
+    type ActivityModel,
+    type ActivityPlugin,
+    type GradeResult,
+    type ReviewSeed,
+    type ValidationIssue,
+} from '../domain/activity-runtime';
 import type { LocalizedText } from '../domain/source-library';
-import { localizedNodes, normalizeJapanese, setPending, showEvaluation, statusRegion, text, validateFeedback, type ActivityFeedbackSet } from '../minigames/activity-kit/shared';
+import {
+    localizedNodes,
+    normalizeJapanese,
+    setPending,
+    showEvaluation,
+    statusRegion,
+    text,
+    validateFeedback,
+    type ActivityFeedbackSet,
+} from '../minigames/activity-kit/shared';
 import { renderInspectableSourceVisual } from '../minigames/source-visual';
 import type { LessonActivityBeat } from '../ui/lesson-activity-chapter';
 
@@ -17,7 +36,7 @@ const EXCLUDED_AUDIO_PAYLOADS = Object.freeze([
     '4fe8f7973ea49725d3bb76988bd5c85f32a2e405bd54280be9806952931ca6aa',
 ] as const);
 
-const L2_L36_SOURCE_VISUALS = Object.freeze([
+export const L2_L36_SOURCE_VISUALS = Object.freeze([
     sourceVisual(GRAMMAR_SHA256, 'Chapter 36-1 〜ように_ないように_Verb2_Grammar exercise', 1,
         'moodle-chapter-36-1-youni-grammar-page-1.png', 'de858644344a91af309b2235c973cacc3a3d76df393382e38bd19a5bc268510d'),
     sourceVisual(GRAMMAR_SHA256, 'Chapter 36-1 〜ように_ないように_Verb2_Grammar exercise', 2,
@@ -38,7 +57,7 @@ interface YouniOption {
     readonly label: string;
 }
 
-interface YouniGoalRound {
+export interface YouniGoalRound {
     readonly id: string;
     readonly sourceOrder: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13;
     readonly sourceTask: YouniTask;
@@ -62,7 +81,7 @@ interface YouniSourceVisual {
     readonly alt: LocalizedText;
 }
 
-interface YouniGoalWorkshopModel extends ActivityModel {
+export interface YouniGoalWorkshopModel extends ActivityModel {
     readonly kind: 'academy-youni-goal-workshop';
     readonly responseKind: 'moodle-chapter-36-youni-goal-workshop';
     readonly curriculumPhase: 'assessed-production';

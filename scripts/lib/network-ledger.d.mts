@@ -67,4 +67,6 @@ export const LEDGER_ID_HEADER: string;
 export function createNetworkLedger(options?: { startedAt?: number }): NetworkLedger;
 export function hostOf(url: string): string;
 export function hostMatches(host: string, pattern: string | RegExp): boolean;
+export function assertLedgerCount(ledger: NetworkLedger, filter: LedgerFilter, options?: { min?: number; max?: number; label?: string }): LedgerEntry[];
+export function assertNoRequestsBeforeInteraction(ledger: NetworkLedger, host: string | RegExp, label?: string): LedgerEntry[];
 export function networkLedgerPageProgram(options: { requestBinding: string; interactionBinding: string; pageStampBinding: string }): string;

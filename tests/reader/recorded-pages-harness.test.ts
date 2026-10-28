@@ -1,24 +1,22 @@
-// Filesystem/subprocess inputs, including generic helpers called by this test.
-// @yomu-reads scripts/check-recorded-pages.mjs scripts/lib/recorded-*.mjs scripts/fixtures/recorded/**
 import { execFileSync } from 'node:child_process';
-
+import { createHash } from 'node:crypto';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-
-
-
-
-
-
-
-
-
-
+import { compareGeometrySignatures, type GeometrySignature } from '../../scripts/lib/geometry-signature.mjs';
+import { cdpPerSecond, spinSummary } from '../../scripts/lib/main-thread-sampler.mjs';
+import { assertLedgerCount, assertNoRequestsBeforeInteraction, createNetworkLedger, LEDGER_ID_HEADER } from '../../scripts/lib/network-ledger.mjs';
+import { createHarWriter, readHarIndex } from '../../scripts/lib/recorded-har.mjs';
+import { json3ToSrv3, json3ToVtt } from '../../scripts/lib/recorded-hosts.mjs';
+import { answerGmRequest } from '../../scripts/lib/recorded-network.mjs';
+import { blankPng, imageSize } from '../../scripts/lib/recorded-media.mjs';
+import { captionFlashFrames } from '../../scripts/lib/recorded-page-probes.mjs';
+import { productTrafficVerdict } from '../../scripts/lib/recorded-product-traffic.mjs';
+import { hostedAnswer, preloadHostedRuntimeAssets } from '../../scripts/lib/recorded-products.mjs';
 import { attributeSelectorIndex, findGeneratedCopy, findRedactionLeaks, generatedCopyInCss, hashTextRun, isHiddenCopy, normalizeTextRun, redactionHashList, siteCodeInHtml, textRunsFromCss, textRunsFromHtml } from '../../scripts/lib/recorded-redaction.mjs';
 import { aozoraLetterStreams, characterClass, createTextRedactor } from '../../scripts/lib/text-redactor.mjs';
-
+import { asrCaptionTracksMechanismFixture } from '../../scripts/lib/youtube-caption-mechanism-fixture.mjs';
 
 const temporaryDirectories: string[] = [];
 const temporaryDirectory = () => {
@@ -29,6 +27,140 @@ const temporaryDirectory = () => {
 
 afterEach(() => {
     for (const dir of temporaryDirectories.splice(0)) rmSync(dir, { recursive: true, force: true });
+});
+
+describe('network ledger', () => {
+    it('tells requests before a trusted interaction from those after it', () => {
+        const ledger = createNetworkLedger({ startedAt: 1000 });
+        ledger.recordRequest({ channel: 'gm', method: 'post', url: 'https://lensfrontend-pa.googleapis.com/v1/crupload', bodyBytes: 900, at: 1200, trustedInteractionBefore: false, served: 'pending' });
+        ledger.recordRequest({ channel: 'page', url: 'https://ja.wikipedia.org/style.css', at: 1100, served: 'recording' });
+        ledger.recordRequest({ channel: 'page', url: 'https://audio.yomureader.com/a.mp3', at: 3000, served: 'offline' });
+        ledger.recordInteraction({ type: 'pointerdown', at: 2500 });
+        ledger.markServed({ channel: 'gm', method: 'POST', url: 'https://lensfrontend-pa.googleapis.com/v1/crupload' }, 'offline');
+
+        expect(ledger.requests({ host: 'googleapis.com', beforeInteraction: true })).toHaveLength(1);
+        expect(ledger.requests({ host: 'yomureader.com', beforeInteraction: false })).toHaveLength(1);
+        expect(ledger.requests()).toHaveLength(2);
+        expect(ledger.requests({ includeRecording: true })).toHaveLength(3);
+        expect(ledger.entries()[0]).toMatchObject({ method: 'POST', host: 'lensfrontend-pa.googleapis.com', bodyBytes: 900, sinceStartMs: 200, served: 'offline' });
+        expect(ledger.summary().hosts['lensfrontend-pa.googleapis.com']).toMatchObject({ requests: 1, beforeInteraction: 1, bodyBytes: 900 });
+        expect(() => assertNoRequestsBeforeInteraction(ledger, 'googleapis.com')).toThrow(/crupload/);
+        expect(() => assertLedgerCount(ledger, { host: 'yomureader.com' }, { min: 1, max: 1 })).not.toThrow();
+    });
+
+    it('counts the product\'s GM requests however the recording answered them', () => {
+        const ledger = createNetworkLedger({ startedAt: 0 });
+        for (const served of ['recorded-product', 'recording']) {
+            ledger.recordRequest({ channel: 'gm', url: `https://api.jiten.moe/api/${served}`, at: 10, trustedInteractionBefore: false, served: 'pending' });
+            ledger.markServed({ channel: 'gm', url: `https://api.jiten.moe/api/${served}` }, served);
+        }
+        ledger.recordRequest({ channel: 'gm', url: 'https://upload.wikimedia.org/a.jpg', at: 20, trustedInteractionBefore: false, served: 'recording' });
+        ledger.recordRequest({ channel: 'page', url: 'https://upload.wikimedia.org/a.jpg', at: 5, served: 'recording' });
+
+        expect(ledger.requests({ host: 'jiten.moe' })).toHaveLength(2);
+        expect(ledger.requests({ host: 'wikimedia.org' })).toEqual([expect.objectContaining({ channel: 'gm' })]);
+        expect(ledger.requests({ host: 'wikimedia.org', includeRecording: true })).toHaveLength(2);
+    });
+
+    it('judges a page request by when the page sent it, not when it was routed', () => {
+        const ledger = createNetworkLedger({ startedAt: 0 });
+        ledger.recordPageStamp({ url: 'https://ocr.example/upload#x', at: 90, trustedInteractionBefore: false });
+        ledger.recordInteraction({ type: 'pointerdown', at: 100 });
+        ledger.recordRequest({ channel: 'page', method: 'POST', url: 'https://ocr.example/upload', at: 110, served: 'offline' });
+        ledger.recordRequest({ channel: 'page', url: 'https://audio.example/a.mp3', at: 120, served: 'offline' });
+
+        expect(ledger.requests({ host: 'ocr.example', beforeInteraction: true })).toEqual([expect.objectContaining({ at: 90 })]);
+        expect(ledger.requests({ host: 'audio.example', beforeInteraction: false })).toHaveLength(1);
+    });
+
+    it('names the latest interaction before each request, so a later background upload is not read as caused by a tap', () => {
+        const ledger = createNetworkLedger({ startedAt: 0 });
+        ledger.recordInteraction({ type: 'keydown', at: 100, target: 'document' });
+        ledger.recordInteraction({ type: 'pointerdown', at: 5000, target: 'img.thumbimage' });
+        ledger.recordRequest({ channel: 'gm', method: 'POST', url: 'https://lens.example/upload', at: 3000, trustedInteractionBefore: true, served: 'offline' });
+        ledger.recordRequest({ channel: 'gm', method: 'POST', url: 'https://lens.example/upload', at: 5200, trustedInteractionBefore: true, served: 'offline' });
+        ledger.recordRequest({ channel: 'gm', method: 'POST', url: 'https://lens.example/upload', at: 50, trustedInteractionBefore: false, served: 'offline' });
+
+        expect(ledger.entries().map(entry => entry.lastInteraction?.target ?? null)).toEqual(['document', 'img.thumbimage', null]);
+        expect(ledger.requests({ host: 'lens.example', beforeInteraction: false })).toHaveLength(2);
+        expect(ledger.requests({ host: 'lens.example', noInteractionWithinMs: 1000 }).map(entry => entry.at)).toEqual([3000, 50]);
+    });
+
+    it('never reads a tap delivered after the request as one shortly before it', () => {
+        const ledger = createNetworkLedger({ startedAt: 0 });
+        ledger.recordInteraction({ type: 'pointerdown', at: 400, target: 'img.thumbimage' });
+        ledger.recordRequest({ channel: 'gm', method: 'POST', url: 'https://lens.example/upload', at: 300, trustedInteractionBefore: true, served: 'offline' });
+
+        expect(ledger.entries()[0].lastInteraction).toEqual(expect.objectContaining({ at: 400 }));
+        expect(ledger.requests({ host: 'lens.example', noInteractionWithinMs: 3000 })).toHaveLength(1);
+    });
+
+    it('pairs a GM answer with its request by ledger id, not by URL order', () => {
+        const ledger = createNetworkLedger({ startedAt: 0 });
+        const url = 'https://lens.example/upload';
+        ledger.recordRequest({ ledgerId: '1', channel: 'gm', method: 'POST', url, at: 10, trustedInteractionBefore: false, served: 'pending' });
+        ledger.recordRequest({ ledgerId: '2', channel: 'gm', method: 'POST', url, at: 11, trustedInteractionBefore: false, served: 'pending' });
+        ledger.markServed({ method: 'POST', url, ledgerId: '2' }, 'override');
+        ledger.markServed({ method: 'POST', url, ledgerId: '1' }, 'offline');
+
+        expect(ledger.entries().map(entry => entry.served)).toEqual(['offline', 'override']);
+    });
+
+    it('always counts a fetch the page stamped, even when the page HAR answered it', () => {
+        const ledger = createNetworkLedger({ startedAt: 0 });
+        ledger.recordPageStamp({ url: 'https://upload.wikimedia.org/a.jpg', at: 40, trustedInteractionBefore: false });
+        ledger.recordRequest({ channel: 'page', url: 'https://upload.wikimedia.org/a.jpg', at: 45, served: 'recording' });
+        ledger.recordRequest({ channel: 'page', url: 'https://upload.wikimedia.org/b.jpg', at: 46, served: 'recording' });
+
+        expect(ledger.requests({ host: 'wikimedia.org' })).toEqual([expect.objectContaining({ url: 'https://upload.wikimedia.org/a.jpg', sentByScript: true, sinceStartMs: 40 })]);
+    });
+
+    it('does not count a host that only shares a suffix', () => {
+        const ledger = createNetworkLedger();
+        ledger.recordRequest({ url: 'https://notgoogleapis.com/x', at: Date.now() });
+        expect(ledger.requests({ host: 'googleapis.com' })).toHaveLength(0);
+    });
+});
+
+describe('geometry signatures', () => {
+    const signature = (overrides: Partial<GeometrySignature> = {}): GeometrySignature => ({
+        viewport: { width: 1280, height: 900 },
+        document: { scrollWidth: 1280, scrollHeight: 5000, clientWidth: 1280, clientHeight: 900 },
+        blocks: [{ key: 'p1', box: [10, 20, 600, 48] }],
+        paragraphs: [{ key: 'p1', lineCount: 2, lines: [[10, 20, 600, 44], [10, 44, 300, 68]] }],
+        paged: [],
+        ...overrides,
+    });
+
+    it('accepts movement within the tolerance and reports anything beyond it', () => {
+        expect(compareGeometrySignatures(signature(), signature({ blocks: [{ key: 'p1', box: [11, 21, 600, 48] }] })).ok).toBe(true);
+        const moved = compareGeometrySignatures(signature(), signature({ blocks: [{ key: 'p1', box: [10, 25, 600, 48] }] }));
+        expect(moved.ok).toBe(false);
+        expect(moved.maxDelta).toBe(5);
+    });
+
+    it('treats a changed line count or a missing block as unbounded, and can ignore lines', () => {
+        const rewrapped = signature({ paragraphs: [{ key: 'p1', lineCount: 3, lines: [[10, 20, 600, 44]] }] });
+        expect(compareGeometrySignatures(signature(), rewrapped).diffs[0]).toMatchObject({ kind: 'paragraph', delta: Infinity });
+        expect(compareGeometrySignatures(signature(), rewrapped, { ignore: ['paragraphs'] }).ok).toBe(true);
+        expect(compareGeometrySignatures(signature(), signature({ blocks: [{ key: 'p1', missing: true }] })).diffs[0].detail).toBe('missing');
+    });
+
+    it('counts pages in paged containers', () => {
+        const paged = (pages: number) => signature({ paged: [{ key: 'paged#0:div', columnCount: '2', columnWidth: 'auto', scrollWidth: 2400, scrollHeight: 800, clientWidth: 1200, clientHeight: 800, pages }] });
+        expect(compareGeometrySignatures(paged(2), paged(3)).diffs[0]).toMatchObject({ kind: 'paged', delta: Infinity });
+    });
+});
+
+describe('main-thread sampler arithmetic', () => {
+    it('turns spin totals into busy milliseconds per second and long gaps', () => {
+        expect(spinSummary({ wallMs: 2000, spunMs: 1500, gaps: [10, 60, 120] })).toEqual({ wallMs: 2000, otherMsPerSec: 250, longGaps: 2, longGapMs: 180, longestGapMs: 120 });
+    });
+
+    it('turns CDP metric deltas into per-second rates', () => {
+        const rates = cdpPerSecond({ TaskDuration: 1, RecalcStyleCount: 10 }, { TaskDuration: 1.5, RecalcStyleCount: 30, Nodes: 900 }, 2);
+        expect(rates).toMatchObject({ taskMsPerSec: 250, recalcStylesPerSec: 10, nodes: 900 });
+    });
 });
 
 describe('redaction', () => {
@@ -152,6 +284,149 @@ describe('redaction', () => {
         expect([...output].map(characterClass)).toEqual([...'東京タワー、Tokyo 2026年。'].map(characterClass));
         expect([...output].filter((_, index) => !characterClass([...'東京タワー、Tokyo 2026年。'][index])).join('')).toBe('ー、 2026。');
         expect(output).not.toContain('東京');
+    });
+});
+
+describe('recorded page plumbing', () => {
+    it('serves YouTube json3 events as the srv3 and WebVTT the product may ask for first', () => {
+        const json3 = { events: [{ tStartMs: 0, dDurationMs: 1500, wWinId: 1, segs: [{ utf8: '今日は' }, { utf8: '<晴れ>', tOffsetMs: 600, acAsrConf: 0 }] }, { tStartMs: 1500, aAppend: 1, segs: [{ utf8: '\n' }] }] };
+        expect(json3ToSrv3(json3)).toContain('<p t="0" d="1500" w="1"><s>今日は</s><s t="600" ac="0">&lt;晴れ&gt;</s></p>');
+        expect(json3ToSrv3(json3)).toContain('<p t="1500" a="1">');
+        expect(json3ToVtt(json3)).toBe('WEBVTT\n\n00:00:00.000 --> 00:00:01.500\n今日は<晴れ>\n');
+    });
+
+    it('hand-makes caption timings in the shape of a YouTube auto-generated track, the same every time', () => {
+        const { ja, jaEn } = asrCaptionTracksMechanismFixture({ seconds: 60 });
+        expect(asrCaptionTracksMechanismFixture({ seconds: 60 })).toEqual({ ja, jaEn, mechanismFixture: true });
+        const [windowEvent, ...events] = ja.events;
+        expect(windowEvent).toMatchObject({ tStartMs: 0, dDurationMs: 60_000, wpWinPosId: 1, wsWinStyleId: 1 });
+        const lines = events.filter(event => !event.aAppend);
+        expect(lines.every(line => line.wWinId === 1 && (line.segs?.slice(1).every(seg => (seg.tOffsetMs ?? 0) > 0) ?? false))).toBe(true);
+        expect(events.filter(event => event.aAppend).every(event => event.segs?.[0]?.utf8 === '\n')).toBe(true);
+        const shownAt = (ms: number) => lines.filter(line => ms >= line.tStartMs && ms < line.tStartMs + line.dDurationMs).length;
+        const instants = Array.from({ length: 600 }, (_, index) => index * 100);
+        // A two-row roll-up: two lines up at once, and pauses where none is.
+        expect(Math.max(...instants.map(shownAt))).toBe(2);
+        expect(instants.filter(ms => ms > lines[0].tStartMs && shownAt(ms) === 0).length).toBeGreaterThan(10);
+        expect(jaEn.events.map(event => event.tStartMs)).toEqual(lines.map(line => line.tStartMs));
+    });
+
+    it('answers GM requests from the recording on replay, and from nothing but the test offline', async () => {
+        const wordmark = 'https://ja.wikipedia.org/static/images/mobile/copyright/wikipedia-wordmark-ja.svg';
+        const scopeFor = (gmNetwork: string, onGmRequest?: () => unknown) => ({
+            gmNetwork, onGmRequest, hosted: true, product: { hostedRoot: resolve('docs/public') }, productTraffic: null, recorder: null, recordHosts: [],
+            har: readHarIndex(resolve('scripts/fixtures/recorded/ja-wikipedia-nihongo/network.har')),
+            ledger: createNetworkLedger(),
+        });
+        const replay = scopeFor('replay');
+        expect(await answerGmRequest({ method: 'GET', url: wordmark }, replay)).toMatchObject({ status: 200 });
+        expect(await answerGmRequest({ method: 'GET', url: 'https://yomureader.com/favicon.ico' }, replay)).toMatchObject({ status: 200 });
+        const offline = scopeFor('offline');
+        await expect(answerGmRequest({ method: 'GET', url: wordmark }, offline)).rejects.toThrow('no recorded answer');
+        await expect(answerGmRequest({ method: 'GET', url: 'https://yomureader.com/favicon.ico' }, offline)).rejects.toThrow('no recorded answer');
+        const failing = await answerGmRequest({ method: 'GET', url: wordmark }, scopeFor('offline', () => ({ status: 503, body: 'down' })));
+        expect(failing).toMatchObject({ status: 503, responseText: 'down' });
+        for (const gmNetwork of ['offline', 'replay']) {
+            const throwing = scopeFor(gmNetwork, () => Promise.reject(new Error('answerer broke')));
+            throwing.ledger.recordRequest({ channel: 'gm', url: wordmark, ledgerId: '7', served: 'pending' });
+            await expect(answerGmRequest({ method: 'GET', url: wordmark, headers: { [LEDGER_ID_HEADER]: '7' } }, throwing)).rejects.toThrow('answerer broke');
+            expect(throwing.ledger.entries().map(entry => entry.served), gmNetwork).toEqual(['failed']);
+        }
+    });
+
+    it('makes blank pictures of the size it was asked for', () => {
+        expect(imageSize(blankPng(321, 123))).toEqual([321, 123]);
+        expect(imageSize(Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 16">'))).toEqual([24, 16]);
+    });
+
+    it('round-trips a HAR and answers repeated requests in order, then with the last answer', () => {
+        const dir = temporaryDirectory();
+        const writer = createHarWriter();
+        writer.add({ url: 'https://api.example/parse?text=a', contentType: 'application/json', body: '{"n":1}' });
+        writer.add({ url: 'https://api.example/parse?text=a', contentType: 'application/json', body: '{"n":2}' });
+        writer.add({ method: 'POST', url: 'https://api.example/info', contentType: 'application/json', body: '{"post":true}', requestBody: '{"id":1}' });
+        expect(writer.write(dir, 'traffic.har')).toBe(3);
+        const index = readHarIndex(join(dir, 'traffic.har'));
+        const answer = () => index.lookup('GET', 'https://api.example/parse?text=a', null)?.body.toString();
+        expect([answer(), answer(), answer()]).toEqual(['{"n":1}', '{"n":2}', '{"n":2}']);
+        expect(index.lookup('POST', 'https://api.example/info', '{"id":1}')?.body.toString()).toBe('{"post":true}');
+        expect(index.lookup('POST', 'https://api.example/info', '{"id":2}')).toBeNull();
+    });
+
+    it('preloads small product answers before measurement while preserving their recorded order', () => {
+        const dir = temporaryDirectory();
+        const writer = createHarWriter();
+        const url = 'https://api.example/info';
+        writer.add({ url, body: 'first' });
+        writer.add({ url, body: 'second' });
+        writer.write(dir, 'traffic.har');
+        const index = readHarIndex(join(dir, 'traffic.har'), { preload: true });
+        rmSync(join(dir, 'resources'), { recursive: true });
+        const answer = () => index.lookup('GET', url)?.body.toString();
+        expect([answer(), answer(), answer()]).toEqual(['first', 'second', 'second']);
+        expect(index.lookup('GET', 'https://api.example/missing')).toBeNull();
+        const nextLoad = readHarIndex(join(dir, 'traffic.har'), { preload: true });
+        const first = nextLoad.lookup('GET', url)!;
+        expect(first.body.toString()).toBe('first');
+        first.body.fill(0);
+        const isolatedLoad = readHarIndex(join(dir, 'traffic.har'), { preload: true });
+        expect(isolatedLoad.lookup('GET', url)?.body.toString()).toBe('first');
+    });
+
+    it('preloads hosted runtime bytes while keeping module loading in the page on demand', () => {
+        const dir = join(temporaryDirectory(), 'hosted-assets-mechanism-fixture');
+        const scripts = join(dir, 'greasyfork');
+        mkdirSync(scripts, { recursive: true });
+        const file = join(scripts, 'yomu-jiten.user.js');
+        const bytes = 'window.fixtureModule = true;';
+        writeFileSync(file, bytes);
+        const product = { hostedRoot: dir };
+        preloadHostedRuntimeAssets(product);
+        rmSync(file);
+        const hash = createHash('sha256').update(bytes).digest('hex').slice(0, 12);
+        const immutable = join(scripts, `yomu-jiten.${hash}.user.js`);
+        expect(hostedAnswer(immutable, product).body.toString()).toBe(bytes);
+        hostedAnswer(file, product).body.fill(0);
+        expect(hostedAnswer(file, product).body.toString()).toBe(bytes);
+    });
+
+    it('merges runs into one HAR, keeping and answering the first answer for each request', () => {
+        const dir = temporaryDirectory();
+        const writer = createHarWriter({ unique: true });
+        expect(writer.add({ url: 'https://api.example/parse?text=a', body: '1' })).toBe(true);
+        expect(writer.add({ url: 'https://api.example/parse?text=a', body: '2' })).toBe(false);
+        expect(writer.add({ url: 'https://api.example/parse?text=b', body: '3' })).toBe(true);
+        expect(writer.lookup('GET', 'https://api.example/parse?text=a')?.body.toString()).toBe('1');
+        expect(writer.lookup('GET', 'https://api.example/parse?text=c')).toBeNull();
+        expect(writer.write(dir, 'traffic.har')).toBe(2);
+        expect(readHarIndex(join(dir, 'traffic.har')).lookup('GET', 'https://api.example/parse?text=a', null)?.body.toString()).toBe('1');
+    });
+
+    it('tells a scan-order gap in the recorded build from another build asking for answers the recording lacks', () => {
+        const recorded = { product: 'v2.1.6' };
+        const replay = (productLabel: string) => ({ recorded, gmNetwork: 'replay', productLabel });
+        const mostlyDropped = { served: { 'recorded-product': 10, offline: 40 }, dropped: 40 };
+        const fewDropped = { served: { 'recorded-product': 48, offline: 2 }, dropped: 2 };
+        const someDropped = { served: { 'recorded-product': 40, offline: 10 }, dropped: 10 };
+
+        expect(productTrafficVerdict(replay('v2.1.6'), mostlyDropped)).toBe('scan-order-gap');
+        expect(productTrafficVerdict(replay('v2.1.6'), fewDropped)).toBe('answered');
+        expect(productTrafficVerdict(replay('worktree'), mostlyDropped)).toBe('other-build-outage');
+        expect(productTrafficVerdict(replay('worktree'), someDropped)).toBe('answered');
+        expect(productTrafficVerdict({ recorded, gmNetwork: 'offline', productLabel: 'worktree' }, mostlyDropped)).toBe('answered');
+        expect(productTrafficVerdict({ recorded: null, gmNetwork: 'replay', productLabel: 'worktree' }, mostlyDropped)).toBe('answered');
+    });
+
+    it('finds the frames where YouTube\'s caption shows in a gap after the first commit', () => {
+        const frames = [
+            { at: 0, time: 0.1, primary: '', secondary: '', native: true },
+            { at: 16, time: 0.2, primary: '今日は', secondary: '', native: false },
+            { at: 32, time: 2.1, primary: '', secondary: '', native: true },
+            { at: 48, time: 2.2, primary: '', secondary: '', native: false },
+        ];
+        const flash = captionFlashFrames(frames);
+        expect(flash).toMatchObject({ firstCommitAt: 0.2, gapFrames: 2 });
+        expect(flash.flashFrames.map(frame => frame.time)).toEqual([2.1]);
     });
 });
 

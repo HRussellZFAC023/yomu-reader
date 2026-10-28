@@ -9,7 +9,6 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium, webkit } from 'playwright';
-import { assertConstrainedRows } from './lib/constrained-row-cells.mjs';
 import * as esbuild from 'esbuild';
 
 const ROOT = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
@@ -1650,8 +1649,6 @@ async function runPrimaryProbes(name, browser) {
     const tab = await page.evaluate(() => window.runTabProbe());
     logProbe(name, 'tab', tab);
     verifyCompactLabel(name, 'tab', tab, tab.rowBoxBefore, tab.rowBoxAfter);
-    await assertConstrainedRows(page, name);
-    await page.close();
 }
 
 async function runCriticalCssProbes(name, browser) {

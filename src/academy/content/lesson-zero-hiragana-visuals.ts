@@ -1,7 +1,7 @@
 const LESSON_ZERO_HIRAGANA_VISUAL_BASE_PATH =
     '/academy/art/lesson-zero/hiragana-anchors' as const;
 
-type LessonZeroHiraganaAnchorKind =
+export type LessonZeroHiraganaAnchorKind =
     | 'word-start'
     | 'object-particle'
     | 'word-internal';
@@ -41,7 +41,7 @@ function anchor(
     });
 }
 
-const LESSON_ZERO_HIRAGANA_VISUAL_ANCHORS = Object.freeze([
+export const LESSON_ZERO_HIRAGANA_VISUAL_ANCHORS = Object.freeze([
     anchor('hira-a', 'あ', '朝', 'あさ', 'asa', 'morning', 'The morning sun rising over rooftops.'),
     anchor('hira-i', 'い', '犬', 'いぬ', 'inu', 'dog', 'A friendly dog sitting down.'),
     anchor('hira-u', 'う', '海', 'うみ', 'umi', 'sea', 'An ocean wave beneath a blue sky.'),

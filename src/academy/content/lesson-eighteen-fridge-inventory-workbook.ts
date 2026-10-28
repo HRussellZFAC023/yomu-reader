@@ -10,7 +10,7 @@ const INFO_GAP_B_SHA256 = 'fdb6883084e6340d7e0ba3dcef7cb868b8e57c220759135f8e840
 const GENKI_SHA256 = 'b20d58f1ada0f1785367cacaaf56e04363cf20e4134b4a4ef2aa0fee8114239c';
 const GENKI_SCRIPT_SHA256 = '2232e46b99640e7232015d3aebce123865b5b2abf778119063fb8b45661cfd36';
 
-function createLessonEighteenFridgeInventoryWorkbookModel(): FridgeInventoryWorkbookModel {
+export function createLessonEighteenFridgeInventoryWorkbookModel(): FridgeInventoryWorkbookModel {
     const rounds = Object.freeze([
         choice(1, 'counter-summary-apples', 'moodle:6200250:26c694d9:p1:q1', 'Moodle - Chapter 11 Counter Suffixes summary - page 1', 'りんご が いくつ ありますか。', 'みっつ あります。', ['みっつ あります。', 'ふたつ あります。', 'さんぼん あります。'], 'quantity-choice', 'count-apple'),
         choice(2, 'fridge-b-apple-exists', 'moodle:6200250:425fb013:p1:q1', 'Moodle - Chapter 11 fridge information gap A - page 1', 'Bさんの れいぞうこ の なかに りんご が ありますか。', 'はい、ありますよ。', ['はい、ありますよ。', 'いいえ、ありません。'], 'existence-choice', 'fridge-existence'),

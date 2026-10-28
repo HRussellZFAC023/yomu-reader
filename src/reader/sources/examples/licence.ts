@@ -57,7 +57,7 @@ export function allowedMediaLicenceFamilies(): readonly string[] {
 }
 
 /** `CC BY-NC-ND 3.0` -> `by-nc-nd`; `CC0 1.0` -> `cc0`; version dropped. */
-function licenceFamily(value: string): string {
+export function licenceFamily(value: string): string {
     return value
         .toLowerCase()
         .replace(/creative\s+commons/gu, 'cc')

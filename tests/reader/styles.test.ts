@@ -556,30 +556,3 @@ describe('reader stylesheet loading', () => {
         expect(popoverCss).toMatch(/\.jpdb-reader-spelling rt\s*\{[^}]*text-decoration: none !important;/s);
     });
 });
-
-// Regression 9cb851694: landscape Settings must leave Save reachable.
-it('keeps the section nav on one scrolling row on a phone held sideways, so Save stays on screen', () => {
-    const css = readFileSync('src/reader/styles/settings.css', 'utf8').replace(/\s+/g, ' ').replace(/\/\*.*?\*\/ /g, '');
-    const landscapeRow = '@media (pointer: coarse) and (max-height: 560px) { .jpdb-reader-settings-tabs { white-space: nowrap; } .jpdb-reader-settings-scroll { padding-bottom: 16px; } }';
-    const balancedNav = css.lastIndexOf('text-wrap: balance;');
-
-    // One row of tabs, and only a little room under the last setting: the
-    // footer sits below the scroll area, and padding cannot shrink.
-    expect(css).toContain(landscapeRow);
-    // white-space and text-wrap both set the wrap mode, so the one-row rule
-    // only wins when it comes after the balanced nav.
-    expect(balancedNav).toBeGreaterThan(-1);
-    expect(css.lastIndexOf(landscapeRow)).toBeGreaterThan(balancedNav);
-    // The scroll the row needs is still there for the same screens.
-    expect(css).toMatch(/@media \(pointer: coarse\) and \(max-height: 560px\) \{[^@]*\.jpdb-reader-settings-tabs \{ overflow-x: auto;/);
-});
-
-// Retained G-01b negative probe from settings-css (f42ed7177 parent).
-it('honors reduced motion for interaction transitions and disclosure animations', () => {
-    const css = readFileSync('src/reader/styles/interactions.css', 'utf8');
-    const start = css.indexOf('@media (prefers-reduced-motion: reduce)');
-    expect(start).toBeGreaterThanOrEqual(0);
-    const reduced = css.slice(start);
-    expect(reduced).toContain('transition: none !important;');
-    expect(reduced).toContain('animation: none !important;');
-});

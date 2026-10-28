@@ -16,6 +16,16 @@ const HOMEWORK_TWO_SHA256 = 'c1fb869d36a5bade7cdbed46d145c7f47f23fe88152fbb8a17a
 const WORKSHEET_DOCX_SHA256 = '5d1e52068c0cb6a6b905ffeb7e4b2496b530cd2a5c47f25d7eb4972c1578d61b';
 const WORKSHEET_PDF_SHA256 = 'b6446cd4695a506e9ff357f64b6f471496fb30690c42836f2480b13857c4b7aa';
 
+export const L2_L23_SOURCE_PAGES = Object.freeze([
+    sourcePage(HOMEWORK_ONE_SHA256, 'Homework kanji 6 exerise-1', 1, 'moodle-kanji-6-homework-1-page-1.png', '35adaabcad66d2390f888bc09c2b18bc5c60365bac45b31d3ee67579f3d5af5d'),
+    sourcePage(HOMEWORK_ONE_SHA256, 'Homework kanji 6 exerise-1', 2, 'moodle-kanji-6-homework-1-page-2.png', '14d73e83b687bde84dabf5748a00272aa0bdc433fe048051759f6d464916fcf5'),
+    sourcePage(HOMEWORK_TWO_SHA256, 'Homework kanji 6 exerise-2', 1, 'moodle-kanji-6-homework-2-page-1.png', '0543f2583d52708ef026a9183e497fe2589c6be5ecdd341d24298e707a09be84'),
+    sourcePage(HOMEWORK_TWO_SHA256, 'Homework kanji 6 exerise-2', 2, 'moodle-kanji-6-homework-2-page-2.png', '7efc261f6cf0d067d1861b8d3ab0e71f9f2d7e55979b5aa114863de661bd247c'),
+    sourcePage(WORKSHEET_PDF_SHA256, 'Kanji 6-今、来、帰、会、社、聞、読、書、話 worksheets', 1, 'moodle-kanji-6-worksheet-page-1.png', '4e9b1710492f1efebc86d604d2661efe511e115ab137468a8ba54aa4545b35b6'),
+    sourcePage(WORKSHEET_PDF_SHA256, 'Kanji 6-今、来、帰、会、社、聞、読、書、話 worksheets', 2, 'moodle-kanji-6-worksheet-page-2.png', '9d57a93778b5d3093cea5aa74a6043d41a23b8cda3e05b46c21c139d1ae63171'),
+    sourcePage(WORKSHEET_PDF_SHA256, 'Kanji 6-今、来、帰、会、社、聞、読、書、話 worksheets', 3, 'moodle-kanji-6-worksheet-page-3.png', '6db9feb865d40fb763243e9128c36c415bf1211accd7063dedaf2368fb4a7da7'),
+]);
+
 export function createLessonL2L23SourceVocabularyBeat(): LessonActivityBeat {
     assertExactPackageSources();
     const activity: SourceVocabularySheetModel = {
@@ -174,6 +184,17 @@ export function createLessonL2L23ReturnWritingBeat(trace: KanjiWritingModel): Le
         ja: '最後に、シンが帰の練習欄を指します。書く前に先生の薄い見本と書き順を見て、読みはあとで思い出します。',
         en: 'Finally, Shin points to the 帰 practice panel. Check Sensei’s faint model and stroke row before writing, then recall the reading afterward.',
     }, activity);
+}
+
+function sourcePage(payloadSha256: string, title: string, page: number, filename: string, sha256: string) {
+    return Object.freeze({
+        sourceId: `moodle:${payloadSha256}`,
+        payloadSha256,
+        title,
+        page,
+        url: `/academy/content/lessons/${PACKAGE_ID}/${filename}`,
+        sha256,
+    });
 }
 
 function sourceId(payloadSha256: string, page: number, region: string): string {

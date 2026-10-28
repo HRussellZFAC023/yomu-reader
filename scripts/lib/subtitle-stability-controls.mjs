@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict';
 import AxeBuilder from '@axe-core/playwright';
 import { writeFileSync } from 'node:fs';
-import { waitForSmokeLayout } from './smoke-wait-helpers.mjs';
 
 // These controls exercise mechanisms on the recorded watch page, using the
 // built product. The added control uses native fullscreen where available,
@@ -48,7 +47,7 @@ export async function assertCaptionControls(page, engine, out) {
     await opacity.press('Home');
     await page.waitForFunction(() => [...document.querySelectorAll('.jpdb-subtitle-primary-row,.jpdb-subtitle-lines > .jpdb-subtitle-secondary')]
         .every(element => getComputedStyle(element).backgroundColor.endsWith(', 0)')), null, { timeout: 5000 });
-    assert(Math.abs(await baseline() - before) <= .5, `${engine}: transparent style moved the Japanese baseline ${JSON.stringify({before:beforeGeometry,after:await geometry()})}`);
+    assert.equal(await baseline(), before, `${engine}: transparent style moved the Japanese baseline ${JSON.stringify({before:beforeGeometry,after:await geometry()})}`);
     const transparent = await backgrounds();
     await opacity.press('End');
     await page.waitForFunction(() => [...document.querySelectorAll('.jpdb-subtitle-primary-row,.jpdb-subtitle-lines > .jpdb-subtitle-secondary')]
@@ -168,9 +167,9 @@ export async function assertCaptionFontSize(page, engine, out) {
     // Re-measure the native caption after the recording's player has settled.
     const viewport = page.viewportSize();
     await page.setViewportSize({width:viewport.width-14,height:viewport.height});
-    await waitForSmokeLayout(page, '.jpdb-subtitle-player');
+    await page.waitForTimeout(300);
     await page.setViewportSize(viewport);
-    await waitForSmokeLayout(page, '.jpdb-subtitle-player');
+    await page.waitForTimeout(300);
     await page.locator('.jpdb-subtitle-style-toggle').tap();
     const input = page.locator('[data-subtitle-style-setting="subtitleFontSize"]');
     await input.waitFor({state:'visible'});
@@ -181,17 +180,15 @@ export async function assertCaptionFontSize(page, engine, out) {
     }));
     const before = await measure();
     await input.press('End');
-    await page.waitForFunction(() => document.querySelector('[data-subtitle-style-setting="subtitleFontSize"]').value === '64'
-        && parseFloat(getComputedStyle(document.querySelector('.jpdb-subtitle-primary')).fontSize) === 64);
+    await page.waitForFunction(() => document.querySelector('[data-subtitle-style-setting="subtitleFontSize"]').value === '64');
     const explicit = await measure();
     writeFileSync(`${out}/${engine}-font-setting.json`, JSON.stringify({before,explicit},null,2));
     assert.equal(explicit.label,'64px');
     assert.equal(explicit.actual,64,`${engine}: selected pixel size does not match rendered caption`);
     await input.press('Home');
-    await page.waitForFunction(expected => document.querySelector('[data-subtitle-style-output="subtitleFontSize"]').textContent === 'Auto'
-        && Math.abs(parseFloat(getComputedStyle(document.querySelector('.jpdb-subtitle-primary')).fontSize) - expected) <= .1, before.actual);
+    await page.waitForFunction(() => document.querySelector('[data-subtitle-style-output="subtitleFontSize"]').textContent === 'Auto');
     const automatic = await measure();
-    assert(Math.abs(automatic.actual-before.actual)<=.1,`${engine}: automatic size did not restore native caption sizing`);
+    assert.equal(automatic.actual,before.actual,`${engine}: automatic size did not restore native caption sizing`);
     writeFileSync(`${out}/${engine}-font-setting.json`, JSON.stringify({before,explicit,automatic},null,2));
     await page.locator('.jpdb-subtitle-style-toggle').tap();
     await input.waitFor({state:'hidden'});

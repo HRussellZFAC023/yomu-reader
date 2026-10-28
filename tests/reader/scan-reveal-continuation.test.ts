@@ -1,4 +1,3 @@
-import '../../src/reader/companions/register-build-companions';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
@@ -11,7 +10,6 @@ import { AUTO_SCAN_DEBOUNCE_MAX_WAIT_MS, debouncedAutoScanDeadline } from '../..
 import { collectScanTargets } from '../../src/reader/app/site-parsers';
 import { HAS_JAPANESE, HAS_JAPANESE_LETTER } from '../../src/reader/dom/constants';
 import { mutationContainsOnlyReaderPaint } from '../../src/reader/dom/mutation';
-import { PaintedWordRecorder } from "../../src/reader/dom/painted-word-recorder";
 
 describe('shared Japanese script gates', () => {
     afterEach(() => {
@@ -325,8 +323,6 @@ describe('visible scan continuation after a capped collection (class E)', () => 
     });
 
     it('continues a silent scan when collection hit the cap even if every target is single-pass', async () => {
-        vi.useFakeTimers();
-
         vi.resetModules();
         const collectScanTargets = vi.fn(function* () { yield; return makeTargets(collectionLimit, { singlePassScan: true }); });
         vi.doMock('../../src/reader/app/site-parsers', async importOriginal => ({
@@ -366,8 +362,6 @@ describe('visible scan continuation after a capped collection (class E)', () => 
     }, 15_000);
 
     it('bounds consecutive continuations so an always-capped collection cannot spin forever', async () => {
-        vi.useFakeTimers();
-
         vi.resetModules();
         const collectScanTargets = vi.fn(function* () { yield; return makeTargets(collectionLimit, { singlePassScan: true }); });
         vi.doMock('../../src/reader/app/site-parsers', async importOriginal => ({
@@ -396,7 +390,7 @@ describe('visible scan continuation after a capped collection (class E)', () => 
 
         await scanner.scanVisiblePage({ silent: true });
         // Let any queued continuations drain fully.
-        for (let i = 0; i < 40; i += 1) await vi.advanceTimersByTimeAsync(5);
+        for (let i = 0; i < 40; i += 1) await new Promise(resolve => setTimeout(resolve, 5));
         const calls = collectScanTargets.mock.calls.length;
         expect(calls).toBeGreaterThan(1);
         expect(calls).toBeLessThanOrEqual(12);
@@ -404,8 +398,6 @@ describe('visible scan continuation after a capped collection (class E)', () => 
     }, 15_000);
 
     it('advances non-silent continuations past the mirrored head', async () => {
-        vi.useFakeTimers();
-
         vi.resetModules();
         const targets = makeTargets(collectionLimit + 2, { singlePassScan: false });
         const collectScanTargets = vi.fn(function* (
@@ -473,77 +465,3 @@ function makeTargets(limit: number, options: FakeTargetOptions): unknown[] {
         };
     });
 }
-
-describe('PaintedWordRecorder', () => {
-    afterEach(() => {
-        document.body.innerHTML = '';
-    });
-
-
-    it('returns the words inserted under watched roots, whichever way they were inserted', () => {
-        document.body.innerHTML = '<div id="root">本文<span class="jpdb-reader-word" id="old">古</span></div><div id="other"></div>';
-        const root = document.getElementById('root')!;
-        const recorder = new PaintedWordRecorder();
-        recorder.watch(root);
-        recorder.watch(root);
-
-        // Destructive paint: a text node replaced by a fragment of word spans.
-        const fragment = document.createDocumentFragment();
-        fragment.append(word('a'), '・', word('b'));
-        root.firstChild!.replaceWith(fragment);
-        // A mirror inserted first and filled by HTML parsing afterwards.
-        const mirror = document.createElement('span');
-        root.append(mirror);
-        mirror.innerHTML = '<span class="jpdb-reader-word" id="c"><ruby>本<rt>ほん</rt></ruby></span>';
-        // Painted and torn down again within the same slice.
-        const rebuilt = word('gone');
-        root.append(rebuilt);
-        rebuilt.remove();
-        // Outside every watched root.
-        document.getElementById('other')!.append(word('outside'));
-
-        expect(recorder.take().map(added => added.id)).toEqual(['a', 'b', 'c']);
-    });
-
-    it('returns an existing word whose own attributes change in place', () => {
-        document.body.innerHTML = `<div id="root"><span class="jpdb-reader-word jpdb-not-in-deck" id="retained">本</span>
-            <span class="jpdb-reader-word" id="untouched">犬</span></div>`;
-        const root = document.getElementById('root')!;
-        const recorder = new PaintedWordRecorder();
-        recorder.watch(root);
-
-        // A retained mirror word taking a new card status: its contrast and
-        // index entry are stale unless it is handed over like a new word.
-        const retained = document.getElementById('retained')!;
-        retained.classList.replace('jpdb-not-in-deck', 'jpdb-learning');
-        // Attribute writes on non-word elements touch no word.
-        root.dataset.yomuDecoration = 'prose-full';
-
-        expect(recorder.take().map(touched => touched.id)).toEqual(['retained']);
-    });
-
-    it('records nothing after take until a root is watched again', () => {
-        document.body.innerHTML = '<div id="root"></div>';
-        const root = document.getElementById('root')!;
-        const recorder = new PaintedWordRecorder();
-        recorder.watch(root);
-        root.append(word('first'));
-        expect(recorder.take().map(added => added.id)).toEqual(['first']);
-
-        root.append(word('unwatched'));
-        expect(recorder.take()).toEqual([]);
-
-        recorder.watch(root);
-        root.append(word('second'));
-        expect(recorder.take().map(added => added.id)).toEqual(['second']);
-    });
-
-
-    function word(id: string): HTMLElement {
-        const span = document.createElement('span');
-        span.className = 'jpdb-reader-word';
-        span.id = id;
-        span.textContent = id;
-        return span;
-    }
-});

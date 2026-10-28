@@ -1,5 +1,3 @@
-// Filesystem/subprocess inputs, including generic helpers called by this test.
-// @yomu-reads scripts/** workers/yomu-academy/** wrangler.academy.jsonc
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
 // @ts-expect-error The executable proof harness is intentionally plain ESM.

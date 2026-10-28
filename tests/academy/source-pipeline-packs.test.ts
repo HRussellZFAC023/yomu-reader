@@ -1,4 +1,3 @@
-// Filesystem/subprocess inputs, including generic helpers called by this test.
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';

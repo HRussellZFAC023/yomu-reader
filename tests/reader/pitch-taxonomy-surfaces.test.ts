@@ -12,7 +12,6 @@ import type { PitchSrsItem } from '../../src/reader/newtab/pitch-srs';
 import { renderPitch } from '../../src/reader/popup/pitch';
 import { renderSettingsForm } from '../../src/reader/settings/form';
 import { DEFAULT_SETTINGS, normalizeReaderSettings } from '../../src/reader/settings/index';
-import { readerWordClassName } from "../../src/reader/dom/index";
 
 const READING = 'ふたご';
 const EXPECTED_CLASSES: PitchClassName[] = ['heiban', 'atamadaka', 'nakadaka', 'odaka'];
@@ -120,59 +119,5 @@ describe('canonical pitch taxonomy across reader surfaces', () => {
         const form = renderSettingsForm(normalized, 'https://example.test/');
         expect(form).toContain('name="pitchColorUnknown"');
         expect(form).not.toContain('pitchColorKifuku');
-    });
-});
-
-describe('particle pitch is deliberately accentless', () => {
-    function card(overrides: Partial<JPDBCard>): JPDBCard {
-        return {
-            vid: 1, sid: 1, rid: 0, spelling: '', reading: '', frequencyRank: null,
-            partOfSpeech: [], meanings: [], cardState: ['not-in-deck'], pitchAccent: [],
-            wordWithReading: null, source: 'jiten',
-            ...overrides,
-        };
-    }
-
-    function token(wordCard: JPDBCard, pitchClass = ''): JPDBToken {
-        return {
-            card: wordCard,
-            start: 0, end: wordCard.spelling.length, length: wordCard.spelling.length,
-            rubies: [], pitchClass, sentence: wordCard.spelling,
-        };
-    }
-
-    // Particles are clitics with no lexical accent: a dictionary "pattern" for the
-    // same kana belongs to a homophone noun (葉/荷/戸), so は・に・と wore spurious
-    // underlines while を・の had none. All particles now render deliberately
-    // accentless via a dedicated class.
-
-    it('renders は with a particle class even when a homophone pattern leaked in', () => {
-        const particle = card({ spelling: 'は', reading: 'は', pitchAccent: ['HL'], partOfSpeech: ['prt'] });
-        const className = readerWordClassName('not-in-deck', token(particle, 'atamadaka'), { showPitchAccent: true });
-        expect(className).toContain('jpdb-reader-particle');
-        expect(className).toContain('jpdb-pitch-particle');
-        expect(className).not.toContain('jpdb-pitch-atamadaka');
-    });
-
-    it('classes を and の identically to は (uniform accentless particles)', () => {
-        for (const spelling of ['を', 'の']) {
-            const particle = card({ spelling, reading: spelling });
-            const className = readerWordClassName('not-in-deck', token(particle), { showPitchAccent: true });
-            expect(className).toContain('jpdb-pitch-particle');
-        }
-    });
-
-    it('does not emit data-pitch-accent for particles in rendered HTML', () => {
-        const particle = card({ spelling: 'は', reading: 'は', pitchAccent: ['HL'], partOfSpeech: ['prt'] });
-        const html = renderTokensToHtml('は', [token(particle, 'atamadaka')], DEFAULT_SETTINGS);
-        expect(html).toContain('jpdb-pitch-particle');
-        expect(html).not.toContain('data-pitch-accent');
-    });
-
-    it('keeps real content words on their lexical pitch class', () => {
-        const noun = card({ spelling: '漫画', reading: 'まんが', pitchAccent: ['LHHH'] });
-        const className = readerWordClassName('not-in-deck', token(noun, 'heiban'), { showPitchAccent: true });
-        expect(className).toContain('jpdb-pitch-heiban');
-        expect(className).not.toContain('jpdb-pitch-particle');
     });
 });

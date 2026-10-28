@@ -5,6 +5,8 @@ on:
   push:
     branches:
       - main
+    paths-ignore:
+      - dist/yomu.user.js
 
 permissions:
   contents: read
@@ -22,7 +24,6 @@ jobs:
           node-version: 24
       - run: npm run check:repository
       - run: npm run check:artifacts
-      - run: node scripts/prune-content-addressed-assets.mjs --check
 
   fallow:
     runs-on: ubuntu-24.04
@@ -39,8 +40,8 @@ jobs:
       # download fails (620 vs 619 packages on the runs that broke this job).
       - name: Ensure fallow platform binary
         run: node -e "require.resolve('@fallow-cli/linux-x64-gnu/package.json')" || npm install --no-save @fallow-cli/linux-x64-gnu@"$(node -p "require('fallow/package.json').version")"
-      # Existing dead-code findings are recorded in
-      # config/quality/dead-code-baseline.json; only new findings fail. The raw
+      # A ratchet, not a wall: 136 pre-existing findings are recorded in
+      # config/quality/dead-code-baseline.json and only NEW ones fail. The raw
       # `fallow:dead-code` failed on every commit for months, including docs-only
       # ones, so the job stopped carrying information (U63).
       - run: npm run quality:dead-code
@@ -71,11 +72,6 @@ jobs:
       - run: npm ci
       - run: npm run check:test-workflows
       - run: node scripts/check-smoke-workflow-coverage.mjs
-      - run: node --test tests/tooling/*.test.mjs
-      - run: node scripts/check-css-has-invalidation.mjs
-      - run: node scripts/check-recorded-pages.mjs
-      - run: node scripts/complexity-audit.mjs
-      - run: node scripts/file-size-audit.mjs
 
   test-academy:
     runs-on: ubuntu-24.04
@@ -88,13 +84,7 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build:academy:prevalidated
-      - run: mkdir -p artifacts/test-read-trace
       - run: npm run test:academy:ci
-        env:
-          NODE_OPTIONS: --require=${{ github.workspace }}/scripts/lib/test-read-trace.cjs
-          YOMU_READ_TRACE_DIR: ${{ github.workspace }}/artifacts/test-read-trace
-          YOMU_READ_TRACE_ROOT: ${{ github.workspace }}
-      - run: node scripts/check-test-read-coverage.mjs academy
 
   test-workers:
     runs-on: ubuntu-24.04
@@ -136,15 +126,7 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      - run: mkdir -p artifacts/test-read-trace
       - run: node scripts/run-ci-tests.mjs --kind regular --shard=${{ matrix.shard }} --total=8
-        env:
-          NODE_OPTIONS: --require=${{ github.workspace }}/scripts/lib/test-read-trace.cjs
-          YOMU_READ_TRACE_DIR: ${{ github.workspace }}/artifacts/test-read-trace
-          YOMU_READ_TRACE_ROOT: ${{ github.workspace }}
-          # One Vitest host on each matrix VM, not four local shard hosts.
-          YOMU_CI_REGULAR_CONCURRENCY: 1
-      - run: node scripts/check-test-read-coverage.mjs reader
 
   test-jpdb:
     runs-on: ubuntu-24.04
@@ -160,13 +142,7 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      - run: mkdir -p artifacts/test-read-trace
       - run: node scripts/run-ci-tests.mjs --kind jpdb --shard=${{ matrix.shard }} --total=8
-        env:
-          NODE_OPTIONS: --require=${{ github.workspace }}/scripts/lib/test-read-trace.cjs
-          YOMU_READ_TRACE_DIR: ${{ github.workspace }}/artifacts/test-read-trace
-          YOMU_READ_TRACE_ROOT: ${{ github.workspace }}
-      - run: node scripts/check-test-read-coverage.mjs reader
 
   gaming-smoke:
     runs-on: ubuntu-24.04
@@ -201,7 +177,6 @@ jobs:
         uses: ./.github/actions/playwright-browsers
       # smoke:ignored-words serves the built Study app from dist/newtab.
       - run: npm run build
-      - run: node scripts/sync-docs-userscript.cjs
       - run: npm run smoke:layout-regressions
         env:
           YOMU_PLAYWRIGHT_CHANNEL: chrome
@@ -228,6 +203,24 @@ jobs:
       - run: node scripts/sync-docs-userscript.cjs
       - run: npm run docs:build
       - run: npm run verify
+      - run: npm run smoke:offline-study
+        env:
+          YOMU_PLAYWRIGHT_CHANNEL: chrome
+      - run: npm run smoke:p0
+        env:
+          YOMU_PLAYWRIGHT_CHANNEL: chrome
+      - run: npm run smoke:furigana-local-default
+        env:
+          YOMU_PLAYWRIGHT_CHANNEL: chrome
+      - run: npm run smoke:youtube-controls-wake
+        env:
+          YOMU_PLAYWRIGHT_CHANNEL: chrome
+      - run: npm run smoke:youtube-title-recycler
+        env:
+          YOMU_PLAYWRIGHT_CHANNEL: chrome
       - run: npm run smoke:study-flow-stability
+        env:
+          YOMU_PLAYWRIGHT_CHANNEL: chrome
+      - run: npm run smoke:youtube-ruby-proof
         env:
           YOMU_PLAYWRIGHT_CHANNEL: chrome

@@ -13,6 +13,7 @@ import {
     activeClaims,
     checkpointIntegrityErrors,
     canonicalJson,
+    canonicalizeReservationPath,
     changedFilesWithinOwnership,
     createWorkOrder,
     ensureInside,
@@ -20,6 +21,8 @@ import {
     minimalReviewEnvironment,
     parseBacklog,
     proofTemplate,
+    readJson,
+    resolveConfinedFile,
     resolveDynamicDependencies,
     reviewPayloadSha256,
     reuseReportPinErrors,
@@ -33,7 +36,6 @@ import {
     validateReviewAttestation,
     validateWorkflow,
 } from './lib/academy-workflow-model.mjs';
-import { canonicalizeReservationPath, readJson, resolveConfinedFile } from './lib/academy-workflow-files.mjs';
 import {
     buildSalvageReport,
     validateSalvageReport,

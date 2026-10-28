@@ -1,8 +1,9 @@
 name: Nightly smokes
 
-# Extended regression coverage outside the local gate and release preflight.
-# Required layout hosts also stay in PR CI. Built products run on recorded
-# pages and labelled mechanism fixtures, nightly and on demand.
+# NB-50: headless-capable regression-guard smokes that are not on the fast
+# per-push CI gate. They reproduce historical bugs against the built userscript
+# in fixture-served headless browsers. Run once nightly (and on demand) so the
+# per-push gate stays fast while these guards still catch regressions.
 
 on:
   schedule:
@@ -22,7 +23,7 @@ permissions:
 jobs:
   nightly-smokes:
     runs-on: ubuntu-24.04
-    timeout-minutes: 120
+    timeout-minutes: 45
     env:
       YOMU_PLAYWRIGHT_CHANNEL: chrome
     steps:
@@ -38,21 +39,10 @@ jobs:
         run: |
           npm run build
           node scripts/sync-docs-userscript.cjs
-      - name: Build docs for the localization smoke
-        run: npm run docs:build
       - name: Run nightly smokes
         env:
           NIGHTLY_SMOKE_NAMES: ${{ inputs.smokes || '' }}
         run: |
-          mkdir -p artifacts
-          ./node_modules/.bin/vitepress preview docs --host 127.0.0.1 --port 4199 >artifacts/nightly-docs-preview.log 2>&1 &
-          preview_pid=$!
-          trap 'kill "$preview_pid" 2>/dev/null || true' EXIT
-          for attempt in {1..40}; do
-            if curl --fail --silent http://127.0.0.1:4199/ >/dev/null; then break; fi
-            sleep 1
-          done
-          curl --fail --silent http://127.0.0.1:4199/ >/dev/null
           read -r -a requested_smokes <<< "$NIGHTLY_SMOKE_NAMES"
           npm run smoke:nightly -- "${requested_smokes[@]}"
       - name: Upload typography failure diagnostics

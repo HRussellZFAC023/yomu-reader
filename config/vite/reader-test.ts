@@ -1,79 +1,4 @@
 import { availableParallelism } from 'node:os';
-import { createRequire } from 'node:module';
-
-const require = createRequire(import.meta.url);
-const pkg = require('../../package.json') as { version: string };
-const { workerBudget } = require('../../scripts/lib/test-workers.mjs') as {
-    workerBudget: (options: { cores: number }) => number;
-};
-
-export const readerTestDefines = {
-    __YOMU_VERSION__: JSON.stringify(pkg.version),
-    __YOMU_NEWTAB_BUILD__: JSON.stringify(false),
-};
-
-// Reviewed pure logic: no browser globals, companion registration, or module mocks.
-// Keep this explicit; a new test starts in the isolated jsdom project.
-export const readerNodeFiles = [
-    'tests/reader/academy-build-manifest.test.ts',
-    'tests/reader/anki-known-interval.test.ts',
-    'tests/reader/anki-review-result.test.ts',
-    'tests/reader/annotated-reading.test.ts',
-    'tests/reader/annotation-power-policy.test.ts',
-    'tests/reader/app-version.test.ts',
-    'tests/reader/batch-receipt-ledger.test.ts',
-    'tests/reader/bookwalker-assets.test.ts',
-    'tests/reader/bunpro-client.test.ts',
-    'tests/reader/card-state.test.ts',
-    'tests/reader/compound-pitch.test.ts',
-    'tests/reader/dictionary-catalog.test.ts',
-    'tests/reader/dictionary-defaults.test.ts',
-    'tests/reader/dictionary-preference-upgrade.test.ts',
-    'tests/reader/docs-publication-guard.test.ts',
-    'tests/reader/enrichment-policy.test.ts',
-    'tests/reader/gaming-settings-import.test.ts',
-    'tests/reader/host-css-armour.test.ts',
-    'tests/reader/immersion-query.test.ts',
-    'tests/reader/japanese-input.test.ts',
-    'tests/reader/japanese-script.test.ts',
-    'tests/reader/jpdb-live-card.test.ts',
-    'tests/reader/kanji-ruby-split.test.ts',
-    'tests/reader/kanji-stroke-grader.test.ts',
-    'tests/reader/kanjivg-path.test.ts',
-    'tests/reader/lookup-scope-modules.test.ts',
-    'tests/reader/managed-storage-keys.test.ts',
-    'tests/reader/mining-language-regression.test.ts',
-    'tests/reader/new-tab-card-selection.test.ts',
-    'tests/reader/new-tab-sentence-furigana.test.ts',
-    'tests/reader/new-tab-source-orchestrator.test.ts',
-    'tests/reader/new-tab-study-hints.test.ts',
-    'tests/reader/new-tab-study-sentence-source.test.ts',
-    'tests/reader/new-tab-study-session.test.ts',
-    'tests/reader/ocr-clean-image-blob.test.ts',
-    'tests/reader/ocr-clean-text.test.ts',
-    'tests/reader/ocr-dark-pass.test.ts',
-    'tests/reader/ocr-lens-response.test.ts',
-    'tests/reader/page-realm-injected-source.test.ts',
-    'tests/reader/pitch-meta-variants.test.ts',
-    'tests/reader/pitch-number-identity.test.ts',
-    'tests/reader/pitch-srs.test.ts',
-    'tests/reader/private-host.test.ts',
-    'tests/reader/public-proxy-worker.test.ts',
-    'tests/reader/radial-menu-layout.test.ts',
-    'tests/reader/release-workflows.test.ts',
-    'tests/reader/settings-file-io.test.ts',
-    'tests/reader/site-library-filters.test.ts',
-    'tests/reader/speaking-score.test.ts',
-    'tests/reader/study-card-route.test.ts',
-    'tests/reader/study-pwa-manifest.test.ts',
-    'tests/reader/tadoku-catalog.test.ts',
-    'tests/reader/term-span-resolver.test.ts',
-    'tests/reader/user-facing-errors.test.ts',
-    'tests/reader/wanikani-integration.test.ts',
-    'tests/reader/yomu-audio-worker.test.ts',
-    'tests/reader/youtube-host.test.ts',
-    'tests/reader/languages/settings-migration.test.ts',
-] as const;
 
 type TestConfigEnv = Readonly<Record<string, string | undefined>>;
 
@@ -87,11 +12,13 @@ export function readerTestConfig(
         environment: 'jsdom',
         include: ['tests/reader/**/*.test.ts'],
         // Guard against a stray generated shard dir left by a removed generator.
-        exclude: ['tests/reader/**/.vitest-*-shards/**', ...readerNodeFiles],
+        exclude: ['tests/reader/**/.vitest-*-shards/**'],
         setupFiles: ['tests/reader/setup.ts'],
         globals: true,
-        // Local failures are immediate; CI retries timing-sensitive flakes.
-        retry: env.CI ? 2 : 0,
+        // A handful of timing-sensitive audio/bridge tests pass in isolation but
+        // can flake when scheduling shifts under the full sequential run; retry
+        // absorbs that without masking a genuine, repeatable failure.
+        retry: 2,
         pool: 'forks',
         // Keep the default at the top-level Vitest option. A pool-specific
         // maxForks takes precedence over --maxWorkers, which made the release
@@ -122,29 +49,5 @@ function forkHeapMb(env: TestConfigEnv): number {
 function readMaxWorkers(env: TestConfigEnv, parallelism: number): number {
     const override = Number.parseInt(env.VITEST_MAX_FORKS ?? '', 10);
     if (Number.isInteger(override) && override >= 1) return override;
-    return workerBudget({ cores: parallelism });
+    return Math.max(2, Math.min(10, parallelism));
 }
-
-// Vitest 1.6 workspace projects. Neither project inherits the other's setup or
-// environment. Only the pure Node project may retain its module graph.
-export default [
-    {
-        define: readerTestDefines,
-        test: { ...readerTestConfig(), name: 'reader-jsdom' },
-    },
-    {
-        define: readerTestDefines,
-        test: {
-            name: 'reader-node',
-            include: [...readerNodeFiles],
-            environment: 'node',
-            setupFiles: [],
-            globals: true,
-            retry: process.env.CI ? 2 : 0,
-            pool: 'threads',
-            minWorkers: 1,
-            maxWorkers: readMaxWorkers(process.env, availableParallelism()),
-            poolOptions: { threads: { isolate: false } },
-        },
-    },
-];

@@ -12,7 +12,7 @@ const GENKI_SHA256 = '9d14d05b28a80886dfdad068b30a979a6df917b2696df09fdedd6b820a
 const GENKI_SCRIPT_SHA256 = '93d56a81d9f5e3f233c3771259c38b98bb3070e8500d9a985104d2eeeb7aff32';
 const GENKI_TASK_ID = 'genki-2e:l1-l14:lesson-6-workbook-7' as const;
 
-function createLessonFourteenReasonWorkbookModel(): ReasonWorkbookModel {
+export function createLessonFourteenReasonWorkbookModel(): ReasonWorkbookModel {
     const rounds = Object.freeze([
         choice(1, 'moodle-kara-subway', 'moodle:6097314:a3198912:p1:q1:1', 'Moodle - Chapter 9 〜ですから - page 1', 'ちかてつは たかいですから、＿＿。', 'じてんしゃで かいしゃに いきます', 'result-choice', ['じてんしゃで かいしゃに いきます', 'ちかてつで かいしゃに いきます', 'きょうは なにも のみません']),
         choice(2, 'moodle-kara-drink', 'moodle:6097314:a3198912:p1:q1:3', 'Moodle - Chapter 9 〜ですから - page 1', 'きのう たくさん のみましたから、＿＿。', 'きょうは なにも のみません', 'result-choice', ['きょうは なにも のみません', 'きのう たくさん のみます', 'じてんしゃで かいしゃに いきます']),

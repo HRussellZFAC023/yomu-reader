@@ -24,3 +24,7 @@ export function applyPreferredJapaneseSiteLanguage(
         targetLanguage,
     );
 }
+
+export function preferredJapaneseSiteUrl(sourceHref: string, root?: Parameters<typeof import('./preferred-site-language-impl').preferredJapaneseSiteUrl>[1]): string | null {
+    return yomuVideoCompanionSlot()?.preferredJapaneseSiteUrl?.(sourceHref, root) ?? null;
+}

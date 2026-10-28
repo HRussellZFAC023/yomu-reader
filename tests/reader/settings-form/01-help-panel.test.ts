@@ -1,0 +1,184 @@
+import { describe, expect, it } from 'vitest';
+import {
+    CURRENT_YOMU_VERSION,
+    DEFAULT_SETTINGS,
+    INSTALL_GUIDE_URL,
+    localizeSettingsForm,
+    registerSettingsFormCleanup,
+    renderHelpLinksPanel,
+    renderSettingsForm,
+    SETTINGS_CSS,
+} from './fixtures';
+
+describe('settings help panel', () => {
+    registerSettingsFormCleanup();
+
+    it.each(['en', 'ja'] as const)('keeps Help links without an introductory paragraph (%s)', language => {
+        const form = document.createElement('form');
+        form.innerHTML = renderHelpLinksPanel(language);
+        localizeSettingsForm(form, language);
+        const links = form.querySelector('[data-help-links-title]')?.parentElement;
+        expect(links).not.toBeNull();
+        expect(links?.querySelector('.jpdb-reader-help')).toBeNull();
+        for (const key of ['video-player', 'pdf-reader', 'new-tab', 'docs']) {
+            const link = links?.querySelector<HTMLAnchorElement>(`[data-help-link="${key}"]`);
+            expect(link?.href).toMatch(/^https:\/\//);
+            expect(link?.textContent?.trim()).toBeTruthy();
+            expect(link?.textContent).not.toContain('未翻訳');
+        }
+        expect(form.querySelector('[data-help-anki-disclosure]')).not.toBeNull();
+        expect(form.querySelector('[data-action="factory-reset"]')).not.toBeNull();
+    });
+
+    it('replaces the hosted Help link with the factory reset action', () => {
+        const html = renderHelpLinksPanel();
+
+        expect(html).toContain('data-action="factory-reset"');
+        expect(html).toContain('data-help-link="factory-reset"');
+        expect(html).not.toContain('data-help-link="support"');
+        expect(html).not.toContain('data-jpdb-reader-surface-ignore');
+    });
+
+    it('marks hosted and support links with external-link icons', () => {
+        const form = document.createElement('form');
+        form.innerHTML = renderHelpLinksPanel();
+
+        for (const key of ['update-userscript', 'anki-connect-addon', 'anki-mobile-docs', 'video-player', 'pdf-reader', 'new-tab', 'docs', 'donate', 'issues', 'discord']) {
+            expect(form.querySelector(`[data-help-link="${key}"] svg`)).not.toBeNull();
+        }
+        expect(form.querySelector('[data-help-link="factory-reset"] svg')).toBeNull();
+
+        localizeSettingsForm(form, 'ja');
+
+        expect(form.querySelector('[data-help-link="video-player"]')?.textContent).toContain('動画プレイヤー');
+        expect(form.querySelector('[data-help-link="video-player"] svg')).not.toBeNull();
+        expect(form.querySelector('[data-help-link="pdf-reader"]')?.textContent).toContain('PDFリーダー');
+        expect(form.querySelector('[data-help-link="pdf-reader"] svg')).not.toBeNull();
+        expect(form.querySelector('[data-help-link="update-userscript"]')?.textContent).toContain('更新');
+        expect(form.querySelector('[data-help-link="anki-connect-addon"]')?.textContent).toContain('AnkiConnect');
+    });
+
+    // Only the help-actions grid sized its icons, so the Update button's arrow,
+    // which sits in the version strip, rendered at the width of the panel (a
+    // 261px black arrow on an iPhone-width Study).
+    it('sizes every Help link external-link icon like a glyph', () => {
+        const form = document.createElement('form');
+        form.className = 'jpdb-reader-settings';
+        form.innerHTML = renderHelpLinksPanel();
+        const style = document.createElement('style');
+        style.textContent = SETTINGS_CSS;
+        document.head.append(style);
+        document.body.append(form);
+
+        try {
+            const icons = Array.from(form.querySelectorAll<SVGElement>('[data-help-link] svg'));
+            expect(icons.length).toBeGreaterThan(1);
+            for (const icon of icons) {
+                const link = icon.closest('[data-help-link]')?.getAttribute('data-help-link');
+                expect(getComputedStyle(icon).width, `${link} icon width`).toBe('12px');
+                expect(getComputedStyle(icon).fill, `${link} icon fill`).toBe('none');
+            }
+        } finally {
+            style.remove();
+            form.remove();
+        }
+    });
+
+    it.each(['en', 'ja'] as const)('speaks about the browser extension, not scripts, when a page reaches the installed extension (%s)', language => {
+        const marker = document.createElement('meta');
+        marker.id = 'jpdb-reader-installed-runtime';
+        marker.dataset.yomuInstalledRuntimeKind = 'extension';
+        document.head.append(marker);
+        const form = document.createElement('form');
+        try {
+            form.innerHTML = renderSettingsForm(DEFAULT_SETTINGS, 'https://jpdb.io/settings');
+            localizeSettingsForm(form, language);
+
+            const strip = form.querySelector<HTMLElement>('[data-help-update-strip]')!;
+            const support = form.querySelector<HTMLElement>('[data-help-support-copy]')!;
+            const copy = `${strip.innerText ?? strip.textContent} ${support.textContent}`;
+            expect(copy).not.toMatch(/userscript|script|ユーザースクリプト|スクリプト/i);
+            // One line that says where updates come from, not that this is the extension.
+            expect(form.querySelector<HTMLElement>('[data-help-update-notes]')?.textContent?.trim()).toBe(language === 'en'
+                ? 'Updates come from the browser extension store.'
+                : '更新はブラウザの拡張機能ストアから届きます。');
+            expect(form.querySelector<HTMLAnchorElement>('[data-help-link="update-userscript"]')?.href).not.toBe(INSTALL_GUIDE_URL);
+            expect(form.querySelector<HTMLElement>('[data-yomu-duplicate-status]')?.hidden).toBe(true);
+        } finally {
+            marker.remove();
+        }
+    });
+
+    it('shows a compact version and update strip at the top of Help', () => {
+        const marker = document.createElement('meta');
+        marker.id = 'jpdb-reader-runtime-owner';
+        marker.dataset.yomuRuntimeKind = 'userscript';
+        document.head.append(marker);
+        const form = document.createElement('form');
+        try {
+            form.innerHTML = renderSettingsForm(DEFAULT_SETTINGS, 'https://jpdb.io/settings');
+
+            const helpPanel = form.querySelector<HTMLElement>('[data-settings-panel="help"]')!;
+            const firstHelpBlock = Array.from(helpPanel.children)
+                .find((child): child is HTMLElement => child instanceof HTMLElement && child.tagName !== 'LEGEND');
+            expect(firstHelpBlock?.matches('.jpdb-reader-help-links-card')).toBe(true);
+
+            const strip = helpPanel.querySelector<HTMLElement>('[data-help-update-strip]')!;
+            expect(strip).not.toBeNull();
+            expect(strip.parentElement?.firstElementChild).toBe(strip);
+
+            expect(form.querySelector<HTMLElement>('[data-yomu-current-version]')?.textContent).toBe(CURRENT_YOMU_VERSION);
+            expect(form.querySelector<HTMLElement>('[data-yomu-update-status]')?.textContent).toContain(CURRENT_YOMU_VERSION);
+            expect(form.querySelector<HTMLElement>('[data-yomu-duplicate-status]')?.textContent).toContain('userscript');
+            // jsdom has no GM_info, so the update flow resolves to the install
+            // guide (a raw .user.js navigation would hit the browser's
+            // blocked-install banner in exactly this manager-less situation).
+            expect(form.querySelector<HTMLAnchorElement>('[data-help-link="update-userscript"]')?.href).toBe(INSTALL_GUIDE_URL);
+            expect(form.querySelector<HTMLAnchorElement>('[data-help-link="update-userscript"]')?.dataset.action).toBe('open-yomu-update');
+            expect(form.querySelector<HTMLElement>('[data-help-update-notes]')?.textContent).toContain('install guide');
+            expect(form.querySelector<HTMLElement>('[data-diagnostics-title]')?.compareDocumentPosition(strip) ?? 0)
+                .toBe(Node.DOCUMENT_POSITION_PRECEDING);
+
+            localizeSettingsForm(form, 'ja');
+
+            expect(form.querySelector<HTMLElement>('[data-help-update-title]')?.textContent).toBe('バージョン');
+            expect(form.querySelector<HTMLElement>('[data-yomu-update-status]')?.textContent).toContain(CURRENT_YOMU_VERSION);
+            expect(form.querySelector<HTMLElement>('[data-yomu-duplicate-status]')?.textContent).toContain('userscript');
+            expect(form.querySelector<HTMLElement>('[data-help-update-notes]')?.textContent).toContain('インストールガイド');
+        } finally {
+            marker.remove();
+        }
+    });
+
+    it('shows AnkiConnect CORS, mobile, and Brave setup help in Help', () => {
+        const form = document.createElement('form');
+        form.innerHTML = renderHelpLinksPanel();
+
+        const ankiDisclosure = form.querySelector<HTMLDetailsElement>('[data-help-anki-disclosure]');
+        expect(ankiDisclosure).not.toBeNull();
+        expect(ankiDisclosure?.open).toBe(false);
+        expect(form.querySelector<HTMLElement>('[data-help-anki-title]')?.textContent).toBe('AnkiConnect setup');
+        expect(form.querySelector<HTMLElement>('.jpdb-reader-help-code')?.textContent).toContain('https://yomureader.com');
+        expect(form.querySelector<HTMLElement>('.jpdb-reader-help-code')?.textContent).toContain('http://localhost');
+        expect(form.querySelector<HTMLElement>('[data-help-anki-brave]')?.textContent).toContain('Brave');
+        expect(form.querySelector<HTMLAnchorElement>('[data-help-link="anki-connect-addon"]')?.href).toContain('ankiweb.net/shared/info/2055492159');
+        expect(form.querySelector<HTMLAnchorElement>('[data-help-link="anki-mobile-docs"]')?.href).toContain('learn/your-own-setup#use-desktop-anki');
+
+        localizeSettingsForm(form, 'ja');
+
+        expect(form.querySelector<HTMLElement>('[data-help-anki-title]')?.textContent).toBe('AnkiConnect設定');
+        expect(form.querySelector<HTMLElement>('.jpdb-reader-help-code')?.textContent).toContain('https://yomureader.com');
+        expect(form.querySelector<HTMLElement>('[data-help-anki-mobile]')?.textContent).toContain('Tailscale');
+    });
+
+    it('does not render the removed Help glossary', () => {
+        const form = document.createElement('form');
+        form.innerHTML = renderSettingsForm(DEFAULT_SETTINGS, 'https://jpdb.io/settings');
+
+        expect(form.querySelector('[data-settings-panel="help"] .jpdb-reader-help-glossary-card')).toBeNull();
+        expect(form.querySelector('[data-help-glossary-title]')).toBeNull();
+        const helpPanelText = form.querySelector('[data-settings-panel="help"]')?.textContent ?? '';
+        expect(helpPanelText).not.toContain('Online Japanese vocabulary review and mining service used for lookup');
+        expect(helpPanelText).not.toContain('Reading text from images');
+    });
+});

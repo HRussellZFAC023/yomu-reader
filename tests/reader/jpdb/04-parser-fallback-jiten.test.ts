@@ -1,7 +1,3 @@
-import '../../../src/reader/companions/register-build-companions';
-import { buildNewTabPalette } from '../../../src/reader/newtab/index';
-import { isYomuNewTabUrl } from '../../../src/reader/newtab/url';
-import { resolveNewTabBrandAssets } from '../../../src/reader/newtab/index';
 import { describe, expect, it, vi } from 'vitest';
 import { privateRasterImageForHost } from '../../../src/reader/ocr/private-raster-presenter';
 import {
@@ -13,6 +9,7 @@ import {
     ReaderParser,
     SETTINGS_STORAGE_KEY,
     ShuffledAudioDeck,
+    buildNewTabPalette,
     card,
     collectScanTargets,
     createAudioPreviewCard,
@@ -29,6 +26,7 @@ import {
     formatAudioUrl,
     isYomuHostedAppUrl,
     isYomuHostedPassivePage,
+    isYomuNewTabUrl,
     jitenTestCard,
     jpdbFirstParseOptions,
     mockAudioBlobUserscriptRequest,
@@ -39,6 +37,7 @@ import {
     mockSpeechSynthesis,
     parseSegmentedFallbackTokens,
     resolveAnkiWordAudio,
+    resolveNewTabBrandAssets,
     resolveUserscriptBlobResponse,
     setupJpdbWordVoicePlayback,
     stubInstantIntersectionObserver,
@@ -709,6 +708,74 @@ describe('reader helpers', () => {
         });
     });
 
+    it('scans hosted docs text after VitePress route changes expose it', async () => {
+        const { app, scanVisiblePage } = testReaderAppWithPageScanner('<main>Docs feature page</main>');
+        stubLocalHostedReaderLocation('/yomu-reader/features/');
+
+        try {
+            await app.init({});
+            expect(scanVisiblePage).not.toHaveBeenCalled();
+
+            document.body.innerHTML = '<main><div class="vp-doc"><div class="hosted-text-fixture" data-yomu-runtime-surface>青空の下で本を読む</div></div></main>';
+
+            await expectSilentPageScan(scanVisiblePage);
+        } finally {
+            app.destroy();
+            vi.unstubAllGlobals();
+            document.body.replaceChildren();
+        }
+    });
+
+    it('does not schedule a hosted scan when route changes expose only translated site copy', async () => {
+        const { app, scanVisiblePage } = testReaderAppWithPageScanner('<main>Docs feature page</main>');
+        stubLocalHostedReaderLocation();
+
+        try {
+            await app.init({});
+            expect(scanVisiblePage).not.toHaveBeenCalled();
+
+            document.body.innerHTML = `
+                <main>
+                    <section class="VPHero"><h1>好きなものを読んで日本語を学ぶ</h1></section>
+                    <section class="VPFeatures"><article>必要なツールをまとめて使えます。</article></section>
+                    <div class="vp-doc"><p>文脈で理解しながら読み続けます。</p></div>
+                </main>
+            `;
+            await new Promise(resolve => window.setTimeout(resolve, 50));
+            expect(scanVisiblePage).not.toHaveBeenCalled();
+        } finally {
+            app.destroy();
+            vi.unstubAllGlobals();
+            document.body.replaceChildren();
+        }
+    });
+
+    it('scans hosted docs text when VitePress mounts it after reader init', async () => {
+        const { app, scanVisiblePage } = testReaderAppWithPageScanner('<main id="app">Loading docs</main>');
+        stubLocalHostedReaderLocation();
+
+        try {
+            await app.init({});
+            await new Promise(resolve => window.setTimeout(resolve, 20));
+            expect(scanVisiblePage).not.toHaveBeenCalled();
+
+            document.querySelector('main')!.innerHTML = `
+                <div class="vp-doc">
+                    <div class="hosted-text-fixture" data-yomu-runtime-surface>
+                        <h3>青空の下で本を読む</h3>
+                        <p>今日は静かな喫茶店で新しい本を読みました。</p>
+                    </div>
+                </div>
+            `;
+
+            await expectSilentPageScan(scanVisiblePage);
+        } finally {
+            app.destroy();
+            vi.unstubAllGlobals();
+            document.body.replaceChildren();
+        }
+    });
+
     it('scans Japanese that hydrates after init inside an otherwise shadow-only generic page', async () => {
         stubSharedReaderSettings({});
         const { app, scanVisiblePage } = testReaderAppWithPageScanner('<main>Loading</main><div id="late-shadow"></div>');
@@ -735,8 +802,6 @@ describe('reader helpers', () => {
     });
 
     it('does not wake a scoped page for Japanese hydrating in docs chrome outside a Reader Surface', async () => {
-        vi.useFakeTimers();
-
         document.documentElement.setAttribute('data-yomu-annotation-scope', 'surface');
         const { app, scanVisiblePage } = testReaderAppWithPageScanner(`
             <main>Loading docs</main>
@@ -753,14 +818,14 @@ describe('reader helpers', () => {
 
         try {
             await app.init({});
-            await vi.advanceTimersByTimeAsync(30);
+            await new Promise(resolve => window.setTimeout(resolve, 30));
             expect(scanVisiblePage).not.toHaveBeenCalled();
 
             root.innerHTML = '<nav>はじめる</nav>';
             // Exceed both the generic 450ms mutation delay and the 900ms
             // steady-state throttle so a wrongly scheduled scan cannot pass
             // merely because its timer has not fired yet.
-            await vi.advanceTimersByTimeAsync(1_100);
+            await new Promise(resolve => window.setTimeout(resolve, 1_100));
             expect(scanVisiblePage).not.toHaveBeenCalled();
         } finally {
             app.destroy();

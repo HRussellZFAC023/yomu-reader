@@ -24,3 +24,10 @@ export const N2_PPOI_IMPRESSION_PROVENANCE = Object.freeze({
         learnerActivityText: 'original-yomu-authored' as const,
     }),
 }) satisfies N2PpoiImpressionProvenance;
+
+export function canonicalN2PpoiImpressionSourceLocus(): string {
+    const source = N2_PPOI_IMPRESSION_PROVENANCE;
+    return [source.sourceId, source.sourceDocumentSha256, String(source.sourceDocumentByteLength), source.relativePath,
+        String(source.sourceLocus.pdfPage), String(source.sourceLocus.printedPage), source.sourceLocus.section, source.sourceLocus.item,
+    ].join('\n') + '\n';
+}

@@ -1,4 +1,3 @@
-import '../../src/reader/companions/register-build-companions';
 // Jiten takes a single saved word only into a word list (StudyDeckType 2,
 // StaticWordList); its media, frequency and smart study decks answer 400
 // "Words can only be added in static word list decks." "Add to deck…" and

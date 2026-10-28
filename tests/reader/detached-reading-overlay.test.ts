@@ -1,4 +1,3 @@
-import '../../src/reader/companions/register-build-companions';
 import { syncFittedReadings as syncProjectedReadings, readingRect as rect } from './helpers/projected-reading-frame';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 

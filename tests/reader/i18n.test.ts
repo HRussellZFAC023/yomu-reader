@@ -1,10 +1,7 @@
-// Filesystem/subprocess inputs, including generic helpers called by this test.
-// @yomu-reads docs/**/*.md docs/.vitepress/** src/reader/app/i18n.ts src/reader/newtab/i18n.ts
 import { readFileSync } from 'node:fs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { nextExplicitUiLanguage, parseUiCopyTable, resolveUiLanguage } from '../../src/reader/app/i18n';
 import { publishedWebsiteRouteDefinitions } from '../../docs/.vitepress/locales/route-catalog';
-import { uiText } from "../../src/reader/app/i18n";
 
 describe('interface language resolution', () => {
     afterEach(() => {
@@ -503,25 +500,5 @@ describe('copy tables survive the extension compiler', () => {
 
     it('still ignores a row that starts with a tab', () => {
         expect(parseUiCopyTable('settings\t設定\n\tstray')).toEqual({ settings: '設定' });
-    });
-});
-
-describe('Japanese interface copy', () => {
-    // Counterpart to the English-pinned reader suites (see helpers/settings-fixture
-    // testEnSettings): confirm the Japanese interface actually renders localized UI
-    // copy rather than falling back to the English table or the untranslated
-    // placeholder. Uses uiText directly as the cheapest translation surface.
-
-    it('resolves an explicit ja language to Japanese', () => {
-        expect(resolveUiLanguage('ja')).toBe('ja');
-    });
-
-    it('renders a Japanese UI string distinct from the English copy', () => {
-        const ja = uiText('ja', 'addAudioSource');
-        const en = uiText('en', 'addAudioSource');
-        expect(en).toBe('Add audio source');
-        expect(ja).toBe('音声ソースを追加');
-        expect(ja).not.toBe(en);
-        expect(ja).not.toBe('未翻訳');
     });
 });

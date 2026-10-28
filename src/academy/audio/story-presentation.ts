@@ -1,7 +1,7 @@
 import type { ThemeSlot } from './types';
 
 /** Chapter 1's authored score/environment changes, keyed to canonical scene IDs. */
-const BLANK_ATLAS_SCENE_THEMES = Object.freeze({
+export const BLANK_ATLAS_SCENE_THEMES = Object.freeze({
     'scene:blank-atlas:arrival-greetings': 'opening.invitation',
     'scene:blank-atlas:sound-script-map': 'classroom.focus',
     'scene:blank-atlas:classroom-survival': 'classroom.focus',

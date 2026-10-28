@@ -2,12 +2,6 @@ import { expect, it, vi } from 'vitest';
 import { REVIEW_RECEIPT_LIMIT, ReviewQueueOwner, reviewDeliveryScope, type ReviewQueueState } from '../../src/reader/newtab/review-queue-owner';
 import type { QueuedNewTabGrade } from '../../src/reader/newtab/grade-queue';
 import type { JPDBCard } from '../../src/reader/app/types';
-import { newTabPromptController, newTabTestCard, renderSeededNewTabWord } from "./new-tab-review/fixtures";
-import { installGmStorageFixture } from "./helpers/settings-persistence-fixture";
-import { NewTabGradeQueue } from "../../src/reader/newtab/grade-queue";
-import { ExtensionReviewQueueClient } from "../../src/reader/newtab/extension-review-queue-client";
-import { parseManagedStateEpoch } from "../../src/reader/app/managed-state-epoch";
-import { REVIEW_QUEUE_OWNER_KEY } from "../../src/reader/newtab/review-queue-owner";
 
 function review(id = 'review-1'): QueuedNewTabGrade {
     return { id, at: 1, target: 'anki', grade: 'okay', attempts: 0, providerContext: 'account-a',
@@ -146,7 +140,7 @@ it('returns atomic receipt/revision snapshots and does not increment on duplicat
     expect(snapshot.revisions.toString).toBe(0);
 });
 
-it('bounds completion receipts past the receipt limit while still deduplicating recent replays', async () => {
+it('bounds completion receipts across thousands of reviews while still deduplicating recent replays', async () => {
     let data: ReviewQueueState = { reviews: [], completed: {} };
     // Plain storage: a vi.fn would retain every multi-kilobyte state it was called with.
     const owner = new ReviewQueueOwner({
@@ -154,9 +148,7 @@ it('bounds completion receipts past the receipt limit while still deduplicating 
         write: async next => { data = structuredClone(next); },
     }, 200);
     const stored = () => data;
-    const reviewCount = REVIEW_RECEIPT_LIMIT + 50;
-    const lastReviewId = `review-${reviewCount - 1}`;
-    for (let index = 0; index < reviewCount; index++) {
+    for (let index = 0; index < 2_000; index++) {
         const id = `review-${index}`;
         await owner.record(review(id));
         await owner.claim(id, 'account-a');
@@ -164,10 +156,10 @@ it('bounds completion receipts past the receipt limit while still deduplicating 
     }
     expect(Object.keys(stored().completed)).toHaveLength(REVIEW_RECEIPT_LIMIT);
     expect(REVIEW_RECEIPT_LIMIT).toBeLessThanOrEqual(500);
-    await owner.record(review(lastReviewId));
-    await owner.record(review(`review-${reviewCount - REVIEW_RECEIPT_LIMIT}`));
+    await owner.record(review('review-1999'));
+    await owner.record(review(`review-${2_000 - REVIEW_RECEIPT_LIMIT}`));
     expect(await owner.list()).toEqual([]);
-    expect((await owner.snapshot([lastReviewId], [])).statuses[lastReviewId]).toBe('completed');
+    expect((await owner.snapshot(['review-1999'], [])).statuses['review-1999']).toBe('completed');
 });
 
 it('releases a certainly-undelivered claim back to pending and discards a held one with a receipt', async () => {
@@ -224,100 +216,4 @@ it('stamps each claim and releases only the claim a release names', async () => 
     } finally {
         vi.useRealTimers();
     }
-});
-
-describe("review owner live sync", () => {
-    it('coalesces owner-change bursts and tears subscriptions down on rebind and destruction', async () => {
-        installGmStorageFixture();
-        let sequence = 0;
-        const listeners = new Map<number, { key: string; callback: (...args: unknown[]) => void }>();
-        vi.stubGlobal('GM_addValueChangeListener', (key: string, callback: (...args: unknown[]) => void) => {
-            listeners.set(++sequence, { key, callback });
-            return sequence;
-        });
-        vi.stubGlobal('GM_removeValueChangeListener', (id: number) => { listeners.delete(id); });
-        const owner = new ExtensionReviewQueueClient(async () => ({ ok: true, value: [] }), async () => parseManagedStateEpoch(null), {
-            read: () => null, write: () => {}, clear: () => {},
-        });
-        const queue = new NewTabGradeQueue({ owner, offlineEnabled: () => true, providerContextForTarget: () => 'account-a',
-            submit: async () => true, onSubmitted: () => {} });
-        const controller = newTabPromptController();
-        Object.assign(controller, { gradeQueue: queue });
-        const probe = controller as unknown as { bindRootEvents(root: HTMLElement): void; performQueueSync(): Promise<void> };
-        let release!: () => void;
-        const pending = new Promise<void>(resolve => { release = resolve; });
-        const flush = vi.spyOn(probe, 'performQueueSync').mockImplementationOnce(() => pending).mockResolvedValue(undefined);
-        const root = document.createElement('div');
-        document.body.append(root);
-        const selected = () => [...listeners.values()].filter(item => item.key === REVIEW_QUEUE_OWNER_KEY);
-        const tick = () => new Promise(resolve => setTimeout(resolve, 0));
-        try {
-            probe.bindRootEvents(root);
-            expect(selected()).toHaveLength(1);
-            probe.bindRootEvents(root);
-            expect(selected()).toHaveLength(1);
-            const callback = selected()[0].callback;
-            for (let index = 0; index < 3; index++) callback(REVIEW_QUEUE_OWNER_KEY, null, { ignoredPayload: index }, true);
-            await vi.waitFor(() => expect(flush).toHaveBeenCalledOnce());
-            await tick();
-            expect(flush).toHaveBeenCalledOnce();
-            release();
-            await vi.waitFor(() => expect(flush).toHaveBeenCalledTimes(2));
-            controller.destroy();
-            expect(selected()).toHaveLength(0);
-            callback(REVIEW_QUEUE_OWNER_KEY, null, {}, true);
-            await tick();
-            expect(flush).toHaveBeenCalledTimes(2);
-        } finally {
-            release();
-            controller.destroy();
-            root.remove();
-            vi.unstubAllGlobals();
-        }
-    });
-
-    it('does not start a queued follow-up after destruction while synchronization is suspended', async () => {
-        const controller = newTabPromptController();
-        const probe = controller as unknown as { flushQueuedGrades(): Promise<void>; performQueueSync(): Promise<void> };
-        let release!: () => void;
-        const suspended = new Promise<void>(resolve => { release = resolve; });
-        const work = vi.spyOn(probe, 'performQueueSync').mockImplementationOnce(() => suspended).mockResolvedValue(undefined);
-        const syncing = probe.flushQueuedGrades();
-        await vi.waitFor(() => expect(work).toHaveBeenCalledOnce());
-        void probe.flushQueuedGrades();
-        controller.destroy();
-        release();
-        await syncing;
-        await probe.flushQueuedGrades();
-        expect(work).toHaveBeenCalledOnce();
-    });
-
-    it('does not repaint a replacement view when an old queue read completes after destruction', async () => {
-        const controller = newTabPromptController();
-        const root = renderSeededNewTabWord(controller, newTabTestCard(), { appendToDocument: true });
-        let release!: (count: number) => void;
-        const suspended = new Promise<number>(resolve => { release = resolve; });
-        const queue = { flush: vi.fn(() => suspended), heldReviews: vi.fn(async () => []), usesSharedOwner: () => true,
-            blocksReview: () => false, needsRecordingRecovery: () => false };
-        Object.assign(controller, { gradeQueue: queue, queuedReviewNeedsRefresh: true });
-        const probe = controller as unknown as {
-            flushQueuedGrades(): Promise<void>;
-            loadWordsInto(): Promise<void>;
-            refreshSessionProgressSoon(): void;
-        };
-        const load = vi.spyOn(probe, 'loadWordsInto').mockResolvedValue(undefined);
-        const progress = vi.spyOn(probe, 'refreshSessionProgressSoon');
-        const syncing = probe.flushQueuedGrades();
-        await vi.waitFor(() => expect(queue.flush).toHaveBeenCalledOnce());
-        controller.destroy();
-        root.textContent = 'Replacement view';
-        progress.mockClear();
-        release(0);
-        await syncing;
-        expect(load).not.toHaveBeenCalled();
-        expect(queue.heldReviews).not.toHaveBeenCalled();
-        expect(progress).not.toHaveBeenCalled();
-        expect(root.textContent).toBe('Replacement view');
-        root.remove();
-    });
 });

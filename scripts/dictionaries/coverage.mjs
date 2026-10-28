@@ -85,7 +85,7 @@ export function assertPublishedObjectsResolvable(catalog, ledger) {
  * staged entry may legitimately gain an object on the way through; it may never
  * vanish.
  */
-function assertStagedEntriesReachPublished(stagingCatalog, publishedCatalog) {
+export function assertStagedEntriesReachPublished(stagingCatalog, publishedCatalog) {
   const publishedById = new Map((publishedCatalog.entries ?? []).map(entry => [entry.id, entry]));
   const dropped = (stagingCatalog.entries ?? []).filter(entry => !publishedById.has(entry.id));
   if (dropped.length) {
@@ -102,7 +102,7 @@ function assertStagedEntriesReachPublished(stagingCatalog, publishedCatalog) {
  * Fails when the catalogue does not account for every artifact the upstream
  * survey recorded.
  */
-function assertUpstreamCoverage(coverage, catalog) {
+export function assertUpstreamCoverage(coverage, catalog) {
   if (coverage?.schemaVersion !== 1) throw new Error('Upstream coverage ledger schemaVersion must equal 1.');
   const entryById = new Map((catalog.entries ?? []).map(entry => [entry.id, entry]));
   const digests = new Set(publishedEntries(catalog).map(entry => entry.distribution.object.sha256));
@@ -173,7 +173,7 @@ function assertUpstreamCoverage(coverage, catalog) {
  * if the reader can still go and get it, so every unmirrored row has to carry
  * somewhere to go.
  */
-function assertUnmirroredEntriesAreExplorable(catalog) {
+export function assertUnmirroredEntriesAreExplorable(catalog) {
   const dead = (catalog.entries ?? []).filter(
     entry => entry.distribution?.state !== 'published' && !entry.source?.projectUrl,
   );
@@ -193,7 +193,7 @@ function assertUnmirroredEntriesAreExplorable(catalog) {
  * has no URL to fetch, so the entry stays source-only for ever with nothing in
  * the repository saying why.
  */
-function assertEntriesAreAcquirable(catalog, acquisition) {
+export function assertEntriesAreAcquirable(catalog, acquisition) {
   const sourceIds = new Set((acquisition.sources ?? []).map(source => source.id));
   const collectionIds = new Set((acquisition.collections ?? []).map(collection => collection.id));
   const orphans = (catalog.entries ?? []).filter(entry => {

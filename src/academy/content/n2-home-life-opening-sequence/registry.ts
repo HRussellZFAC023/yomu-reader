@@ -15,6 +15,12 @@ export const N2_HOME_LIFE_OPENING_SEQUENCE: readonly N2OpeningPackage[] = Object
 
 validateSequence(N2_HOME_LIFE_OPENING_SEQUENCE);
 
+export function resolveN2HomeLifeOpeningSequencePackage(id: string): N2OpeningPackage {
+    const found = N2_HOME_LIFE_OPENING_SEQUENCE.find(candidate => candidate.id === id);
+    if (!found) throw new TypeError(`Unknown N2 home-life opening-sequence package: ${id}`);
+    return found;
+}
+
 function validateSequence(packages: readonly N2OpeningPackage[]): void {
     if (packages.length !== 5 || packages.some((record, index) => record.sequence.order !== index + 1)) {
         throw new TypeError('The N2 home-life opening sequence must contain five ordered packages.');

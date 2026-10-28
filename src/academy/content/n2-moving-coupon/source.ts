@@ -24,3 +24,10 @@ export const N2_MOVING_COUPON_PROVENANCE = Object.freeze({
         learnerActivityText: 'original-yomu-authored' as const,
     }),
 }) satisfies N2MovingCouponProvenance;
+
+export function canonicalN2MovingCouponSourceLocus(): string {
+    const source = N2_MOVING_COUPON_PROVENANCE;
+    return [source.sourceId, source.sourceDocumentSha256, String(source.sourceDocumentByteLength), source.relativePath,
+        String(source.sourceLocus.pdfPage), String(source.sourceLocus.printedPage), source.sourceLocus.section, source.sourceLocus.item,
+    ].join('\n') + '\n';
+}

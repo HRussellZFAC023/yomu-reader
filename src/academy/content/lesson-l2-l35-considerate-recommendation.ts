@@ -1,6 +1,25 @@
-import { ACADEMY_ASSESSED_ANSWER_SUPPORT, type ActivityController, type ActivityEvaluation, type ActivityHost, type ActivityModel, type ActivityPlugin, type GradeResult, type ReviewSeed, type ValidationIssue } from '../domain/activity-runtime';
+import {
+    ACADEMY_ASSESSED_ANSWER_SUPPORT,
+    type ActivityController,
+    type ActivityEvaluation,
+    type ActivityHost,
+    type ActivityModel,
+    type ActivityPlugin,
+    type GradeResult,
+    type ReviewSeed,
+    type ValidationIssue,
+} from '../domain/activity-runtime';
 import type { LocalizedText } from '../domain/source-library';
-import { localizedNodes, normalizeJapanese, setPending, showEvaluation, statusRegion, text, validateFeedback, type ActivityFeedbackSet } from '../minigames/activity-kit/shared';
+import {
+    localizedNodes,
+    normalizeJapanese,
+    setPending,
+    showEvaluation,
+    statusRegion,
+    text,
+    validateFeedback,
+    type ActivityFeedbackSet,
+} from '../minigames/activity-kit/shared';
 import { renderInspectableSourceVisual } from '../minigames/source-visual';
 import type { LessonActivityBeat } from '../ui/lesson-activity-chapter';
 
@@ -14,7 +33,7 @@ const GRAMMAR_SHA256 = 'b531dcfee3d58e65650ec0dff7eaa271a30721d410e935a47132fb56
 const SCRIPT_SHA256 = '1571d04cee3a179b55cb202e519d5a366f7c62c0a1ec2483c26cfc1f6b9f5376';
 const WORKSHEET_SHA256 = 'd2efe791fb0fbb9693574aa6c3f5f388a2564484978cabc6d0d40ab74d10bbc5';
 
-const L2_L35_QUARANTINED_AUDIO = Object.freeze([
+export const L2_L35_QUARANTINED_AUDIO = Object.freeze([
     Object.freeze({
         member: 'Track 28',
         payloadSha256: '0de2c7abfe3c7857c9def04b5be3f00a85a60d198c208f116c4660a8d9c7c78e',
@@ -27,7 +46,7 @@ const L2_L35_QUARANTINED_AUDIO = Object.freeze([
     }),
 ] as const);
 
-const L2_L35_SOURCE_VISUALS = Object.freeze([
+export const L2_L35_SOURCE_VISUALS = Object.freeze([
     sourceVisual(GRAMMAR_SHA256, 'Chapter 35-3_〜ありませんか grammar exercise', 1,
         'moodle-chapter-35-3-arimasenka-grammar-page-1.png', '7f5a7b07b7e2fa070e2599f60eddff2ed2722b23d4ce03a88c351c485065364c'),
     sourceVisual(GRAMMAR_SHA256, 'Chapter 35-3_〜ありませんか grammar exercise', 2,
@@ -48,7 +67,7 @@ interface ConsiderateRecommendationOption {
     readonly origin: 'sensei-source' | 'yomu-scaffolding';
 }
 
-interface ConsiderateRecommendationRound {
+export interface ConsiderateRecommendationRound {
     readonly id: string;
     readonly sourceOrder: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
     readonly sourceTask: ConsiderateRecommendationTask;
@@ -72,7 +91,7 @@ interface ConsiderateRecommendationSourceVisual {
     readonly alt: LocalizedText;
 }
 
-interface ConsiderateRecommendationModel extends ActivityModel {
+export interface ConsiderateRecommendationModel extends ActivityModel {
     readonly kind: 'academy-considerate-recommendation';
     readonly responseKind: 'moodle-chapter-35-arimasenka-conversation-script';
     readonly curriculumPhase: 'assessed-production';

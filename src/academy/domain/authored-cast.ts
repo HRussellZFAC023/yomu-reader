@@ -1,4 +1,7 @@
-import { getAcademyCastMember, type AcademyCastMemberId } from './cast-registry';
+import {
+    getAcademyCastMember,
+    type AcademyCastMemberId,
+} from './cast-registry';
 
 export type AcademyLearningSpecialty =
     | 'ambiguity'
@@ -92,13 +95,28 @@ export interface AuthoredCastReference {
     readonly firstName?: string;
 }
 
-interface AuthoredCastUnit {
+export interface AuthoredCastUnit {
     readonly id: string;
     readonly cast: readonly AuthoredCastReference[];
     readonly requiredSpecialties?: readonly AcademyLearningSpecialty[];
 }
 
-interface AuthoredCastPolicy {
+export type AuthoredCastIssueCode =
+    | 'unknown-cast-id'
+    | 'cast-name-mismatch'
+    | 'cast-not-lesson-eligible'
+    | 'cast-specialty-gap'
+    | 'cast-variety'
+    | 'cast-concentration';
+
+export interface AuthoredCastIssue {
+    readonly code: AuthoredCastIssueCode;
+    readonly unitId?: string;
+    readonly characterId?: string;
+    readonly message: string;
+}
+
+export interface AuthoredCastPolicy {
     readonly minimumUnitsForRotation: number;
     readonly minimumDistinctPeers: number;
     readonly dominantGroupSize: number;
@@ -118,7 +136,7 @@ const DEFAULT_AUTHORED_CAST_POLICY: AuthoredCastPolicy = Object.freeze({
  * Audits externally-authored lesson metadata before it reaches a scene. Teacher
  * recurrence is expected, so rotation health measures lesson-eligible peers.
  */
-function auditAuthoredCastUsage(
+export function auditAuthoredCastUsage(
     units: readonly AuthoredCastUnit[],
     policy: AuthoredCastPolicy = DEFAULT_AUTHORED_CAST_POLICY,
 ): readonly AuthoredCastIssue[] {
@@ -216,18 +234,3 @@ export function assertHealthyAuthoredCastUsage(
     const issues = auditAuthoredCastUsage(units, policy);
     if (issues.length) throw new TypeError(issues.map(issue => issue.message).join(' '));
 }
-
-interface AuthoredCastIssue {
-    readonly code: AuthoredCastIssueCode;
-    readonly unitId?: string;
-    readonly characterId?: string;
-    readonly message: string;
-}
-
-type AuthoredCastIssueCode =
-    | 'unknown-cast-id'
-    | 'cast-name-mismatch'
-    | 'cast-not-lesson-eligible'
-    | 'cast-specialty-gap'
-    | 'cast-variety'
-    | 'cast-concentration';

@@ -13,8 +13,6 @@ npm ci
 npm run check
 ```
 
-The gates reuse byte-exact passing stages from the repository's shared Git cache and verify output hashes or restore passed output bytes before skipping builds. Use `npm run check -- --no-cache` or `npm run check:release -- --no-cache` to force every stage and the full test suite; CI always does this.
-
 Run `check` and test commands directly. Never pipe them to `tail`: zsh reports
 the last pipeline command's status by default, so `npm run check | tail` can
 look successful after npm failed. Inspect `artifacts/check-logs/` after the

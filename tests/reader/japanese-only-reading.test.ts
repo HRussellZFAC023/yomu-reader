@@ -1,4 +1,3 @@
-import '../../src/reader/companions/register-build-companions';
 import 'fake-indexeddb/auto';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';

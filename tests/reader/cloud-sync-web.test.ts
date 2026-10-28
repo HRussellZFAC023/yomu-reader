@@ -2,7 +2,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { RETIRED_SETTINGS_STORAGE_KEYS } from '../../src/reader/settings/settings-authority-storage-keys';
 import { v193CloudSnapshot } from './helpers/upgrade-v193-corpus';
 
-
 const { requestJson, requestText } = vi.hoisted(() => ({
     requestJson: vi.fn(),
     requestText: vi.fn(),
@@ -287,16 +286,5 @@ describe('cloud-sync-web (serverless Google Drive settings sync)', () => {
         requestText.mockResolvedValue(body);
         const mod = await loadModule();
         await expect(mod.downloadCloudSettingsFromCloud()).rejects.toThrow('This settings backup format is not supported.');
-    });
-});
-
-describe('cloud-sync-web with the baked-in public client id', () => {
-    // Isolated in its own file so the import-time const evaluates in a fresh module
-    // registry with no build-time OAuth override configured.
-
-    it('is enabled by default for hosted and userscript builds', async () => {
-        const mod = await import('../../src/reader/settings/cloud-sync-web');
-        expect(mod.CLOUD_SETTINGS_SYNC_ENABLED).toBe(true);
-        expect(mod.cloudSettingsSyncAvailable()).toBe(true);
     });
 });

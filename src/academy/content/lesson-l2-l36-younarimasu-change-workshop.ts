@@ -1,6 +1,25 @@
-import { ACADEMY_ASSESSED_ANSWER_SUPPORT, type ActivityController, type ActivityEvaluation, type ActivityHost, type ActivityModel, type ActivityPlugin, type GradeResult, type ReviewSeed, type ValidationIssue } from '../domain/activity-runtime';
+import {
+    ACADEMY_ASSESSED_ANSWER_SUPPORT,
+    type ActivityController,
+    type ActivityEvaluation,
+    type ActivityHost,
+    type ActivityModel,
+    type ActivityPlugin,
+    type GradeResult,
+    type ReviewSeed,
+    type ValidationIssue,
+} from '../domain/activity-runtime';
 import type { LocalizedText } from '../domain/source-library';
-import { localizedNodes, normalizeJapanese, setPending, showEvaluation, statusRegion, text, validateFeedback, type ActivityFeedbackSet } from '../minigames/activity-kit/shared';
+import {
+    localizedNodes,
+    normalizeJapanese,
+    setPending,
+    showEvaluation,
+    statusRegion,
+    text,
+    validateFeedback,
+    type ActivityFeedbackSet,
+} from '../minigames/activity-kit/shared';
 import { renderInspectableSourceVisual } from '../minigames/source-visual';
 import type { LessonActivityBeat } from '../ui/lesson-activity-chapter';
 
@@ -52,7 +71,7 @@ interface LessonTenVocabularyEntry {
     readonly note?: string;
 }
 
-interface YounarimasuChangeWorkshopModel extends ActivityModel {
+export interface YounarimasuChangeWorkshopModel extends ActivityModel {
     readonly kind: 'academy-younarimasu-change-workshop';
     readonly responseKind: 'moodle-lesson-10-chapter-36-change-workshop';
     readonly curriculumPhase: 'assessed-production';
@@ -124,7 +143,7 @@ function visualSeries(
     ));
 }
 
-const L2_L36_LESSON_TEN_SOURCE_VISUALS = Object.freeze([
+export const L2_L36_LESSON_TEN_SOURCE_VISUALS = Object.freeze([
     ...visualSeries(VOCABULARY_2_SHA256, 'Chapter 36-2 Vocabulary Sheet', 'moodle-lesson-10-chapter-36-2-vocabulary-page', [
         '67c93ad62c81e07c38688e29785a93fc79606691f14b5dad632cfc0cfd93799a',
     ]),
@@ -160,7 +179,7 @@ const L2_L36_LESSON_TEN_SOURCE_VISUALS = Object.freeze([
     ]),
 ] as const);
 
-const L2_L36_LESSON_TEN_AUDIO = Object.freeze([
+export const L2_L36_LESSON_TEN_AUDIO = Object.freeze([
     Object.freeze({
         id: 'b5',
         label: 'CD B-5',

@@ -1,6 +1,3 @@
-// Filesystem inputs supplied to generic helpers are confined to these paths or temporary fixtures.
-// @yomu-reads scripts/lib/extension-runtime-hardening.mjs
-import '../../src/reader/companions/register-build-companions';
 // The extension toolbar popup's "On this page" section (owner decision 4,
 // 2026-10-07): the page answers with the puck's actions and their state, and
 // the popup renders and runs them, with nothing kept in the background.
@@ -253,9 +250,7 @@ describe('the toolbar popup', () => {
     }
 
     const buttons = () => [...document.querySelectorAll<HTMLButtonElement>('[data-yomu-action]')];
-    const settle = () => vi.isFakeTimers()
-        ? vi.advanceTimersByTimeAsync(0)
-        : new Promise(resolve => setTimeout(resolve, 0));
+    const settle = () => new Promise(resolve => setTimeout(resolve, 0));
 
     it('replaces all compiler menus with one native-button group and opens packaged destinations', async () => {
         const { opened, sendMessage, runtimeSend, executeScript } = mountPopup(() => ({
@@ -343,8 +338,6 @@ describe('the toolbar popup', () => {
     });
 
     it('settles on the state the page lands in after a toggle echoes back', async () => {
-        vi.useFakeTimers();
-
         let landed = 'よむ off';
         mountPopup(message => {
             // The run answers before the saved resume echoes back; a later list shows where it landed.
@@ -359,7 +352,7 @@ describe('the toolbar popup', () => {
         await settle();
         await settle();
         expect(buttons()[0]!.textContent).toBe('よむ off');
-        await vi.advanceTimersByTimeAsync(1000);
+        await new Promise(resolve => setTimeout(resolve, 1000));
         expect(buttons()[0]!.textContent).toBe('よむ on');
         expect(document.activeElement).toBe(buttons()[0]);
     });

@@ -1,4 +1,0 @@
-{
-  "tests/reader/host-css-armour.test.ts": "Scans every TypeScript source for inline annotation style writes; full CI/Reader release schedule retains it.",
-  "tests/reader/factory-reset-invariant.test.ts": "Discovers managed storage keys across the whole Reader source tree; full CI/Reader release schedule retains the learner-data reset invariant."
-}

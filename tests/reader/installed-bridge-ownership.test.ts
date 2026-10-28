@@ -1,5 +1,3 @@
-// Filesystem inputs supplied to generic helpers are confined to these paths or temporary fixtures.
-// @yomu-reads scripts/lib/extension-runtime-hardening.mjs
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 // @ts-expect-error The packaging hardener is a Node ESM script exercised directly by the build.
 import { EXTENSION_INSTALLED_RUNTIME_PRELUDE } from '../../scripts/lib/extension-runtime-hardening.mjs';

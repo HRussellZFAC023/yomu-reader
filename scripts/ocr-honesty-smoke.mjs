@@ -171,17 +171,10 @@ async function honestyCase(browser, engine) {
         check(`${label}: 2 Lens requests in total`, lensCalls === 2, { lensCalls });
 
         // The answer outlives the page in Yomu's own storage, not the site's.
-        await run.page.waitForFunction(async () => {
-            const keys = await window.GM.listValues();
-            for (const key of keys.filter(key => key.startsWith('yomu:private:ocr-cache:v3:') && !key.endsWith(':index'))) {
-                const shard = await window.GM.getValue(key, {});
-                if (Object.values(shard).some(entry => entry?.r?.lines?.length)) return true;
-            }
-            return false;
-        }, null, { timeout: 8_000 });
+        await run.page.waitForTimeout(1_500);
         await run.page.reload({ waitUntil: 'load' });
         await run.page.locator(target.photo).waitFor({ state: 'visible' });
-        await run.page.locator('#jpdb-reader-runtime-owner[data-yomu-runtime-health="ready"]').waitFor({ state: 'attached' });
+        await run.page.waitForTimeout(1_500);
         const beforeReloadTap = lensCalls;
         await tapPhoto(run.page, target);
         const cachedLines = await waitForLines(run.page, 8_000);

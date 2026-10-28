@@ -21,6 +21,11 @@ export interface WorkflowPlan {
 }
 
 export function parseBacklog(markdown: string, config?: Record<string, unknown>): WorkflowTask[];
+export function resolveConfinedFile(
+    candidate: string,
+    roots: string[],
+): { absolute: string; root: string; realRoot: string };
+export function canonicalizeReservationPath(repoRoot: string, candidate: string): string;
 export function validateWorkflow(tasks: WorkflowTask[], config: Record<string, unknown>): { errors: string[]; warnings: string[] };
 export function buildPlan(tasks: WorkflowTask[], config: Record<string, unknown>, state?: Record<string, unknown>, now?: Date): WorkflowPlan;
 export function taskCompleteForWorkflow(task: WorkflowTask, state?: Record<string, any>): boolean;

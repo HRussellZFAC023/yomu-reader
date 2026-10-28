@@ -9,3 +9,9 @@ if (validationIssues.length) {
 }
 
 export const N1_SOUND_DISCRIMINATION_PACKAGES: readonly N1SoundDiscriminationPackage[] = Object.freeze([packageRecord]);
+
+export function resolveN1SoundDiscriminationPackage(id: string): N1SoundDiscriminationPackage {
+    const found = N1_SOUND_DISCRIMINATION_PACKAGES.find(candidate => candidate.id === id);
+    if (!found) throw new TypeError(`Unknown N1 sound-discrimination package: ${id}`);
+    return found;
+}

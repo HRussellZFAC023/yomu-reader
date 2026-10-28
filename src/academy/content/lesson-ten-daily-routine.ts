@@ -1,6 +1,15 @@
 import lessonPackage from '../../../public/academy/content/lessons/011-l1-l10.json';
 import { ACADEMY_ASSESSED_ANSWER_SUPPORT } from '../domain/activity-runtime';
-import type { DailyRoutineOption, DailyRoutineRound, DailyRoutineSentenceRound, DailyRoutineShortAnswerRound, DailyRoutineTenseRound, DailyRoutineTimeRound, DailyRoutineWorkbookModel } from '../minigames/daily-routine-workbook';
+import type {
+    DailyRoutineOption,
+    DailyRoutineRound,
+    DailyRoutineSentenceRound,
+    DailyRoutineShortAnswerRound,
+    DailyRoutineTenseRound,
+    DailyRoutineTimeRound,
+    DailyRoutineWorkbookModel,
+} from '../minigames/daily-routine-workbook';
+import type { SourceVocabularySheetModel } from '../minigames/source-vocabulary-sheet';
 import type { LessonActivityBeat } from '../ui/lesson-activity-chapter';
 
 const PACKAGE_ID = 'l1-l10';
@@ -19,7 +28,70 @@ const TIME_OPTIONS = [
     option('10', '10じ'),
 ] as const;
 
-function createLessonTenDailyRoutineWorkbookModel(): DailyRoutineWorkbookModel {
+export function createLessonTenSourceVocabularyActivities(): readonly SourceVocabularySheetModel[] {
+    assertExactPackageSources();
+    const component = vocabularyComponent();
+    const provenance = record(component.provenance, 'l1-l10 vocabulary provenance');
+    const sourceId = exact(provenance.sourceId, 'l1-l10 vocabulary source id');
+    const sourceTitle = exact(provenance.title, 'l1-l10 vocabulary title');
+    const items = array(component.items, 'l1-l10 vocabulary items');
+    if (digest(provenance.payloadSha256, 'l1-l10 vocabulary hash') !== VOCABULARY_SHA256 || items.length !== 13) {
+        throw new TypeError('The complete 13-row l1-l10 vocabulary sheet is required.');
+    }
+    return Object.freeze(items.map((value, index) => {
+        const item = record(value, `l1-l10 vocabulary row ${index + 1}`);
+        const source = record(item.source, `l1-l10 vocabulary source ${index + 1}`);
+        const locus = record(source.locus, `l1-l10 vocabulary locus ${index + 1}`);
+        const exactFields = record(source.exact, `l1-l10 vocabulary exact ${index + 1}`);
+        const fieldProvenance = record(source.fieldProvenance, `l1-l10 vocabulary field provenance ${index + 1}`);
+        const page = integer(locus.page, `l1-l10 vocabulary page ${index + 1}`);
+        const row = integer(locus.row, `l1-l10 vocabulary row ${index + 1}`);
+        if (page !== 1 || row !== index + 1 || digest(source.payloadSha256, 'l1-l10 row hash') !== VOCABULARY_SHA256
+            || exact(source.title, 'l1-l10 row title') !== sourceTitle || source.answerVisibility !== 'after-attempt') {
+            throw new TypeError('The l1-l10 vocabulary sheet must remain in exact source order.');
+        }
+        return Object.freeze({
+            id: `authored:${PACKAGE_ID}/chapter-4-3-vocabulary:p${page}:r${row}`,
+            kind: 'academy-source-vocabulary-sheet' as const,
+            sourceQuestionId: exact(source.itemId, `l1-l10 vocabulary item ${index + 1}`),
+            conceptIds: [`concept:${PACKAGE_ID}:source-vocabulary:p${page}:r${row}`],
+            responseKind: 'source-vocabulary-recall' as const,
+            prompt: {
+                ja: '先生の行を読み、意味を思い出してから確認しましょう。',
+                en: 'Read the teacher row, recall its meaning, then check it.',
+            },
+            answerSupport: ACADEMY_ASSESSED_ANSWER_SUPPORT,
+            provenance: {
+                packageId: PACKAGE_ID,
+                componentId: 'chapter-4-3-vocabulary',
+                sourceId,
+                sourceQuestionId: exact(source.itemId, `l1-l10 vocabulary item id ${index + 1}`),
+                payloadSha256: VOCABULARY_SHA256,
+                sourceTitle,
+                locus: { page, row },
+            },
+            payload: {
+                exact: {
+                    words: exact(exactFields.words, `l1-l10 exact words ${index + 1}`),
+                    pronunciation: nullable(exactFields.pronunciation, `l1-l10 exact pronunciation ${index + 1}`),
+                    meaning: nullable(exactFields.meaning, `l1-l10 exact meaning ${index + 1}`),
+                },
+                support: {
+                    words: exact(item.ja, `l1-l10 support words ${index + 1}`),
+                    reading: exact(item.reading, `l1-l10 support reading ${index + 1}`),
+                    meaning: exact(item.en, `l1-l10 support meaning ${index + 1}`),
+                },
+                fieldProvenance: {
+                    words: exact(fieldProvenance.words, `l1-l10 words provenance ${index + 1}`),
+                    reading: exact(fieldProvenance.reading, `l1-l10 reading provenance ${index + 1}`),
+                    meaning: exact(fieldProvenance.meaning, `l1-l10 meaning provenance ${index + 1}`),
+                },
+            },
+        } satisfies SourceVocabularySheetModel);
+    }));
+}
+
+export function createLessonTenDailyRoutineWorkbookModel(): DailyRoutineWorkbookModel {
     assertExactPackageSources();
     const rounds = Object.freeze([
         tenseRound(1, 'moodle-tense-yesterday-sleep',
@@ -408,6 +480,18 @@ function assertExactPackageSources(): void {
     }
 }
 
+function vocabularyComponent(): Readonly<Record<string, unknown>> {
+    const root = record(lessonPackage, 'l1-l10 package');
+    const matches = array(root.components, 'l1-l10 components').map((value, index) =>
+        record(value, `l1-l10 component ${index}`)).filter(component => {
+        const provenance = component.provenance;
+        return provenance && typeof provenance === 'object' && !Array.isArray(provenance)
+            && (provenance as Record<string, unknown>).payloadSha256 === VOCABULARY_SHA256;
+    });
+    if (matches.length !== 1) throw new TypeError('Expected exactly one l1-l10 source vocabulary component.');
+    return matches[0]!;
+}
+
 function record(value: unknown, label: string): Readonly<Record<string, unknown>> {
     if (!value || typeof value !== 'object' || Array.isArray(value)) throw new TypeError(`${label} must be an object.`);
     return value as Readonly<Record<string, unknown>>;
@@ -421,6 +505,15 @@ function array(value: unknown, label: string): readonly unknown[] {
 function exact(value: unknown, label: string): string {
     if (typeof value !== 'string' || !value.trim()) throw new TypeError(`${label} must be nonempty text.`);
     return value;
+}
+
+function nullable(value: unknown, label: string): string | null {
+    return value === null ? null : exact(value, label);
+}
+
+function integer(value: unknown, label: string): number {
+    if (!Number.isInteger(value) || Number(value) < 1) throw new TypeError(`${label} must be a positive integer.`);
+    return Number(value);
 }
 
 function digest(value: unknown, label: string): string {

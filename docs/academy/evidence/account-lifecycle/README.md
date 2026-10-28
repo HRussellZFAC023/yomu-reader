@@ -35,12 +35,21 @@ The redacted local runtime receipt is written to ignored
 runtime versions, migration count, and named checks only; it contains no
 session id, cookie, OAuth state, provider subject, or invite code.
 
+With an Academy Vite server running, the real-browser lifecycle surface can be
+checked at phone and desktop sizes:
+
+```bash
+npm run dev:academy -- --host 127.0.0.1 --port 5205
+ACADEMY_BASE_URL=http://127.0.0.1:5205 npm run academy:account-lifecycle:proof:browser
+```
+
+The browser smoke renders the production profile-sync component, checks both
+deletion scopes as separate non-overlapping 44px controls, runs serious/critical
+axe checks, and writes ignored screenshots under
+`artifacts/academy-account-lifecycle/browser/`.
+
 That is `T/Q/S/O` evidence plus local Miniflare/D1 corroboration. It is not the
 deployed `D` gate.
-
-The former phone/desktop surface smoke was retired during smoke consolidation.
-It checked labels, geometry and accessibility with stubbed callbacks; it did not
-exercise account deletion or sync. The local lifecycle proofs above remain.
 
 The already-present payment, entitlement, class-board, leaderboard, answer
 check, and canonical encrypted-event foundations can be rerun together with:

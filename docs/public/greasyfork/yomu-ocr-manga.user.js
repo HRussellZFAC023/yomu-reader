@@ -6164,6 +6164,9 @@ Object.freeze([
   studyTargetReadiness: READING_ONLY_STUDY_TARGET_IDS.includes(language.id) ? "reading-only" : "planned"
   }))
 ]);
+Object.freeze(
+  LEARNER_LANGUAGES.map((language) => canonicalLanguageTag(language.runtimeLocale) ?? language.runtimeLocale)
+);
 const ankiFieldNames = (names) => names.split("|");
 const ANKI_HEADWORD_FIELD_NAME_PREFIX = ankiFieldNames(
   "Vocabulary-Kanji|Vocabulary Kanji|Vocab Kanji|Jlab-Kanji|Japanese_Word|Word|Word Kanji|Japanese Word|Headword|Headword Kanji|Term Kanji|Term Text|Expression Text|Base Form|Dictionary Form"
@@ -7192,6 +7195,9 @@ const ENGLISH_INTERFACE_LOCALE = (() => {
   if (!english) throw new Error("The interface manifest must always contain English");
   return english;
 })();
+Object.freeze(
+  INTERFACE_LOCALES.filter((locale) => locale.direction === "rtl")
+);
 Object.freeze(
   interfaceLocaleLedger.rtlGate.items.map(
   (item) => Object.freeze({ ...item })

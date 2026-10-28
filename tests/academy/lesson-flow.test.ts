@@ -1,5 +1,3 @@
-// Filesystem inputs owned by this test.
-// @yomu-reads public/academy/content/lessons/**
 import fs from 'node:fs';
 import path from 'node:path';
 import { AAKASH_RAINY_DIRECTIONS_SCENE_ID } from '../../src/academy/content/aakash-meet';
@@ -23,15 +21,9 @@ import { transitionAcademyRoute } from '../../src/academy/routing/route-history'
 import type { RepeatRequestCoverageState } from '../../src/academy/content/lesson-zero-repeat-request-coverage';
 import type { AcademyRouteContext } from '../../src/academy/routing/types';
 import type { AcademyShell } from '../../src/academy/ui/shell';
-import { sha256Bytes } from './helpers/asset-hash';
+import { sha256File } from './helpers/hash-memo';
 import { getAuthoredWeekRegistration } from '../../src/academy/content/lesson-content-registry';
 import { validateCommittedAuthoredWeek } from './helpers/authored-week-package';
-
-// These checks await promise-driven state changes, not animation delays.
-// Keep Vitest's timeout and retry semantics without a 50 ms floor per transition.
-function waitForState<T>(assertion: () => T | Promise<T>): Promise<T> {
-    return vi.waitFor(assertion, { interval: 5 });
-}
 
 const LESSON_PATH = path.resolve('public/academy/content/lessons/lesson-zero.v1.json');
 const CLASSROOM_PATH = path.resolve('public/academy/content/lessons/lesson-zero-classroom-expressions.v1.json');
@@ -95,7 +87,7 @@ async function completeSpeakingFork(route: ReturnType<typeof context>): Promise<
     await flow.render('source-activity', route.value);
     route.shell.current?.querySelector<HTMLButtonElement>('.academy-fork-prelude .academy-button-secondary')?.click();
     route.shell.current?.querySelector<HTMLButtonElement>('[data-choice-id="repeat"]')?.click();
-    await waitForState(() => expect(
+    await vi.waitFor(() => expect(
         route.shell.current?.querySelector<HTMLButtonElement>('.academy-source-completion .academy-button-primary'),
     ).not.toBeNull());
     route.shell.current?.querySelector<HTMLButtonElement>('.academy-source-completion .academy-button-primary')?.click();
@@ -217,14 +209,14 @@ describe('Academy lesson flow', () => {
             pronunciation: { play: vi.fn(async () => ({ dispose() {} })) } as never, kanjiWriting: {} as never });
         await flow.render('lesson-overview', route.value);
         route.shell.current?.querySelector<HTMLButtonElement>('.academy-lesson-overview-section-action[data-action-priority="primary"]')?.click();
-        await waitForState(() => expect(route.value.checkpoint.activityId).toBe(activityId));
+        await vi.waitFor(() => expect(route.value.checkpoint.activityId).toBe(activityId));
         await flow.render('source-activity', route.value);
         clickButton(route.shell.current!, 'の');
         clickButton(route.shell.current!, 'も');
         clickButton(route.shell.current!, 'Check');
-        await waitForState(() => expect(route.shell.current?.querySelector('[data-outcome="pass"]')).not.toBeNull());
+        await vi.waitFor(() => expect(route.shell.current?.querySelector('[data-outcome="pass"]')).not.toBeNull());
         clickButton(route.shell.current!, 'Back to the story');
-        await waitForState(() => expect(route.value.checkpoint.route).toBe('lesson-overview'));
+        await vi.waitFor(() => expect(route.value.checkpoint.route).toBe('lesson-overview'));
         if (useReturnTo) expect(route.value.checkpoint.routeHistory).toEqual([{ route: 'class' }]);
         const reloaded = context(undefined, JSON.parse(JSON.stringify(route.value.checkpoint)), route.value.projection);
         await createLessonFlow().render('lesson-overview', reloaded.value);
@@ -255,10 +247,10 @@ describe('Academy lesson flow', () => {
             .find(button => button.textContent?.includes(label))!;
         expect(choice).toBeDefined();
         choice.click();
-        await waitForState(() => expect(recordActivity).toHaveBeenCalledOnce());
+        await vi.waitFor(() => expect(recordActivity).toHaveBeenCalledOnce());
         expect(route.go).not.toHaveBeenCalled();
         release();
-        await waitForState(() => expect(route.go).toHaveBeenCalledOnce());
+        await vi.waitFor(() => expect(route.go).toHaveBeenCalledOnce());
         const restored = JSON.parse(JSON.stringify(route.value.checkpoint));
         expect(restored.route).toBe(destination);
         expect(restored.lessonId).toBe(lessonId);
@@ -276,7 +268,7 @@ describe('Academy lesson flow', () => {
             await flow.render('source-activity', route.value);
             [...route.shell.current!.querySelectorAll<HTMLButtonElement>('.academy-mission-room-action')]
                 .find(button => button.textContent?.includes('Head home'))!.click();
-            await waitForState(() => expect(route.shell.current?.textContent).toContain('That did not save'));
+            await vi.waitFor(() => expect(route.shell.current?.textContent).toContain('That did not save'));
             expect(route.go).not.toHaveBeenCalled();
             expect(JSON.stringify(route.value.checkpoint)).toBe(before);
             expect(route.shell.current?.querySelectorAll('.academy-mission-room-action')).toHaveLength(6);
@@ -297,10 +289,10 @@ describe('Academy lesson flow', () => {
 
         await flow.render('source-activity', route.value);
         route.shell.current?.querySelector<HTMLButtonElement>('[data-repeat-action="begin"]')?.click();
-        await waitForState(() => expect(route.shell.current?.dataset.sessionStage).toBe('practice'));
+        await vi.waitFor(() => expect(route.shell.current?.dataset.sessionStage).toBe('practice'));
         route.shell.current?.querySelector<HTMLButtonElement>('.academy-repeat-request-back')?.click();
 
-        await waitForState(() => expect(route.back).toHaveBeenCalledOnce());
+        await vi.waitFor(() => expect(route.back).toHaveBeenCalledOnce());
         expect(route.save).toHaveBeenCalledWith(expect.objectContaining({
             lessonZeroRepeatRequestProgress: expect.objectContaining({ status: 'paused' }),
         }));
@@ -349,11 +341,11 @@ describe('Academy lesson flow', () => {
         for (const [index, probe] of ['08-check', '08-yes', '08-no', '10-good', '11-so', '11-match', '12-wrong'].entries()) {
             expect(route.shell.current?.dataset.probeId).toBe(`probe:classroom-${probe}`);
             route.shell.current!.querySelector<HTMLButtonElement>('[data-repeat-action="coverage-begin"]')!.click();
-            await waitForState(() => expect(route.shell.current?.dataset.sessionStage).toBe('coverage-response'));
+            await vi.waitFor(() => expect(route.shell.current?.dataset.sessionStage).toBe('coverage-response'));
             route.shell.current!.querySelector<HTMLButtonElement>('[data-coverage-piece="0"]')!.click();
-            await waitForState(() => expect(state().repairCoverage?.selected).toEqual([0]));
+            await vi.waitFor(() => expect(state().repairCoverage?.selected).toEqual([0]));
             route.shell.current!.querySelector<HTMLButtonElement>('.academy-repeat-request-back')!.click();
-            await waitForState(() => expect(route.back).toHaveBeenCalledOnce());
+            await vi.waitFor(() => expect(route.back).toHaveBeenCalledOnce());
             expect(state().status).toBe('paused');
             await reload();
             expect(state().status).toBe('active');
@@ -361,15 +353,15 @@ describe('Academy lesson flow', () => {
             expect(route.shell.current?.dataset.sessionStage).toBe('coverage-response');
             expect(route.shell.current?.querySelector('[data-coverage-piece="0"]')?.getAttribute('aria-pressed')).toBe('true');
             route.shell.current!.querySelector<HTMLButtonElement>('[data-coverage-piece="1"]')!.click();
-            await waitForState(() => expect(state().repairCoverage?.selected).toEqual([0, 1]));
+            await vi.waitFor(() => expect(state().repairCoverage?.selected).toEqual([0, 1]));
             route.shell.current!.querySelector<HTMLButtonElement>('[data-repeat-action="coverage-submit"]')!.click();
-            await waitForState(() => expect(state().repairCoverage?.outcome).toBe('pass'));
+            await vi.waitFor(() => expect(state().repairCoverage?.outcome).toBe('pass'));
             expect(evidence.recordActivity).toHaveBeenCalledTimes(index + 1);
             await reload();
             expect(route.shell.current?.dataset.sessionStage).toBe('coverage-feedback');
             expect(evidence.recordActivity).toHaveBeenCalledTimes(index + 1);
             route.shell.current!.querySelector<HTMLButtonElement>('[data-repeat-action="coverage-next"]')!.click();
-            await waitForState(() => expect(state().status === 'complete' || state().repairCoverage?.index === index + 1).toBe(true));
+            await vi.waitFor(() => expect(state().status === 'complete' || state().repairCoverage?.index === index + 1).toBe(true));
         }
         expect(state().status).toBe('complete');
         expect(evidence.recordActivity).toHaveBeenCalledTimes(8);
@@ -401,19 +393,19 @@ describe('Academy lesson flow', () => {
         }));
 
         route.shell.current?.querySelector<HTMLButtonElement>('[data-repeat-action="begin"]')?.click();
-        await waitForState(() => expect(route.shell.current?.dataset.sessionStage).toBe('practice'));
+        await vi.waitFor(() => expect(route.shell.current?.dataset.sessionStage).toBe('practice'));
         clickRepeatChunk(route.shell.current!, 'once-more');
-        await waitForState(() => expect(route.save).toHaveBeenCalledWith(expect.objectContaining({
+        await vi.waitFor(() => expect(route.save).toHaveBeenCalledWith(expect.objectContaining({
             lessonZeroRepeatRequestProgress: expect.objectContaining({
                 selectedChunkIds: ['once-more'],
             }),
         })));
         clickRepeatChunk(route.shell.current!, 'please');
-        await waitForState(() => expect(
+        await vi.waitFor(() => expect(
             route.shell.current?.querySelector<HTMLButtonElement>('[data-repeat-action="submit"]')?.disabled,
         ).toBe(false));
         route.shell.current?.querySelector<HTMLButtonElement>('[data-repeat-action="submit"]')?.click();
-        await waitForState(() => expect(recordActivity).toHaveBeenCalledWith(
+        await vi.waitFor(() => expect(recordActivity).toHaveBeenCalledWith(
             expect.objectContaining({
                 attempt: expect.objectContaining({
                     activityId: 'activity:lesson-zero-reconstruct-repair:practice',
@@ -428,7 +420,7 @@ describe('Academy lesson flow', () => {
             undefined,
             expect.objectContaining({ modeId: 'lesson-zero-repeat-request', skill: 'repair' }),
         ));
-        await waitForState(() => expect(route.save).toHaveBeenCalledWith(expect.objectContaining({
+        await vi.waitFor(() => expect(route.save).toHaveBeenCalledWith(expect.objectContaining({
             lessonZeroRepeatRequestProgress: expect.objectContaining({
                 stage: 'transfer-ready',
                 practicePassed: true,
@@ -436,15 +428,15 @@ describe('Academy lesson flow', () => {
         })));
 
         route.shell.current?.querySelector<HTMLButtonElement>('[data-repeat-action="begin-transfer"]')?.click();
-        await waitForState(() => expect(route.shell.current?.dataset.sessionStage).toBe('transfer'));
+        await vi.waitFor(() => expect(route.shell.current?.dataset.sessionStage).toBe('transfer'));
         clickRepeatChunk(route.shell.current!, 'once-more');
-        await waitForState(() => expect(route.shell.current?.textContent).toContain('Your request'));
+        await vi.waitFor(() => expect(route.shell.current?.textContent).toContain('Your request'));
         clickRepeatChunk(route.shell.current!, 'please');
-        await waitForState(() => expect(
+        await vi.waitFor(() => expect(
             route.shell.current?.querySelector<HTMLButtonElement>('[data-repeat-action="submit"]')?.disabled,
         ).toBe(false));
         route.shell.current?.querySelector<HTMLButtonElement>('[data-repeat-action="submit"]')?.click();
-        await waitForState(() => expect(recordActivity).toHaveBeenCalledWith(
+        await vi.waitFor(() => expect(recordActivity).toHaveBeenCalledWith(
             expect.objectContaining({
                 attempt: expect.objectContaining({
                     activityId: 'activity:lesson-zero-reconstruct-repair:transfer',
@@ -457,20 +449,20 @@ describe('Academy lesson flow', () => {
             expect.objectContaining({ skill: 'transfer', independent: true }),
         ));
         for (const probe of ['08-check', '08-yes', '08-no', '10-good', '11-so', '11-match', '12-wrong']) {
-            await waitForState(() => expect(route.shell.current?.dataset.sessionStage).toBe('coverage-teach'));
+            await vi.waitFor(() => expect(route.shell.current?.dataset.sessionStage).toBe('coverage-teach'));
             expect(route.shell.current?.dataset.probeId).toBe(`probe:classroom-${probe}`);
             route.shell.current?.querySelector<HTMLButtonElement>('[data-repeat-action="coverage-begin"]')?.click();
-            await waitForState(() => expect(route.shell.current?.dataset.sessionStage).toBe('coverage-response'));
+            await vi.waitFor(() => expect(route.shell.current?.dataset.sessionStage).toBe('coverage-response'));
             for (const piece of ['0', '1']) {
                 route.shell.current?.querySelector<HTMLButtonElement>(`[data-coverage-piece="${piece}"]`)?.click();
-                await waitForState(() => expect(route.shell.current?.querySelector(`[data-coverage-piece="${piece}"]`)
+                await vi.waitFor(() => expect(route.shell.current?.querySelector(`[data-coverage-piece="${piece}"]`)
                     ?.getAttribute('aria-pressed')).toBe('true'));
             }
             route.shell.current?.querySelector<HTMLButtonElement>('[data-repeat-action="coverage-submit"]')?.click();
-            await waitForState(() => expect(route.shell.current?.dataset.sessionStage).toBe('coverage-feedback'));
+            await vi.waitFor(() => expect(route.shell.current?.dataset.sessionStage).toBe('coverage-feedback'));
             route.shell.current?.querySelector<HTMLButtonElement>('[data-repeat-action="coverage-next"]')?.click();
         }
-        await waitForState(() => expect(recordActivity).toHaveBeenCalledWith(
+        await vi.waitFor(() => expect(recordActivity).toHaveBeenCalledWith(
             expect.objectContaining({
                 attempt: expect.objectContaining({
                     activityId: 'activity:lesson-zero-reconstruct-repair',
@@ -512,14 +504,14 @@ describe('Academy lesson flow', () => {
         route.shell.current
             ?.querySelector<HTMLButtonElement>('[data-desk-action="next-introduction"]')
             ?.click();
-        await waitForState(() => expect(route.shell.current?.dataset.sessionStage).toBe('meet-example'));
+        await vi.waitFor(() => expect(route.shell.current?.dataset.sessionStage).toBe('meet-example'));
         route.shell.current
             ?.querySelector<HTMLButtonElement>('[data-desk-action="next-introduction"]')
             ?.click();
-        await waitForState(() => expect(route.shell.current?.dataset.sessionStage).toBe('practice'));
+        await vi.waitFor(() => expect(route.shell.current?.dataset.sessionStage).toBe('practice'));
 
         route.shell.current?.querySelector<HTMLButtonElement>('[data-choice="option-0"]')?.click();
-        await waitForState(() => expect(recordActivity).toHaveBeenCalledWith(
+        await vi.waitFor(() => expect(recordActivity).toHaveBeenCalledWith(
             expect.objectContaining({
                 attempt: expect.objectContaining({
                     activityId: 'activity:lesson-zero-desk-language:practice:homework',
@@ -539,7 +531,7 @@ describe('Academy lesson flow', () => {
             }),
         ));
         route.shell.current?.querySelector<HTMLButtonElement>('[data-choice="option-1"]')?.click();
-        await waitForState(() => expect(route.shell.current?.dataset.sessionStage).toBe('transfer-ready'));
+        await vi.waitFor(() => expect(route.shell.current?.dataset.sessionStage).toBe('transfer-ready'));
         expect(recordActivity).toHaveBeenCalledWith(
             expect.objectContaining({
                 reviewSeeds: [
@@ -554,15 +546,15 @@ describe('Academy lesson flow', () => {
         route.shell.current
             ?.querySelector<HTMLButtonElement>('[data-desk-action="begin-transfer"]')
             ?.click();
-        await waitForState(() => expect(route.shell.current?.dataset.sessionStage).toBe('transfer'));
+        await vi.waitFor(() => expect(route.shell.current?.dataset.sessionStage).toBe('transfer'));
         route.shell.current?.querySelector<HTMLButtonElement>('[data-choice="option-0"]')?.click();
-        await waitForState(() => expect(route.save).toHaveBeenCalledWith(expect.objectContaining({
+        await vi.waitFor(() => expect(route.save).toHaveBeenCalledWith(expect.objectContaining({
             lessonZeroDeskLanguageProgress: expect.objectContaining({
                 transferPassedWordIds: ['example'],
             }),
         })));
         route.shell.current?.querySelector<HTMLButtonElement>('[data-choice="option-1"]')?.click();
-        await waitForState(() => expect(route.shell.current?.dataset.sessionStage).toBe('complete'));
+        await vi.waitFor(() => expect(route.shell.current?.dataset.sessionStage).toBe('complete'));
 
         expect(recordActivity).toHaveBeenCalledWith(
             expect.objectContaining({
@@ -610,12 +602,12 @@ describe('Academy lesson flow', () => {
         await flow.render('source-activity', route.value);
         expect(route.shell.current?.dataset.academyScreen).toBe('classroom-instruction');
         route.shell.current?.querySelector<HTMLButtonElement>('.academy-classroom-instruction-start')?.click();
-        await waitForState(() => expect(play).toHaveBeenCalled());
+        await vi.waitFor(() => expect(play).toHaveBeenCalled());
         expect(play.mock.calls[0]?.[0]).toBe('はじめましょう');
         route.shell.current?.querySelector<HTMLButtonElement>('.academy-classroom-instruction-try')?.click();
-        await waitForState(() => expect(route.shell.current?.querySelectorAll('[data-action-id]')).toHaveLength(3));
+        await vi.waitFor(() => expect(route.shell.current?.querySelectorAll('[data-action-id]')).toHaveLength(3));
         route.shell.current?.querySelector<HTMLButtonElement>('[data-action-id="begin"]')?.click();
-        await waitForState(() => expect(recordActivity).toHaveBeenCalledWith(
+        await vi.waitFor(() => expect(recordActivity).toHaveBeenCalledWith(
             expect.objectContaining({
                 attempt: expect.objectContaining({
                     activityId: 'activity:lesson-zero-follow-instructions:begin',
@@ -627,7 +619,7 @@ describe('Academy lesson flow', () => {
             undefined,
             expect.objectContaining({ modeId: 'lesson-zero-follow-instructions', skill: 'listening' }),
         ));
-        await waitForState(() => expect(route.save).toHaveBeenCalledWith(expect.objectContaining({
+        await vi.waitFor(() => expect(route.save).toHaveBeenCalledWith(expect.objectContaining({
             classroomInstructionProgress: expect.objectContaining({
                 cursor: 1,
                 passedCueIds: ['cue:lesson-zero-instruction:begin'],
@@ -635,7 +627,7 @@ describe('Academy lesson flow', () => {
         })));
 
         route.shell.current?.querySelector<HTMLButtonElement>('.academy-classroom-instruction-back')?.click();
-        await waitForState(() => expect(route.back).toHaveBeenCalledOnce());
+        await vi.waitFor(() => expect(route.back).toHaveBeenCalledOnce());
         expect(route.save).toHaveBeenCalledWith(expect.objectContaining({
             classroomInstructionProgress: expect.objectContaining({ status: 'paused' }),
         }));
@@ -666,7 +658,7 @@ describe('Academy lesson flow', () => {
         clickButton(route.shell.current!, 'の');
         clickButton(route.shell.current!, 'も');
         clickButton(route.shell.current!, 'Check');
-        await waitForState(() => expect(recordActivity).toHaveBeenCalledWith(
+        await vi.waitFor(() => expect(recordActivity).toHaveBeenCalledWith(
             expect.objectContaining({
                 attempt: expect.objectContaining({
                     activityId: 'activity:lesson-zero-text-input',
@@ -675,12 +667,12 @@ describe('Academy lesson flow', () => {
             }),
             'lesson:foundation-00',
         ));
-        await waitForState(() => expect(
+        await vi.waitFor(() => expect(
             [...route.shell.current!.querySelectorAll<HTMLButtonElement>('button')]
                 .some(button => button.textContent?.trim() === 'Back to the story'),
         ).toBe(true));
         clickButton(route.shell.current!, 'Back to the story');
-        await waitForState(() => expect(route.go).toHaveBeenCalledWith('story', {
+        await vi.waitFor(() => expect(route.go).toHaveBeenCalledWith('story', {
             sectionId,
             lessonId: undefined,
             activityId: undefined,
@@ -706,7 +698,7 @@ describe('Academy lesson flow', () => {
         await flow.render('source-activity', route.value);
         route.shell.current?.querySelector('form')?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
 
-        await waitForState(() => expect(saveProfile).toHaveBeenCalledWith({
+        await vi.waitFor(() => expect(saveProfile).toHaveBeenCalledWith({
             displayName: 'ヘンリー',
             learningReason: 'Read manga',
             portraitId: 'quality-3',
@@ -755,7 +747,7 @@ describe('Academy lesson flow', () => {
             new Event('submit', { bubbles: true, cancelable: true }),
         );
 
-        await waitForState(() => expect(recordActivity).toHaveBeenCalledWith(
+        await vi.waitFor(() => expect(recordActivity).toHaveBeenCalledWith(
             expect.objectContaining({ attempt: expect.objectContaining({ outcome: 'pass' }) }),
             'lesson:foundation-00',
         ));
@@ -782,7 +774,7 @@ describe('Academy lesson flow', () => {
         const name = route.shell.current!.querySelector<HTMLInputElement>('.academy-mission-name-edit input')!;
         name.value = 'ソラ'; name.dispatchEvent(new Event('input', { bubbles: true }));
         route.shell.current!.querySelector('form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
-        await waitForState(() => expect(route.value.checkpoint.lessonZeroMissionProgress?.['activity:lesson-zero-write-name-card']?.receipt?.committed).toBe(true));
+        await vi.waitFor(() => expect(route.value.checkpoint.lessonZeroMissionProgress?.['activity:lesson-zero-write-name-card']?.receipt?.committed).toBe(true));
         route.shell.current!.dispatchEvent(new Event('academy:dispose'));
         const reloaded = context(undefined, { ...JSON.parse(JSON.stringify(route.value.checkpoint)),
             activityId: 'activity:lesson-zero-written-transfer' }, projection);
@@ -793,7 +785,7 @@ describe('Academy lesson flow', () => {
         const input = reloaded.shell.current!.querySelector<HTMLTextAreaElement>('textarea')!;
         input.value = 'はじめまして。ソラです。'; input.dispatchEvent(new Event('input', { bubbles: true }));
         reloaded.shell.current!.querySelector('form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
-        await waitForState(() => expect(reloaded.value.checkpoint.lessonZeroMissionProgress?.['activity:lesson-zero-written-transfer']?.receipt?.committed).toBe(true));
+        await vi.waitFor(() => expect(reloaded.value.checkpoint.lessonZeroMissionProgress?.['activity:lesson-zero-written-transfer']?.receipt?.committed).toBe(true));
         expect(recordActivity).toHaveBeenLastCalledWith(expect.objectContaining({
             attempt: expect.objectContaining({ activityId: 'activity:lesson-zero-written-transfer', outcome: 'pass' }),
         }), 'lesson:foundation-00');
@@ -831,25 +823,25 @@ describe('Academy lesson flow', () => {
         }));
         [...route.shell.current!.querySelectorAll<HTMLButtonElement>('button')]
             .find(button => button.textContent === 'Build my greeting')!.click();
-        await waitForState(() => expect(route.shell.current?.querySelector('.academy-greeting-phrase-bank')).not.toBeNull());
+        await vi.waitFor(() => expect(route.shell.current?.querySelector('.academy-greeting-phrase-bank')).not.toBeNull());
         for (const phrase of ['こんばんは', 'はじめまして', 'Henryです', 'よろしくお願いします']) {
             const button = [...route.shell.current!.querySelectorAll<HTMLButtonElement>('.academy-greeting-phrase-bank .academy-greeting-phrase')]
                 .find(candidate => candidate.textContent?.includes(phrase))!;
             button.click();
-            await waitForState(() => expect(
+            await vi.waitFor(() => expect(
                 [...route.shell.current!.querySelectorAll<HTMLButtonElement>('.academy-greeting-phrase-bank .academy-greeting-phrase')]
                     .some(candidate => candidate.textContent?.includes(phrase)),
             ).toBe(false));
         }
         route.shell.current?.querySelector<HTMLButtonElement>('.academy-greeting-action-primary')?.click();
-        await waitForState(() => expect(route.shell.current?.querySelector('[data-mode="typed"]')).not.toBeNull());
+        await vi.waitFor(() => expect(route.shell.current?.querySelector('[data-mode="typed"]')).not.toBeNull());
         route.shell.current?.querySelector<HTMLButtonElement>('[data-mode="typed"]')?.click();
-        await waitForState(() => expect(route.shell.current?.querySelector('.academy-greeting-type-input')).not.toBeNull());
+        await vi.waitFor(() => expect(route.shell.current?.querySelector('.academy-greeting-type-input')).not.toBeNull());
         const input = route.shell.current?.querySelector<HTMLTextAreaElement>('.academy-greeting-type-input')!;
         input.value = 'こんばんは。はじめまして。Henryです。よろしくお願いします。';
         input.form!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
 
-        await waitForState(() => expect(recordActivity).toHaveBeenCalledWith(
+        await vi.waitFor(() => expect(recordActivity).toHaveBeenCalledWith(
             expect.objectContaining({
                 attempt: expect.objectContaining({
                     activityId: 'activity:lesson-zero-greet-rie',
@@ -898,62 +890,62 @@ describe('Academy lesson flow', () => {
             lesson.activities.find(activity => activity.id === 'activity:lesson-zero-build-sentence-frames')!,
         );
         for (const [index, frame] of definition.frames.entries()) {
-            await waitForState(() => expect(route.shell.current?.dataset.frameId).toBe(frame.id));
-            await waitForState(() => expect(
+            await vi.waitFor(() => expect(route.shell.current?.dataset.frameId).toBe(frame.id));
+            await vi.waitFor(() => expect(
                 [...route.shell.current!.querySelectorAll<HTMLButtonElement>('button')]
                     .some(button => button.textContent?.trim() === 'Build it'),
             ).toBe(true));
             clickButton(route.shell.current!, 'Build it');
             for (const tokenId of frame.target.correctOrder) {
-                await waitForState(() => expect(
+                await vi.waitFor(() => expect(
                     route.shell.current?.querySelector(`.academy-sentence-frame-bank [data-token-id="${tokenId}"]`),
                 ).not.toBeNull());
                 route.shell.current!
                     .querySelector<HTMLButtonElement>(`.academy-sentence-frame-bank [data-token-id="${tokenId}"]`)!
                     .click();
-                await waitForState(() => expect(
+                await vi.waitFor(() => expect(
                     route.shell.current?.querySelector(`.academy-sentence-frame-selected-rail [data-token-id="${tokenId}"]`),
                 ).not.toBeNull());
             }
-            await waitForState(() => expect(
+            await vi.waitFor(() => expect(
                 route.shell.current?.querySelector<HTMLButtonElement>('.academy-sentence-frame-action-primary')?.disabled,
             ).toBe(false));
             clickButton(route.shell.current!, 'Check');
             if (index < definition.frames.length - 1) {
-                await waitForState(() => expect(route.shell.current?.dataset.sessionStage).toBe('result'));
+                await vi.waitFor(() => expect(route.shell.current?.dataset.sessionStage).toBe('result'));
                 clickButton(route.shell.current!, 'Next sentence');
             } else {
-                await waitForState(() => expect(route.shell.current?.dataset.sessionStage).toBe('result'));
+                await vi.waitFor(() => expect(route.shell.current?.dataset.sessionStage).toBe('result'));
                 clickButton(route.shell.current!, 'Now try all five from memory');
             }
         }
 
         for (const [index, frame] of definition.frames.entries()) {
-            await waitForState(() => expect(route.shell.current?.dataset.sessionStage).toBe('transfer-build'));
-            await waitForState(() => expect(route.shell.current?.dataset.frameId).toBe(frame.id));
+            await vi.waitFor(() => expect(route.shell.current?.dataset.sessionStage).toBe('transfer-build'));
+            await vi.waitFor(() => expect(route.shell.current?.dataset.frameId).toBe(frame.id));
             for (const tokenId of frame.target.correctOrder) {
-                await waitForState(() => expect(
+                await vi.waitFor(() => expect(
                     route.shell.current?.querySelector(`.academy-sentence-frame-bank [data-token-id="${tokenId}"]`),
                 ).not.toBeNull());
                 route.shell.current!
                     .querySelector<HTMLButtonElement>(`.academy-sentence-frame-bank [data-token-id="${tokenId}"]`)!
                     .click();
-                await waitForState(() => expect(
+                await vi.waitFor(() => expect(
                     route.shell.current?.querySelector(`.academy-sentence-frame-selected-rail [data-token-id="${tokenId}"]`),
                 ).not.toBeNull());
             }
-            await waitForState(() => expect(
+            await vi.waitFor(() => expect(
                 route.shell.current?.querySelector<HTMLButtonElement>('.academy-sentence-frame-action-primary')?.disabled,
             ).toBe(false));
             clickButton(route.shell.current!, 'Check');
             if (index < definition.frames.length - 1) {
-                await waitForState(() => expect(route.shell.current?.dataset.sessionStage).toBe('transfer-result'));
+                await vi.waitFor(() => expect(route.shell.current?.dataset.sessionStage).toBe('transfer-result'));
                 clickButton(route.shell.current!, 'Next sentence');
             }
         }
 
-        await waitForState(() => expect(route.shell.current?.dataset.sessionStatus).toBe('complete'));
-        await waitForState(() => expect(recordActivity).toHaveBeenCalledTimes(11));
+        await vi.waitFor(() => expect(route.shell.current?.dataset.sessionStatus).toBe('complete'));
+        await vi.waitFor(() => expect(recordActivity).toHaveBeenCalledTimes(11));
         for (const frame of definition.frames) {
             expect(recordActivity).toHaveBeenCalledWith(
                 expect.objectContaining({
@@ -1029,12 +1021,12 @@ describe('Academy lesson flow', () => {
         }));
         expect(route.shell.current?.querySelector('input[name="displayName"]')).toBeNull();
         route.shell.current?.querySelector<HTMLButtonElement>('[data-token-id="learner-name"]')?.click();
-        await waitForState(() => expect(route.shell.current?.querySelectorAll('.academy-name-card-token-selected')).toHaveLength(1));
+        await vi.waitFor(() => expect(route.shell.current?.querySelectorAll('.academy-name-card-token-selected')).toHaveLength(1));
         route.shell.current?.querySelector<HTMLButtonElement>('[data-token-id="desu"]')?.click();
-        await waitForState(() => expect(route.shell.current?.querySelectorAll('.academy-name-card-token-selected')).toHaveLength(2));
+        await vi.waitFor(() => expect(route.shell.current?.querySelectorAll('.academy-name-card-token-selected')).toHaveLength(2));
         clickButton(route.shell.current!, 'Check');
 
-        await waitForState(() => expect(recordActivity).toHaveBeenCalledWith(
+        await vi.waitFor(() => expect(recordActivity).toHaveBeenCalledWith(
             expect.objectContaining({
                 attempt: expect.objectContaining({
                     activityId: 'activity:lesson-zero-name-card-draft',
@@ -1047,13 +1039,13 @@ describe('Academy lesson flow', () => {
             undefined,
             expect.objectContaining({ skill: 'grammar', action: 'produce', independent: true }),
         ));
-        await waitForState(() => expect(route.shell.current?.dataset.sessionStage).toBe('transfer'));
+        await vi.waitFor(() => expect(route.shell.current?.dataset.sessionStage).toBe('transfer'));
         route.shell.current?.querySelector<HTMLButtonElement>('[data-transfer-id="rie"]')?.click();
-        await waitForState(() => expect(
+        await vi.waitFor(() => expect(
             route.shell.current?.querySelector('[data-transfer-id="rie"]')?.getAttribute('aria-pressed'),
         ).toBe('true'));
         clickButton(route.shell.current!, 'Check the card');
-        await waitForState(() => expect(recordActivity).toHaveBeenCalledWith(
+        await vi.waitFor(() => expect(recordActivity).toHaveBeenCalledWith(
             expect.objectContaining({
                 attempt: expect.objectContaining({
                     activityId: 'activity:lesson-zero-name-card-draft',
@@ -1072,12 +1064,12 @@ describe('Academy lesson flow', () => {
             expect.objectContaining({ skill: 'grammar', action: 'transfer', independent: true }),
         ));
         expect(JSON.stringify(route.save.mock.calls)).not.toContain('Henry');
-        await waitForState(() => expect(saveProfile).toHaveBeenCalledWith({
+        await vi.waitFor(() => expect(saveProfile).toHaveBeenCalledWith({
             displayName: 'ヘンリー',
             learningReason: 'Speak with people',
             portraitId: 'quality-2',
         }));
-        await waitForState(() => expect(route.save).toHaveBeenCalledWith(expect.objectContaining({
+        await vi.waitFor(() => expect(route.save).toHaveBeenCalledWith(expect.objectContaining({
             lessonZeroNameCardProgress: expect.objectContaining({ status: 'complete' }),
         })));
         expect(route.shell.current?.dataset.sessionStatus).toBe('complete');
@@ -1105,10 +1097,10 @@ describe('Academy lesson flow', () => {
             .find(button => button.textContent?.trim() === label)!.click();
         click('Put on headphones');
         for (let index = 0; index < 5; index += 1) {
-            await waitForState(() => expect(route.shell.current?.textContent).toContain('Play word'));
+            await vi.waitFor(() => expect(route.shell.current?.textContent).toContain('Play word'));
             click('Play word');
         }
-        await waitForState(() => expect(route.shell.current?.textContent).toContain('Start'));
+        await vi.waitFor(() => expect(route.shell.current?.textContent).toContain('Start'));
         click('Start');
 
         const model = createLessonZeroVowelSoundMap();
@@ -1123,13 +1115,13 @@ describe('Academy lesson flow', () => {
         }
         expected = transitionLessonZeroVowelSession(model, expected, { kind: 'begin-attempt' }, 3).state;
         for (const roundId of expected.roundOrder) {
-            await waitForState(() => expect(route.shell.current?.textContent).toContain('Play'));
+            await vi.waitFor(() => expect(route.shell.current?.textContent).toContain('Play'));
             click('Play');
-            await waitForState(() => expect(route.shell.current?.querySelectorAll('.academy-vowel-choice')).toHaveLength(5));
+            await vi.waitFor(() => expect(route.shell.current?.querySelectorAll('.academy-vowel-choice')).toHaveLength(5));
             const kana = model.payload.items.find(item => item.id === roundId)!.kana;
             click(kana);
         }
-        await waitForState(() => expect(recordActivity).toHaveBeenCalledWith(
+        await vi.waitFor(() => expect(recordActivity).toHaveBeenCalledWith(
             expect.objectContaining({
                 attempt: expect.objectContaining({ activityId: 'activity:lesson-zero-vowel-listen', outcome: 'pass' }),
                 reviewSeeds: expect.arrayContaining([expect.objectContaining({ id: 'review:lesson-zero:vowel-sound:hira-a' })]),
@@ -1166,12 +1158,12 @@ describe('Academy lesson flow', () => {
         const click = (label: string) => [...route.shell.current!.querySelectorAll<HTMLButtonElement>('button')]
             .find(button => button.textContent?.trim() === label)!.click();
         click('I know hiragana — test me');
-        await waitForState(() => expect(route.shell.current?.dataset.sessionStage).toBe('mastery-ready'));
+        await vi.waitFor(() => expect(route.shell.current?.dataset.sessionStage).toBe('mastery-ready'));
         click('Turn over the chart');
 
         const definition = createLessonZeroHiraganaDefinition();
         for (let attempt = 0; attempt < 47; attempt += 1) {
-            await waitForState(() => expect(route.shell.current?.querySelector<HTMLInputElement>('input[name="romaji"]')).not.toBeNull());
+            await vi.waitFor(() => expect(route.shell.current?.querySelector<HTMLInputElement>('input[name="romaji"]')).not.toBeNull());
             const kana = route.shell.current?.querySelector<HTMLElement>('.academy-hiragana-kana-mastery')?.textContent;
             const item = definition.items.find(candidate => candidate.kana === kana);
             if (!item) throw new TypeError(`Missing current hiragana item for ${kana ?? 'unknown'}.`);
@@ -1179,13 +1171,13 @@ describe('Academy lesson flow', () => {
             input.value = attempt === 0 ? 'wrong' : item.romaji;
             route.shell.current!.querySelector<HTMLFormElement>('.academy-hiragana-recall-form')!
                 .dispatchEvent(new SubmitEvent('submit', { bubbles: true, cancelable: true }));
-            await waitForState(() => expect(
+            await vi.waitFor(() => expect(
                 route.save.mock.calls.some(([value]) =>
                     value.lessonZeroHiraganaProgress?.attempts?.length === attempt + 1),
             ).toBe(true));
         }
 
-        await waitForState(() => expect(route.shell.current?.dataset.sessionStatus).toBe('complete'));
+        await vi.waitFor(() => expect(route.shell.current?.dataset.sessionStatus).toBe('complete'));
         expect(recordActivity).toHaveBeenCalledWith(
             expect.objectContaining({
                 attempt: expect.objectContaining({
@@ -1232,24 +1224,24 @@ describe('Academy lesson flow', () => {
         const click = (label: string) => [...route.shell.current!.querySelectorAll<HTMLButtonElement>('button')]
             .find(button => button.textContent?.trim() === label)!.click();
         click('Start with あ');
-        await waitForState(() => expect(route.shell.current?.textContent).toContain('Choose the stroke plan'));
+        await vi.waitFor(() => expect(route.shell.current?.textContent).toContain('Choose the stroke plan'));
         click('Choose the stroke plan');
 
         const definition = createLessonZeroVowelWritingDefinition();
         for (const item of definition.items) {
-            await waitForState(() => expect(route.shell.current?.textContent).toContain('Choose its stroke plan'));
+            await vi.waitFor(() => expect(route.shell.current?.textContent).toContain('Choose its stroke plan'));
             click('Choose its stroke plan');
-            await waitForState(() => expect(route.shell.current?.textContent).toContain('Check the plan'));
+            await vi.waitFor(() => expect(route.shell.current?.textContent).toContain('Check the plan'));
             click(item.plans.find(plan => plan.id === item.correctPlanId)!.label.en);
             click('Check the plan');
         }
 
-        await waitForState(() => expect(route.shell.current?.textContent).toContain('Can you find them out of order?'));
+        await vi.waitFor(() => expect(route.shell.current?.textContent).toContain('Can you find them out of order?'));
         for (const [index, itemId] of LESSON_ZERO_VOWEL_WRITING_RECALL_ORDER.entries()) {
             const item = definition.items.find(candidate => candidate.id === itemId)!;
             click(item.kana);
             click('Check my choice');
-            await waitForState(() => {
+            await vi.waitFor(() => {
                 if (index === LESSON_ZERO_VOWEL_WRITING_RECALL_ORDER.length - 1) {
                     expect(route.shell.current?.textContent).toContain('Five sounds. Five shapes.');
                 } else {
@@ -1259,7 +1251,7 @@ describe('Academy lesson flow', () => {
             });
         }
 
-        await waitForState(() => expect(recordActivity).toHaveBeenCalledWith(
+        await vi.waitFor(() => expect(recordActivity).toHaveBeenCalledWith(
             expect.objectContaining({
                 attempt: expect.objectContaining({
                     activityId: 'activity:lesson-zero-vowel-doodle',
@@ -1438,11 +1430,11 @@ describe('Academy lesson flow', () => {
         expect(seedVocabularyPrerequisite).not.toHaveBeenCalled();
 
         route.shell.current?.querySelector<HTMLButtonElement>('[data-vocabulary-prerequisite-continue]')?.click();
-        await waitForState(() => expect(seedVocabularyPrerequisite).toHaveBeenCalledWith(
+        await vi.waitFor(() => expect(seedVocabularyPrerequisite).toHaveBeenCalledWith(
             'authored-week:l1-l01',
             expect.arrayContaining([expect.objectContaining({ sourceQuestionId: expect.stringMatching(/^moodle-vocabulary:/u) })]),
         ));
-        await waitForState(() => expect(route.shell.current?.dataset.academyScreen).toBe('authored-week'));
+        await vi.waitFor(() => expect(route.shell.current?.dataset.academyScreen).toBe('authored-week'));
         expect(route.shell.current?.textContent).toContain('The first response card is still open.');
         expect(route.shell.current?.textContent).not.toContain('The orientation invitation arrives as two response cards.');
     });
@@ -1484,7 +1476,7 @@ describe('Academy lesson flow', () => {
 
         await flow.render('lesson-overview', route.value);
         route.shell.current?.querySelector<HTMLButtonElement>('[data-vocabulary-prerequisite-continue]')?.click();
-        await waitForState(() => expect(route.shell.current?.dataset.academyScreen).toBe('authored-week'));
+        await vi.waitFor(() => expect(route.shell.current?.dataset.academyScreen).toBe('authored-week'));
         expect(route.shell.current?.textContent).toContain('The orientation invitation arrives as two response cards.');
         expect(route.shell.current?.textContent).not.toContain('The first response card is still open.');
     });
@@ -1502,7 +1494,7 @@ describe('Academy lesson flow', () => {
         const saved = {
             authoredWeekProgress: {
                 'l1-l01': {
-                    sourceSha256: sha256Bytes(fs.readFileSync(path.resolve('public/academy/content/lessons/002-l1-l01.json'))),
+                    sourceSha256: sha256File(path.resolve('public/academy/content/lessons/002-l1-l01.json')),
                     savedAt: 1,
                     position: {
                         phase: 'question' as const,
@@ -1561,7 +1553,7 @@ describe('Academy lesson flow', () => {
         });
 
         route.shell.current?.querySelector<HTMLButtonElement>('[data-choice-id="a"]')?.click();
-        await waitForState(() => expect(recordActivity).toHaveBeenCalledOnce());
+        await vi.waitFor(() => expect(recordActivity).toHaveBeenCalledOnce());
         expect(recordActivity.mock.calls[0]?.[2]).toEqual(expect.objectContaining({
             id: 'l1-l01-first-name-card-repair',
         }));
@@ -1577,7 +1569,7 @@ describe('Academy lesson flow', () => {
                     : LESSON_PATH;
             return new Response(fs.readFileSync(sourcePath), { status: 200, headers: { 'content-type': 'application/json' } });
         }));
-        const sourceSha256 = sha256Bytes(fs.readFileSync(path.resolve('public/academy/content/lessons/002-l1-l01.json')));
+        const sourceSha256 = sha256File(path.resolve('public/academy/content/lessons/002-l1-l01.json'));
         const saved = {
             authoredWeekProgress: {
                 'l1-l01': {
@@ -1649,7 +1641,7 @@ describe('Academy lesson flow', () => {
         const route = context('authored-week:l1-l01', {
             authoredWeekProgress: {
                 'l1-l01': {
-                    sourceSha256: sha256Bytes(fs.readFileSync(path.resolve('public/academy/content/lessons/002-l1-l01.json'))),
+                    sourceSha256: sha256File(path.resolve('public/academy/content/lessons/002-l1-l01.json')),
                     savedAt: 3,
                     position: { phase: 'question', activityId },
                 },
@@ -1697,7 +1689,7 @@ describe('Academy lesson flow', () => {
         const route = context('authored-week:l1-l01', {
             authoredWeekProgress: {
                 'l1-l01': {
-                    sourceSha256: sha256Bytes(fs.readFileSync(path.resolve('public/academy/content/lessons/002-l1-l01.json'))),
+                    sourceSha256: sha256File(path.resolve('public/academy/content/lessons/002-l1-l01.json')),
                     savedAt: 1,
                     position: { phase: 'complete' },
                 },
@@ -1716,7 +1708,7 @@ describe('Academy lesson flow', () => {
         }).render('lesson-overview', route.value);
 
         route.shell.current?.querySelector<HTMLButtonElement>('.academy-lesson-activity-continue')?.click();
-        await waitForState(() => expect(recordEncounter).toHaveBeenCalledOnce());
+        await vi.waitFor(() => expect(recordEncounter).toHaveBeenCalledOnce());
 
         expect(route.save).not.toHaveBeenCalledWith({ authoredWeekProgress: undefined });
         expect(route.go).not.toHaveBeenCalled();
@@ -1751,23 +1743,23 @@ describe('Academy lesson flow', () => {
 
         await flow.render('lesson-overview', route.value);
         route.shell.current?.querySelector<HTMLButtonElement>('[data-vocabulary-prerequisite-continue]')?.click();
-        await waitForState(() => expect(route.shell.current?.dataset.academyScreen).toBe('authored-week'));
+        await vi.waitFor(() => expect(route.shell.current?.dataset.academyScreen).toBe('authored-week'));
         for (let index = 0; index < 5; index += 1) {
             route.shell.current?.querySelector<HTMLButtonElement>('.academy-lesson-activity-continue')?.click();
         }
         expect(route.shell.current?.dataset.lessonPhase).toBe('support');
         route.shell.current?.querySelector<HTMLButtonElement>('.academy-lesson-activity-continue')?.click();
         route.shell.current?.querySelector<HTMLButtonElement>('[data-choice-id="b"]')?.click();
-        await waitForState(() => expect(recordActivity).toHaveBeenCalledTimes(1));
-        await waitForState(() => expect(
+        await vi.waitFor(() => expect(recordActivity).toHaveBeenCalledTimes(1));
+        await vi.waitFor(() => expect(
             route.shell.current?.querySelector<HTMLButtonElement>('.academy-authored-week-next'),
         ).not.toBeNull());
         route.shell.current?.querySelector<HTMLButtonElement>('.academy-authored-week-next')?.click();
-        await waitForState(() => expect(
+        await vi.waitFor(() => expect(
             route.shell.current?.querySelector<HTMLButtonElement>('[data-choice-id="a"]')?.disabled,
         ).toBe(false));
         route.shell.current?.querySelector<HTMLButtonElement>('[data-choice-id="a"]')?.click();
-        await waitForState(() => expect(recordActivity).toHaveBeenCalledTimes(2));
+        await vi.waitFor(() => expect(recordActivity).toHaveBeenCalledTimes(2));
 
         expect(recordActivity.mock.calls[0]?.[2]).toBeUndefined();
         expect(recordActivity.mock.calls[1]?.[2]).toEqual({

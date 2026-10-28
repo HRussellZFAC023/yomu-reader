@@ -47,3 +47,14 @@ export function runtimeDeathReason(output) {
     }
     return null;
 }
+
+/**
+ * The file counts Vitest reports, when they disagree. `Test Files 484 passed
+ * (486)` means two files never reported at all — the single most reliable
+ * evidence that the run measured less than it claims.
+ */
+export function unreportedTestFiles(output) {
+    const match = /^\s*Test Files\s+(?:\d+\s+\w+\s*\|\s*)*(\d+)\s+passed\s+\((\d+)\)/m.exec(String(output));
+    if (!match) return 0;
+    return Math.max(0, Number(match[2]) - Number(match[1]));
+}

@@ -21,6 +21,18 @@ const AUDIO_PAYLOADS = Object.freeze([
     '41704b17b935bca4a0385d0e0fed8428a4e5fadca71f7825b1a0b9e24b422610',
 ]);
 
+export const L2_L26_SOURCE_PAGES = Object.freeze([
+    sourcePage(FORM_SHA256, 'Chapter 33 Imperative and Prohibitive form', 1, 'moodle-chapter-33-imperative-prohibitive-form-page-1.png', '7c2c33998993a784d450227f725628221f100676f6d9cbe6831ea7a938f33e82'),
+    sourcePage(FORM_SHA256, 'Chapter 33 Imperative and Prohibitive form', 2, 'moodle-chapter-33-imperative-prohibitive-form-page-2.png', '31df29c05a1c94046679e37be19363804fee6e7fbc735ad4bf18a95b86340c55'),
+    sourcePage(EXERCISE_SHA256, 'Chapter 33-1 Imperative and Prohibitive form exercise', 1, 'moodle-chapter-33-1-imperative-prohibitive-exercise-page-1.png', 'a2d891e1b1ba260b4dbfab81b9bfcfbadb91bb2393cf3cc3c384f2b66d0d00ea'),
+    sourcePage(EXERCISE_SHA256, 'Chapter 33-1 Imperative and Prohibitive form exercise', 2, 'moodle-chapter-33-1-imperative-prohibitive-exercise-page-2.png', 'b43c34520d8cd42c6cc3977e00e1b58fe6074d0a1c442ebd7ac433efc5efcc35'),
+    sourcePage(EXERCISE_SHA256, 'Chapter 33-1 Imperative and Prohibitive form exercise', 3, 'moodle-chapter-33-1-imperative-prohibitive-exercise-page-3.png', 'a24f7b1af90662b8729faead1fbe58de54b6181824b57dccd5d62a0db1ef5c0e'),
+    sourcePage(VOCABULARY_SHA256, 'Chapter 33-1 Vocabulary Sheet', 1, 'moodle-chapter-33-1-vocabulary-page-1.png', '34aeba35694313a7bc5b95243ad8be4e0ff0dbbadb07da40e12a6ace4d7f9d10'),
+    sourcePage(VOCABULARY_SHA256, 'Chapter 33-1 Vocabulary Sheet', 2, 'moodle-chapter-33-1-vocabulary-page-2.png', '7c1aab77d4dc273b02cc485e4f7e35d8d389642a65fdad5c89baaa767acfbda7'),
+    sourcePage(HOMEWORK_SHA256, 'HW_Chapter 33 Creating Imperative and Prohibitive form', 1, 'moodle-chapter-33-imperative-prohibitive-homework-page-1.png', '55e114aa8c1c7ba91a389a2f59386f21b4334f2c5418ed8a3d01240c5dfa772f'),
+    sourcePage(HOMEWORK_SHA256, 'HW_Chapter 33 Creating Imperative and Prohibitive form', 2, 'moodle-chapter-33-imperative-prohibitive-homework-page-2.png', 'fbf5d3ca1d6a6fee40b0bc32cfb85bbd5d7489aa348c51c0708c5eea32085296'),
+]);
+
 export function createLessonL2L26SignMeaningBeat(): LessonActivityBeat {
     assertExactPackageSources();
     const activity: ChoiceActivityModel = {
@@ -177,6 +189,10 @@ export function createLessonL2L26KuruImperativeBeat(): LessonActivityBeat {
         ja: '最後に、宿題の活用表でirregularの二行だけを見ます。音声を使わず、くるの命令形を原本から思い出します。',
         en: 'Finally, use the two irregular rows in the homework table. With no audio, recall the printed imperative of くる.',
     }, activity);
+}
+
+function sourcePage(payloadSha256: string, title: string, page: number, filename: string, sha256: string) {
+    return Object.freeze({ sourceId: `moodle:${payloadSha256}`, payloadSha256, title, page, url: `/academy/content/lessons/${PACKAGE_ID}/${filename}`, sha256 });
 }
 
 function sourceId(payloadSha256: string, page: number, region: string): string {

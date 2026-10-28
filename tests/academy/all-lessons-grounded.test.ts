@@ -1,12 +1,10 @@
-// Filesystem inputs owned by this test.
-// @yomu-reads public/academy/content/lessons/**
 import fs from 'node:fs';
 import path from 'node:path';
 import {
     ACADEMY_LESSON_CONTENT_REGISTRY,
     getLessonContentRegistration,
 } from '../../src/academy/content/lesson-content-registry';
-import { sha256Bytes } from './helpers/asset-hash';
+import { sha256File } from './helpers/hash-memo';
 
 const LESSON_DIRECTORY = path.resolve('public/academy/content/lessons');
 
@@ -52,7 +50,7 @@ describe('public Academy lesson grounding gate', () => {
 
         for (const week of weeks) {
             const bytes = fs.readFileSync(path.join(LESSON_DIRECTORY, week.filename));
-            const observedSha256 = sha256Bytes(fs.readFileSync(path.join(LESSON_DIRECTORY, week.filename)));
+            const observedSha256 = sha256File(path.join(LESSON_DIRECTORY, week.filename));
             expect(observedSha256, week.filename).toBe(week.expectedSha256);
             const { week: adapted } = await week.validate(Uint8Array.from(bytes).buffer);
             expect(adapted.id).toBe(week.packageId);

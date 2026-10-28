@@ -31,3 +31,11 @@ export function readerTextMirrorForSource(source: HTMLElement): HTMLElement | nu
 export function readerWordsForSource(source: HTMLElement): HTMLElement[] {
     return [...(readerTextMirrorForSource(source)?.querySelectorAll<HTMLElement>(READER_WORD_SELECTOR) ?? [])];
 }
+
+export function readerWordsWithinSource(root: ParentNode): HTMLElement[] {
+    const words = new Set(root.querySelectorAll<HTMLElement>(READER_WORD_SELECTOR));
+    documentAnnotationPortalMirrorsWithin(root).forEach(mirror => {
+        mirror.querySelectorAll<HTMLElement>(READER_WORD_SELECTOR).forEach(word => words.add(word));
+    });
+    return [...words];
+}

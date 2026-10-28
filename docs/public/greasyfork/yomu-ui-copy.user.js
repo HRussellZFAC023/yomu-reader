@@ -2423,6 +2423,9 @@ const ENGLISH_INTERFACE_LOCALE = (() => {
   return english;
 })();
 Object.freeze(
+  INTERFACE_LOCALES.filter((locale) => locale.direction === "rtl")
+);
+Object.freeze(
   interfaceLocaleLedger.rtlGate.items.map(
   (item) => Object.freeze({ ...item })
   )

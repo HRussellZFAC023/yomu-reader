@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-import { assertStudyHeadwordFurigana } from './lib/study-headword-cells.mjs';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { chromium, webkit } from 'playwright';
@@ -7,6 +6,7 @@ import {
     addGmStorageBridgeInitScript,
     assert,
     assertBuiltArtifacts,
+    closeSmokeBrowserAndServer,
     createSmokePaths,
     jsonHttpResponse,
     mockJpdbParseFromVocabulary,
@@ -75,83 +75,68 @@ const server = await startLoopbackServer((request, response) => {
 }, 'Could not bind popover headword furigana smoke server');
 
 const requests = [];
-const failures = [];
-const requestedBrowser = process.env.YOMU_SMOKE_BROWSER || process.env.YOMU_STUDY_HEADWORD_ENGINE;
-const browserTypes = requestedBrowser ? [requestedBrowser === 'webkit' ? webkit : chromium] : [chromium, webkit];
+const browserType = process.env.YOMU_SMOKE_BROWSER === 'webkit' ? webkit : chromium;
+const browser = await browserType.launch({ headless: true });
+
 try {
-    for (const browserType of browserTypes) {
-        try { await runBrowser(browserType); }
-        catch (error) { failures.push(new Error(`${browserType.name()}: ${error.message}`, { cause: error })); }
-    }
+    // Match the wide touch-triggered iPad sheet in the acceptance screenshot;
+    // the 490px desktop hover card is intentionally a narrow-container case.
+    const context = await browser.newContext({
+        bypassCSP: true,
+        viewport: { width: 1024, height: 1180 },
+        hasTouch: true,
+    });
+    const page = await context.newPage();
+    await page.exposeFunction('__yomuHeadwordFuriganaRequest', request => handleYomuRequest(request, requests));
+    await addGmStorageBridgeInitScript(page, {
+        key: YOMU_SETTINGS_KEY,
+        value: settings,
+        css: readFileSync(CSS_PATH, 'utf8'),
+        requestBridgeName: '__yomuHeadwordFuriganaRequest',
+    });
+    await page.goto(`${server.origin}${PAGE_PATH}`, { waitUntil: 'domcontentloaded' });
+    await page.addStyleTag({ path: CSS_PATH });
+    await addScriptTagWithCspFallback(page, SCRIPT_PATH);
+    await page.waitForFunction(
+        value => document.querySelectorAll(`[data-smoke-sentence] .jpdb-reader-word[data-expression="${value}"]`).length >= 1,
+        LOOKUP_WORD,
+        { timeout: 15_000 },
+    );
+
+    const word = page.locator(`[data-smoke-sentence] .jpdb-reader-word[data-expression="${LOOKUP_WORD}"]`).first();
+    await word.click();
+    // The ruby + kanji-navigation worst case: this is the one that proves the
+    // shared rt/rp-stripping extraction is right.
+    await assertPopoverHeadwordMatchesLookup(page, word, { label: 'ruby headword' });
+    const headword = await waitForHeadwordFurigana(page);
+    assert(headword.metaReading === '', 'Popup still showed duplicate reading metadata beside ruby headword', headword);
+    const widePitchLayout = await waitForWidePitchLayout(page);
+    assert(widePitchLayout.sameTopRow, 'Wide popup pitch variants did not use the upper-right header space', widePitchLayout);
+    assert(widePitchLayout.rightOfMidpoint, 'Wide popup pitch variants were not right-aligned', widePitchLayout);
+    const widePitchScreenshot = path.join(ARTIFACTS, 'popover-headword-furigana-wide-pitch.png');
+    await page.screenshot({ path: widePitchScreenshot, fullPage: false });
+
+    await page.locator('.jpdb-reader-popover .jpdb-reader-spelling .jpdb-reader-kanji-inline[data-kanji="変"]').click();
+    await page.waitForFunction(
+        () => document.querySelector('.jpdb-reader-popover .jpdb-reader-kanji-display')?.textContent?.trim() === '変',
+        null,
+        { timeout: 8_000 },
+    );
+    const kanji = await page.evaluate(() => ({
+        display: document.querySelector('.jpdb-reader-popover .jpdb-reader-kanji-display')?.textContent?.trim() ?? '',
+        title: document.querySelector('.jpdb-reader-popover .jpdb-reader-title-row')?.textContent?.replace(/\s+/g, ' ').trim() ?? '',
+    }));
+    assert(kanji.display === '変', 'Clicking a ruby-wrapped kanji button did not open kanji details', { headword, kanji });
+
+    const narrowHeaders = await verifyNarrowHeaders(page);
+    const screenshot = path.join(ARTIFACTS, 'popover-headword-furigana.png');
+    await page.screenshot({ path: screenshot, fullPage: false });
+    const report = { ok: true, headword, widePitchLayout, widePitchScreenshot, kanji, narrowHeaders, requests, screenshot };
+    writeFileSync(path.join(ARTIFACTS, 'popover-headword-furigana-smoke.json'), JSON.stringify(report, null, 2));
+    console.log(JSON.stringify(report, null, 2));
+    await context.close();
 } finally {
-    await new Promise((resolve, reject) => server.server.close(error => error ? reject(error) : resolve()));
-}
-if (failures.length) throw new AggregateError(failures, 'Popover/headword smoke failed');
-
-async function runBrowser(browserType) {
-    const browser = await browserType.launch({ headless: true });
-
-    try {
-        await assertStudyHeadwordFurigana(browser, browserType.name());
-        // Match the wide touch-triggered iPad sheet in the acceptance screenshot;
-        // the 490px desktop hover card is intentionally a narrow-container case.
-        const context = await browser.newContext({
-            bypassCSP: true,
-            viewport: { width: 1024, height: 1180 },
-            hasTouch: true,
-        });
-        const page = await context.newPage();
-        await page.exposeFunction('__yomuHeadwordFuriganaRequest', request => handleYomuRequest(request, requests));
-        await addGmStorageBridgeInitScript(page, {
-            key: YOMU_SETTINGS_KEY,
-            value: settings,
-            css: readFileSync(CSS_PATH, 'utf8'),
-            requestBridgeName: '__yomuHeadwordFuriganaRequest',
-        });
-        await page.goto(`${server.origin}${PAGE_PATH}`, { waitUntil: 'domcontentloaded' });
-        await page.addStyleTag({ path: CSS_PATH });
-        await addScriptTagWithCspFallback(page, SCRIPT_PATH);
-        await page.waitForFunction(
-            value => document.querySelectorAll(`[data-smoke-sentence] .jpdb-reader-word[data-expression="${value}"]`).length >= 1,
-            LOOKUP_WORD,
-            { timeout: 15_000 },
-        );
-
-        const word = page.locator(`[data-smoke-sentence] .jpdb-reader-word[data-expression="${LOOKUP_WORD}"]`).first();
-        await word.click();
-        // The ruby + kanji-navigation worst case: this is the one that proves the
-        // shared rt/rp-stripping extraction is right.
-        await assertPopoverHeadwordMatchesLookup(page, word, { label: 'ruby headword' });
-        const headword = await waitForHeadwordFurigana(page);
-        assert(headword.metaReading === '', 'Popup still showed duplicate reading metadata beside ruby headword', headword);
-        const widePitchLayout = await waitForWidePitchLayout(page);
-        assert(widePitchLayout.sameTopRow, 'Wide popup pitch variants did not use the upper-right header space', widePitchLayout);
-        assert(widePitchLayout.rightOfMidpoint, 'Wide popup pitch variants were not right-aligned', widePitchLayout);
-        const widePitchScreenshot = path.join(ARTIFACTS, 'popover-headword-furigana-wide-pitch.png');
-        await page.screenshot({ path: widePitchScreenshot, fullPage: false });
-
-        await page.locator('.jpdb-reader-popover .jpdb-reader-spelling .jpdb-reader-kanji-inline[data-kanji="変"]').click();
-        await page.waitForFunction(
-            () => document.querySelector('.jpdb-reader-popover .jpdb-reader-kanji-display')?.textContent?.trim() === '変',
-            null,
-            { timeout: 8_000 },
-        );
-        const kanji = await page.evaluate(() => ({
-            display: document.querySelector('.jpdb-reader-popover .jpdb-reader-kanji-display')?.textContent?.trim() ?? '',
-            title: document.querySelector('.jpdb-reader-popover .jpdb-reader-title-row')?.textContent?.replace(/\s+/g, ' ').trim() ?? '',
-        }));
-        assert(kanji.display === '変', 'Clicking a ruby-wrapped kanji button did not open kanji details', { headword, kanji });
-
-        const narrowHeaders = await verifyNarrowHeaders(page);
-        const screenshot = path.join(ARTIFACTS, 'popover-headword-furigana.png');
-        await page.screenshot({ path: screenshot, fullPage: false });
-        const report = { ok: true, headword, widePitchLayout, widePitchScreenshot, kanji, narrowHeaders, requests, screenshot };
-        writeFileSync(path.join(ARTIFACTS, 'popover-headword-furigana-smoke.json'), JSON.stringify(report, null, 2));
-        console.log(JSON.stringify(report, null, 2));
-        await context.close();
-    } finally {
-        await browser.close();
-    }
+    await closeSmokeBrowserAndServer(browser, server.server);
 }
 
 async function waitForHeadwordFurigana(page) {

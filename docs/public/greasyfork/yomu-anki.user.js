@@ -2644,6 +2644,9 @@ const ENGLISH_INTERFACE_LOCALE = (() => {
   return english;
 })();
 Object.freeze(
+  INTERFACE_LOCALES.filter((locale) => locale.direction === "rtl")
+);
+Object.freeze(
   interfaceLocaleLedger.rtlGate.items.map(
   (item) => Object.freeze({ ...item })
   )
@@ -8515,6 +8518,9 @@ const LEARNING_TARGET_ROSTER = Object.freeze([
   studyTargetReadiness: READING_ONLY_STUDY_TARGET_IDS.includes(language.id) ? "reading-only" : "planned"
   }))
 ]);
+Object.freeze(
+  LEARNER_LANGUAGES.map((language) => canonicalLanguageTag(language.runtimeLocale) ?? language.runtimeLocale)
+);
 const ANKI_FIELD_ROLES = ["expression", "reading", "meaning", "sentence", "audio", "sentenceAudio", "image"];
 const ankiFieldNames = (names) => names.split("|");
 const ANKI_HEADWORD_FIELD_NAME_PREFIX = ankiFieldNames(

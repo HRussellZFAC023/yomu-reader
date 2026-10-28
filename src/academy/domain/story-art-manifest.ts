@@ -583,3 +583,114 @@ export const ACADEMY_STORY_ART_RUNTIME_ASSETS = {
         }
     }
 } as const;
+
+export const ACADEMY_STORY_ART_COVERAGE = {
+    "event.story.blank-atlas-arrival.covered-atlas": {
+        "purpose": "story-event",
+        "primaryUse": "node:blank-atlas:covered-table"
+    },
+    "event.story.blank-atlas-arrival.atlas-uncovered": {
+        "purpose": "story-event",
+        "primaryUse": "node:blank-atlas:first-uncover"
+    },
+    "event.story.blank-atlas-sound-script-map.five-empty-slots": {
+        "purpose": "story-event",
+        "primaryUse": "node:blank-atlas:vowel-slots"
+    },
+    "event.story.blank-atlas-sound-script-map.first-route-line": {
+        "purpose": "story-event",
+        "primaryUse": "node:blank-atlas:first-line"
+    },
+    "event.story.blank-atlas-classroom-survival.handout-arrives": {
+        "purpose": "story-event",
+        "primaryUse": "node:blank-atlas:handout-arrives"
+    },
+    "event.story.blank-atlas-classroom-survival.rie-flower-mark": {
+        "purpose": "story-event",
+        "primaryUse": "node:blank-atlas:handout-flower"
+    },
+    "event.story.blank-atlas-sentence-frames.two-room-labels": {
+        "purpose": "story-event",
+        "primaryUse": "node:blank-atlas:false-label"
+    },
+    "event.story.blank-atlas-sentence-frames.classroom-label-fixed": {
+        "purpose": "story-event",
+        "primaryUse": "node:blank-atlas:label-fixed"
+    },
+    "event.story.blank-atlas-useful-vocabulary.name-line": {
+        "purpose": "story-event",
+        "primaryUse": "node:blank-atlas:name-line"
+    },
+    "event.story.blank-atlas-useful-vocabulary.name-card-repair": {
+        "purpose": "story-event",
+        "primaryUse": "node:blank-atlas:name-card-repair"
+    },
+    "event.story.blank-atlas-mission-sound.two-blank-name-tabs": {
+        "purpose": "story-event",
+        "primaryUse": "node:blank-atlas:sound-nameplates"
+    },
+    "event.story.blank-atlas-mission-sound.replay-one-voice": {
+        "purpose": "story-event",
+        "primaryUse": "node:blank-atlas:sound-input-repair"
+    },
+    "event.story.blank-atlas-mission-text.two-gaps": {
+        "purpose": "story-event",
+        "primaryUse": "node:blank-atlas:text-note"
+    },
+    "event.story.blank-atlas-mission-text.one-gap-repair": {
+        "purpose": "story-event",
+        "primaryUse": "node:blank-atlas:text-input-repair"
+    },
+    "event.story.blank-atlas-mission-speaking.door-waiting": {
+        "purpose": "story-event",
+        "primaryUse": "node:blank-atlas:speaking-door"
+    },
+    "event.story.blank-atlas-mission-speaking.door-open-repair": {
+        "purpose": "story-event",
+        "primaryUse": "node:blank-atlas:speaking-input-repair"
+    },
+    "event.story.blank-atlas-reading-writing.cards-return": {
+        "purpose": "story-event",
+        "primaryUse": "node:blank-atlas:cards-return"
+    },
+    "event.story.blank-atlas-reading-writing.learner-card-route-label": {
+        "purpose": "story-event",
+        "primaryUse": "node:blank-atlas:card-turns-over"
+    },
+    "event.story.blank-atlas-transfer.support-clears": {
+        "purpose": "story-event",
+        "primaryUse": "node:blank-atlas:source-clears"
+    },
+    "event.story.blank-atlas-transfer.first-lantern": {
+        "purpose": "story-event",
+        "primaryUse": "node:blank-atlas:first-lantern"
+    },
+    "event.story.blank-atlas-close.one-light-room": {
+        "purpose": "story-event",
+        "primaryUse": "node:blank-atlas:one-light-room"
+    },
+    "event.story.blank-atlas-close.finish-break-context": {
+        "purpose": "story-event",
+        "primaryUse": "node:blank-atlas:close-room-repair"
+    },
+    "event.story.margin-map-private-cipher.cipher-route": {
+        "purpose": "story-event",
+        "primaryUse": "node:margin-map:cipher-route"
+    },
+    "event.story.margin-map-private-cipher.relabel-repair": {
+        "purpose": "story-event",
+        "primaryUse": "node:margin-map:relabel-repair"
+    },
+    "event.story.margin-map-private-cipher.one-readable-point": {
+        "purpose": "story-event",
+        "primaryUse": "node:margin-map:one-readable-point"
+    },
+    "event.story.margin-map-readable-for-anyone.henry-toolbox": {
+        "purpose": "story-event",
+        "primaryUse": "node:margin-map:henry-toolbox"
+    },
+    "event.story.margin-map-readable-for-anyone.route-readable": {
+        "purpose": "story-event",
+        "primaryUse": "node:margin-map:route-readable"
+    }
+} as const;

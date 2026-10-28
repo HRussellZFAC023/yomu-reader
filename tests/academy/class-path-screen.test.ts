@@ -297,4 +297,29 @@ describe('Class path', () => {
         screen.querySelector<HTMLButtonElement>('.academy-class-path-back')?.click();
         expect(back).toHaveBeenCalledOnce();
     });
+
+    it('defines desktop and narrow-phone layout without clipping portrait overhangs', () => {
+        const css = fs.readFileSync(path.resolve('src/academy/styles/class-path.css'), 'utf8');
+        const purposeCss = fs.readFileSync(path.resolve('src/academy/styles/primary-purpose.css'), 'utf8');
+        expect(css).toMatch(/\.academy-class-week-spine\s*\{/);
+        expect(css).not.toContain('.academy-class-week-number');
+        expect(css).not.toContain('.academy-class-week-kind');
+        expect(css).not.toMatch(/grid-auto-flow:\s*column/);
+        expect(css).not.toMatch(/overflow-x:\s*auto[^}]*scroll-snap-type/s);
+        expect(css).not.toContain('.academy-class-path-paper');
+        expect(css).toMatch(/\.academy-class-register\s*\{[^}]*overflow:\s*visible/s);
+        expect(css).toMatch(/\.academy-class-person-card\s*\{[^}]*overflow:\s*visible/s);
+        expect(css).toMatch(/\.academy-class-person-portrait\s*\{[^}]*top:\s*-54px/s);
+        expect(css).toMatch(/\.academy-class-person-portrait img\s*\{[^}]*object-fit:\s*contain/s);
+        expect(css).toMatch(/\.academy-class-person-caption\s*\{[^}]*background:/s);
+        expect(css).toMatch(/\.academy-class-week-cast\s*\{/);
+        expect(css).toMatch(/\.academy-class-week-sprite img\s*\{[^}]*object-fit:\s*contain/s);
+        expect(css).toMatch(/@media \(min-width: 980px\)/);
+        expect(css).toMatch(/@media \(max-width: 700px\)/);
+        expect(css).toMatch(/@media \(max-width: 520px\)[\s\S]*\.academy-class-register\s*\{[^}]*grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)[^}]*row-gap:\s*58px/s);
+        expect(css).not.toMatch(/\.academy-class-person-(?:card|portrait|caption)[^{]*\{[^}]*overflow:\s*hidden/s);
+        expect(purposeCss).toMatch(/academy-class-event \.academy-primary-purpose[\s\S]*text-overflow:\s*clip[\s\S]*white-space:\s*normal[\s\S]*overflow-wrap:\s*anywhere/s);
+        expect(purposeCss).toMatch(/\.academy-class-event-season\s*\{[^}]*color:\s*#315d45/s);
+        expect(purposeCss).toMatch(/\.academy-class-event-copy,[\s\S]*\.academy-class-event-status[\s\S]*overflow:\s*visible/s);
+    });
 });

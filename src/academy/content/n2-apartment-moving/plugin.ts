@@ -1,4 +1,4 @@
-import { type ValidationIssue } from '../../domain/activity-runtime';
+import { createActivityRuntime, type ValidationIssue } from '../../domain/activity-runtime';
 import { createN2OpeningPlugin } from '../n2-opening-kit';
 import { N2_APARTMENT_MOVING_PROVENANCE } from './source';
 import { N2_APARTMENT_MOVING_ACTIVITY_KIND, N2_APARTMENT_MOVING_PACKAGE_ID, type N2ApartmentMovingModel } from './types';
@@ -16,3 +16,7 @@ const contract = Object.freeze({
 
 export const n2ApartmentMovingPlugin = createN2OpeningPlugin<N2ApartmentMovingModel>(contract);
 export const validateN2ApartmentMoving = n2ApartmentMovingPlugin.validate;
+
+export function createN2ApartmentMovingRuntime() {
+    return createActivityRuntime([n2ApartmentMovingPlugin]);
+}

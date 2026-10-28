@@ -5471,6 +5471,9 @@ const ENGLISH_INTERFACE_LOCALE = (() => {
   return english;
 })();
 Object.freeze(
+  INTERFACE_LOCALES.filter((locale) => locale.direction === "rtl")
+);
+Object.freeze(
   interfaceLocaleLedger.rtlGate.items.map(
   (item) => Object.freeze({ ...item })
   )
@@ -11454,20 +11457,6 @@ function setInnerHtml(element, html) {
   element.textContent = html;
   }
 }
-function setStaticTemplateHtml(element, html) {
-  try {
-  const parsed = new DOMParser().parseFromString(trustedHtml(html), "text/html");
-  const fragment = element.ownerDocument.createDocumentFragment();
-  fragment.append(...Array.from(parsed.body.childNodes));
-  hydratePrivateElementState(fragment);
-  for (const link of fragment.querySelectorAll('a[target="_blank"]')) {
-    link.relList.add("noopener", "noreferrer");
-  }
-  htmlReplacementTarget(element).replaceChildren(fragment);
-  } catch {
-  setInnerHtml(element, html);
-  }
-}
 function replaceWithHtmlFragment(element, html) {
   try {
   const ownerDocument = element.ownerDocument || document;
@@ -12082,6 +12071,9 @@ Object.freeze([
   studyTargetReadiness: READING_ONLY_STUDY_TARGET_IDS.includes(language2.id) ? "reading-only" : "planned"
   }))
 ]);
+Object.freeze(
+  LEARNER_LANGUAGES.map((language2) => canonicalLanguageTag(language2.runtimeLocale) ?? language2.runtimeLocale)
+);
 function isLearningTargetRosterId(value) {
   return value === SLICE1_TARGET_LANGUAGE || isLearnerLanguageId(value);
 }
@@ -25885,7 +25877,7 @@ function withNamedControlIndex(form, run) {
 }
 function indexNamedControls(form) {
   const byName = /* @__PURE__ */ new Map();
-  form.querySelectorAll("input[name], select[name], textarea[name]").forEach((control) => {
+  form.querySelectorAll("input, select, textarea").forEach((control) => {
   const existing = byName.get(control.name);
   if (existing) existing.push(control);
   else byName.set(control.name, [control]);
@@ -25897,11 +25889,6 @@ function namedFormControls(form, name) {
   return Array.from(form.querySelectorAll("input, select, textarea")).filter((control) => control.name === name);
 }
 function getNamedControl(form, name) {
-  if (activeNamedControls?.form === form) {
-  const named = activeNamedControls.byName.get(name) ?? [];
-  const item2 = named.length === 1 ? named[0] : named.find((control) => control instanceof HTMLInputElement);
-  return item2 ?? null;
-  }
   const item = form.elements.namedItem(name);
   if (item instanceof HTMLInputElement || item instanceof HTMLSelectElement || item instanceof HTMLTextAreaElement) {
   return item;
@@ -29853,11 +29840,12 @@ class SettingsDialogController {
   this.previewBaseline.adoptLive(settings2);
   }
   runPostCommitSettingsEffect(label, effect) {
-  const report = (error) => log$3.warn(`Post-persistence ${label} failed`, { error });
   try {
-    void Promise.resolve(effect()).catch(report);
+    void Promise.resolve(effect()).catch((error) => {
+      log$3.warn(`Post-persistence ${label} failed`, { error });
+    });
   } catch (error) {
-    report(error);
+    log$3.warn(`Post-persistence ${label} failed`, { error });
   }
   }
   createSettingsForm(panel) {
@@ -29868,7 +29856,7 @@ class SettingsDialogController {
   form.setAttribute("aria-modal", "true");
   form.setAttribute("aria-label", SETTINGS_TITLE);
   form.tabIndex = -1;
-  setStaticTemplateHtml(form, renderSettingsForm(this.settings, JPDB_SETTINGS_URL, JITEN_SETTINGS_URL, COLLAPSED_CATALOG_BROWSE_RENDER));
+  setInnerHtml(form, renderSettingsForm(this.settings, JPDB_SETTINGS_URL, JITEN_SETTINGS_URL, COLLAPSED_CATALOG_BROWSE_RENDER));
   localizeSettingsForm(form, this.settings.interfaceLanguage);
   if (panel) activateSettingsPanel(form, panel);
   return form;

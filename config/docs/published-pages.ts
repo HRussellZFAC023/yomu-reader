@@ -57,13 +57,40 @@ export const internalDocsExcludeGlobs = [
 ];
 
 /**
+ * Whether a `docs/`-relative markdown path is excluded from the built site.
+ * Mirrors the glob syntax VitePress hands to its matcher for the two shapes
+ * used above: a star inside a path segment, and a globstar segment standing in
+ * for any number of intermediate directories.
+ */
+export function isInternalDocPath(relativePath: string): boolean {
+    return internalDocsExcludeGlobs.some(glob => globToRegExp(glob).test(relativePath));
+}
+
+function globToRegExp(glob: string): RegExp {
+    let source = '';
+    for (let index = 0; index < glob.length; index += 1) {
+        if (glob.startsWith('**/', index)) {
+            source += '(?:[^/]+/)*';
+            index += 2;
+            continue;
+        }
+        if (glob[index] === '*') {
+            source += '[^/]*';
+            continue;
+        }
+        source += glob[index].replace(/[.+^${}()|[\]\\?]/, '\\$&');
+    }
+    return new RegExp(`^${source}$`);
+}
+
+/**
  * Reduces a navigation link or a VitePress sitemap `url` to a comparable key.
  * Sitemap urls are root-relative and slash-suffixed for directory index pages
  * (`privacy/`), while navigation links are absolute and usually are not
  * (`/privacy`), so both sides are stripped of leading and trailing slashes and
  * of any query or hash.
  */
-function sitemapRouteKey(value: string): string {
+export function sitemapRouteKey(value: string): string {
     return value.split(/[?#]/, 1)[0].replace(/^\/+/, '').replace(/\/+$/, '');
 }
 
@@ -111,7 +138,7 @@ export function sitemapItemsForRoutes<Item extends { url: string }>(
 // linked, but nobody can currently play it, and scripts/submit-indexnow.mjs
 // pushes every sitemap URL straight to search engines. Add it here once it
 // works — a sitemap is a claim that a URL is worth landing on.
-const hostedAppSitemapRoutes = ['study/', 'video-player/', 'pdf-reader/'] as const;
+export const hostedAppSitemapRoutes = ['study/', 'video-player/', 'pdf-reader/'] as const;
 
 /**
  * Appends the hosted app surfaces to a filtered sitemap. `make` builds one item

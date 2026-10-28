@@ -1,4 +1,3 @@
-import '../../src/reader/companions/register-build-companions';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import '../../src/reader/companions/settings-surface';

@@ -1,6 +1,3 @@
-// Filesystem/subprocess inputs, including generic helpers called by this test.
-// @yomu-reads none
-// @yomu-imports src/reader/app/managed-state-epoch.ts
 import { execFileSync } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
 import {

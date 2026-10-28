@@ -5,7 +5,7 @@ import { defineConfig, type Plugin, type PluginOption } from 'vite';
 import monkey, { type MonkeyUserScript } from 'vite-plugin-monkey';
 import pkg from './package.json' with { type: 'json' };
 import { jpdbAudioDevProxyPlugin } from './config/vite/jpdb-audio-proxy';
-import { readerTestConfig, readerTestDefines } from './config/vite/reader-test';
+import { readerTestConfig } from './config/vite/reader-test';
 
 const require = createRequire(import.meta.url);
 const { greasyForkLibraryUrls } = require('./scripts/lib/greasyfork-libraries.cjs') as {
@@ -100,13 +100,12 @@ function faviconDevMiddleware(): Plugin {
 }
 
 export default defineConfig(({ command, mode }) => ({
-    envDir: process.env.YOMU_CHECK_NO_DOTENV === "1" ? new URL("artifacts/no-dotenv", `file://${process.cwd()}/`).pathname : undefined,
     plugins: readerPlugins(command),
     define: readerDefines(command),
     resolve: readerResolveConfig(command),
     server: readerDevServerConfig,
     build: readerBuildConfig(mode),
-    test: { ...readerTestConfig(), workspace: path.join(configRoot, 'config/vite/reader-test.ts') },
+    test: readerTestConfig(),
 }));
 
 function readerPlugins(command: string): PluginOption[] {
@@ -264,7 +263,12 @@ function shouldUseGreasyForkCompanions(command: string): boolean {
 }
 
 function readerDefines(command: string) {
-    const defines = readerTestDefines;
+    const defines = {
+        __YOMU_VERSION__: JSON.stringify(pkg.version),
+        // Userscript/companion builds are not the new-tab PWA, so the offline-first
+        // network guard dead-code-eliminates out of the size-limited bundle.
+        __YOMU_NEWTAB_BUILD__: JSON.stringify(false),
+    };
     if (command === 'build') {
         return {
             ...defines,
@@ -296,10 +300,6 @@ function readerBuildConfig(mode: string) {
     return {
         outDir: 'dist',
         emptyOutDir: mode !== 'development',
-        // Hosted sync and the extension packager read public/ directly. Copying
-        // its Academy tree here both wastes I/O and overwrites another build's
-        // output namespace, preventing sound output-hash cache reuse.
-        copyPublicDir: false,
         target: 'es2022',
         minify: false,
         cssMinify: false,

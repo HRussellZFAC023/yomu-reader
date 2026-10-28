@@ -1,4 +1,4 @@
-import { type ValidationIssue } from '../../domain/activity-runtime';
+import { createActivityRuntime, type ValidationIssue } from '../../domain/activity-runtime';
 import { createN2OpeningPlugin } from '../n2-opening-kit';
 import { N2_MOVING_PRIORITY_ANSWER, N2_MOVING_PRIORITY_LISTENING_PROVENANCE, N2_MOVING_PRIORITY_TRANSCRIPT } from './source';
 import { N2_MOVING_PRIORITY_LISTENING_ACTIVITY_KIND, N2_MOVING_PRIORITY_LISTENING_PACKAGE_ID, type N2MovingPriorityListeningModel } from './types';
@@ -27,3 +27,4 @@ const contract = Object.freeze({
 });
 export const n2MovingPriorityListeningPlugin = createN2OpeningPlugin<N2MovingPriorityListeningModel>(contract);
 export const validateN2MovingPriorityListening = n2MovingPriorityListeningPlugin.validate;
+export function createN2MovingPriorityListeningRuntime() { return createActivityRuntime([n2MovingPriorityListeningPlugin]); }

@@ -1,4 +1,3 @@
-import '../../../src/reader/companions/register-build-companions';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
     registerNewTabReviewCleanup,
@@ -34,9 +33,6 @@ import {
     renderedWordPrivateStateForCard,
     renderedWordPrivateValue,
 } from '../../../src/reader/dom/rendered-word-private-state';
-import { newTabLookupMetaItems } from "../../../src/reader/newtab/lookup-dom";
-import { newTabCardFromSrsReviewable } from "../../../src/reader/newtab/srs-card-adapter";
-import { LocalYomuSrsRepository } from "../../../src/reader/srs/local-yomu";
 
 describe('new tab review — hosted segmented fallback & lookup grade statuses', () => {
     registerNewTabReviewCleanup();
@@ -1519,66 +1515,5 @@ describe('new tab review — hosted segmented fallback & lookup grade statuses',
             reuseActivePopover: true,
             userGesture: true,
         }));
-    });
-});
-
-describe('new tab review — lookup header contract', () => {
-    it('shows Academy SRS state with the shared swatch and omits the duplicate frequency rank', () => {
-        const items = newTabLookupMetaItems({
-            card: newTabTestCard({ source: 'yomu-local', reviewSource: 'yomu-local', frequencyRank: 400, cardState: ['due'] }),
-            ankiLookup: { state: 'not-in-deck', notes: [], primary: null },
-            provider: {
-                id: 'yomu-local',
-                label: 'Academy',
-                deckSource: 'yomu-local',
-                hasApiKey: true,
-            },
-            providerState: 'due',
-            settings: { ...DEFAULT_SETTINGS, ankiEnabled: false, yomuLocalSrsEnabled: true },
-        });
-
-        expect(items.map(item => item.textContent)).toEqual(['よむ deck Due']);
-        expect(items[0]?.querySelector('.jpdb-reader-state-dot.jpdb-due')).not.toBeNull();
-        expect(items.some(item => item.textContent?.includes('#400'))).toBe(false);
-    });
-
-    // Library and Stats call an Academy word saved but not in review "Saved";
-    // its Study lookup popup names it the same way, keeping the in-deck swatch.
-    it.each([['en', 'よむ deck Saved'], ['ja', 'よむデッキ 保存済み']] as const)('names a saved Academy word as Library does (%s)', async (interfaceLanguage, label) => {
-        const repository = new LocalYomuSrsRepository();
-        await repository.mine({ expression: '読む', reading: 'よむ', meaning: 'to read' });
-        const [saved] = await repository.collection();
-        const runtime = new NewTabRuntime();
-        const internals = setupNewTabLookupRuntime(runtime, newTabLookupRenderData(), {
-            settings: { interfaceLanguage, apiKey: '', jitenApiKey: '', ankiEnabled: false, yomuLocalSrsEnabled: true },
-            isJpdbBackedCard: () => false,
-        });
-        try {
-            await internals.showLookupCard(newTabCardFromSrsReviewable(saved!)!, '本を読む。');
-            await vi.waitFor(() => expect([...document.querySelectorAll('.jpdb-reader-meta > span')].map(item => item.textContent)).toEqual([label]));
-            expect(document.querySelector('.jpdb-reader-meta .jpdb-reader-state-dot.jpdb-in-deck')).not.toBeNull();
-            expect(document.body.textContent).not.toContain('未翻訳');
-        } finally {
-            runtime.destroy();
-            document.body.replaceChildren();
-            localStorage.clear();
-        }
-    });
-
-    it('does not claim an unavailable provider status', () => {
-        const items = newTabLookupMetaItems({
-            card: newTabTestCard({ frequencyRank: 400, cardState: ['new'] }),
-            ankiLookup: { state: 'not-in-deck', notes: [], primary: null },
-            provider: {
-                id: 'jpdb',
-                label: 'JPDB',
-                deckSource: 'jpdb',
-                hasApiKey: false,
-            },
-            providerState: 'new',
-            settings: { ...DEFAULT_SETTINGS, apiKey: '', ankiEnabled: false },
-        });
-
-        expect(items).toEqual([]);
     });
 });

@@ -34,3 +34,19 @@ export const N1_CONTRAST_INFERENCE_PROVENANCE = Object.freeze({
   }),
   sourceMediaState: "unverified-pairing-not-delivered" as const,
 }) satisfies N1ContrastInferenceModel["provenance"];
+
+export function canonicalN1ContrastInferenceSourceLocus(): string {
+  const { sourceLocus } = N1_CONTRAST_INFERENCE_PROVENANCE;
+  return (
+    [
+      N1_CONTRAST_INFERENCE_PROVENANCE.sourceId,
+      N1_CONTRAST_INFERENCE_PROVENANCE.sourceDocumentSha256,
+      String(N1_CONTRAST_INFERENCE_PROVENANCE.sourceDocumentByteLength),
+      N1_CONTRAST_INFERENCE_PROVENANCE.sourcePageImageSha256,
+      String(sourceLocus.pdfPage),
+      String(sourceLocus.printedPage),
+      sourceLocus.section,
+      sourceLocus.item,
+    ].join("\n") + "\n"
+  );
+}

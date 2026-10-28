@@ -1,5 +1,3 @@
-// Filesystem/subprocess inputs, including generic helpers called by this test.
-// @yomu-reads scripts/**
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -18,6 +16,7 @@ import {
     parseBacklog,
     progressSummary,
     proofTemplate,
+    resolveConfinedFile,
     resolveDynamicDependencies,
     reviewPayloadSha256,
     reuseReportPinErrors,
@@ -31,7 +30,6 @@ import {
     validateReviewAttestation,
     validateWorkflow,
 } from '../../scripts/lib/academy-workflow-model.mjs';
-import { resolveConfinedFile } from '../../scripts/lib/academy-workflow-files.mjs';
 import {
     trustBindings,
     validateGovernanceTrustStore,

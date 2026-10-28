@@ -10,12 +10,16 @@ import {
   academySetCookieForLocal,
 } from "./academy-cookie-proxy";
 import { academyLocalMedia } from "./academy-local-media";
-import { academyIsolatedFiles } from "./academy-test";
 
 const root = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "../..",
 );
+
+const MOCK_ISOLATED_TESTS = [
+  "tests/academy/entrypoint-lifecycle.test.ts",
+  "tests/academy/library-srs-early-batch-conformance.test.ts",
+];
 
 function academyForkHeapMb(): number {
   const override = Number.parseInt(
@@ -107,11 +111,11 @@ function academyTestIsolation(): boolean {
 function academyTestExclusions(isolate: boolean): string[] {
   return isolate
     ? [...configDefaults.exclude]
-    : [...configDefaults.exclude, ...academyIsolatedFiles];
+    : [...configDefaults.exclude, ...MOCK_ISOLATED_TESTS];
 }
 
 export default defineConfig(({ command, mode }) => {
-  const env = process.env.YOMU_CHECK_NO_DOTENV === "1" ? {} : loadEnv(mode, root, "");
+  const env = loadEnv(mode, root, "");
   const testIsolation = academyTestIsolation();
   const personaAudioRoot = configuredAcademyPath(
     "ACADEMY_PERSONA_AUDIO_ROOT",
@@ -124,7 +128,6 @@ export default defineConfig(({ command, mode }) => {
   return {
     // Dynamic imports and Vite's CSS preload URLs resolve beside the hosted
     // module, including when a native host serves the same asset directory.
-    envDir: process.env.YOMU_CHECK_NO_DOTENV === "1" ? new URL("artifacts/no-dotenv", `file://${process.cwd()}/`).pathname : undefined,
     base: command === 'build' ? './' : '/',
     define: {
       __YOMU_VERSION__: JSON.stringify(pkg.version),
@@ -202,7 +205,7 @@ export default defineConfig(({ command, mode }) => {
       // vi.mock registrations leak across files in a reused fork, so the
       // vi.mock-using files are excluded from the shared-fork pass and run in
       // a second isolated invocation (see test:academy in package.json). The
-      // Keep the entrypoint mock isolated; do not add mocks to shared hosts.
+      // vi-mock-isolation-conformance test keeps this list honest.
       exclude: academyTestExclusions(testIsolation),
       globals: true,
       pool: "forks",
@@ -213,11 +216,11 @@ export default defineConfig(({ command, mode }) => {
           // hard 4 idled most of a 10-core machine. VITEST_MAX_FORKS overrides
           // for hand-tuned (e.g. 4-core CI) runners.
           maxForks: academyMaxForks(),
-          // Reuse forks across files: each file re-evaluating the
+          // Reuse forks across files: 265 academy files each re-evaluating the
           // multi-MB src/academy content graph in a fresh jsdom fork was the
           // dominant fixed cost. VITEST_ISOLATE=1 restores per-file isolation.
           // vi.mock registrations leak across files in a reused fork, so the
-          // vi.mock-using files run in a separate isolated pass (see
+          // two vi.mock-using files run in a separate isolated pass (see
           // test:academy in package.json) — any new vi.mock file must join it.
           isolate: testIsolation,
           execArgv: [`--max-old-space-size=${academyForkHeapMb()}`],

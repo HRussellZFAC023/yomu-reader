@@ -1,4 +1,3 @@
-import '../../src/reader/companions/register-build-companions';
 import { describe, expect, it, vi } from 'vitest';
 import { renderAnkiExistingSection } from '../../src/reader/anki/render';
 import { resolveAnkiWordAudio } from '../../src/reader/anki/audio';
