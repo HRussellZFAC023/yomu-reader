@@ -1,5 +1,195 @@
 # Check and build speed
 
+<!-- G-04c report start -->
+## G-04c, confirmed gate repairs, 28 October 2026
+
+Started at `4c7d3af34` on `perf/g-04-gate-minute`. The confirmed selection
+failures and CI colour failure are repaired. All seven final-code timing cases
+pass; the table below records the measured limits. No test or assertion was
+removed. No prune plan applies.
+
+### Correctness and ownership
+
+`@yomu-reads` now suppresses only the declaring module's own unresolved reads.
+An imported helper must declare its own inputs or keep its consumers selected
+on every edit. `none` is rejected when the declaring file uses filesystem
+readers or escapes their bindings. The source-pipeline privacy guard declares
+both public source-pipeline trees; dictionary credits include README.md; the
+listening guard includes the entire source bank, including added binaries.
+Hosted appearance, companion facades and voice playback declarations also cover
+the missed paths from the review. Runtime tracing found seven additional Study
+PWA icon/screenshot paths; those declarations are corrected too.
+
+The resolver follows the nearest const binding. Mutable, parameter, for-of and
+destructured paths remain unknown. Shadowed Node path globals cannot borrow the
+global value. createRequire aliases retain module inputs; promises/default fs
+aliases retain filesystem inputs, including CommonJS promises destructuring.
+Leading-slash Vite globs resolve against the Vite root. External input-loader
+imports remain opaque unless their module owns a declaration.
+
+CI traces existing Reader regular/JPDB shards and the full isolated Academy run
+through a NODE_OPTIONS preload, then compares observed repository paths with
+their graph and resolved targets. Unknown helpers remain precautionary; they
+are reported separately, not presented as bounded coverage. The preload records
+paths and owners, preserves async subprocess contracts, and propagates the
+checkout root into children. A native negative probe checks incomplete bounded
+declarations; the installed-Vitest probe checks the worker ownership field.
+This audit runs in CI, rather than tracing the full suites in the ordinary local
+gate. The initial 19-case `CI=1` statement later in this historical report did
+not cover the subsequently added scheduler host; the current result is 71/71.
+
+### Critical path and undo
+
+Academy compilation starts before source audits. Audits overlap the tests;
+native tooling runs concurrently in two Node hosts after Reader build. The
+local test queue accounts for compiler, audit and tooling reservations. Every
+lane must still pass before final verification.
+
+The first repaired-selector timing attempt took 65.57 s for leaf and 65.48 s for
+central source. A 22-second workflow lifecycle host was selected through unused
+filesystem functions in its model import. Those file functions now live in
+`academy-workflow-files.mjs`, with matching declarations; the workflow model
+contains no filesystem calls. The lifecycle host still tests temporary Git
+repositories and copies every CLI module it needs. All 40 workflow assertions
+pass. Planner checks select it for a copied module change and exclude it for an
+unrelated Reader leaf or media manifest. The module boundary keeps lifecycle integrity checks tied to their real inputs.
+
+Retention resolves refs afresh and batches reads of immutable Git blobs, avoiding
+repeated process startups. Existing hash/HEAD recovery guards remain. Hosted
+shell keys preserve authored bytes and marker structure while canonicalizing
+writer-owned blocks. Hygiene and retention inventory keys are captured after
+writers finish. In the CSS edit/revert recovery, sync, retention and hygiene all
+hit their base pass markers. The earlier serial header implementation spent
+13.41 s in sync and 7.46 s in retention; an integrated repaired run measured
+3.65 s and 1.43 s respectively. These are stage observations, not paired idle
+machine benchmarks.
+
+The remaining precautionary asset work also exceeded a minute in a later
+central run (61.23 s). The 87-line persistent hash memo is replaced by a six-line
+bytes-only SHA helper; each integrity host owns its reads, and byte comparisons
+read both inputs directly. All checks now inspect actual bytes. The unused
+YOMU_HASH_MEMO switch is removed. No assertion is removed. The fresh trace index
+also exposed a recovered-art path and two temporary transcript paths; their
+owning tests now declare those inputs.
+
+Pure Academy manifest transformations are separated from build-directory I/O.
+Proof servers and verification import the filesystem adapter explicitly. Voice
+and listening integrity hosts supply their own filesystem callbacks to the pure
+graph function. Native planner assertions exclude these unrelated consumers for
+a central Reader edit. The route host declares its own curriculum/lesson reads.
+Across the full traced Academy set, precautionary consumers fall from nineteen
+to four, with zero uncovered bounded reads.
+
+### Seven final-code timing cases
+
+Each case primes the exact unedited base, applies a fresh comment marker, runs
+the complete ordinary check, and restores bytes in finally. Central edits line
+one without adding a line, preserving the existing file-size limit. Commands
+use Node 24.16.0 and `YOMU_CHECK_NO_DOTENV=1`; this switch disables Vite dotenv
+loading and participates in cache/graph keys. Only one heavy command is launched
+at a time. Full suites remain in sharded CI and forced checks.
+
+Before values are the reviewer's two-run medians. After values are one fresh
+sample per case on the final implementation at `9574b08ed`, including npm startup.
+Load is sampled every two seconds; external command monitoring records observed
+builds/smokes without treating an empty observation as proof of an idle machine.
+
+| Case | Review median, s | Final sample, s | Load mean / max | External heavy command |
+| --- | ---: | ---: | ---: | --- |
+| Unchanged | 9.53 | 15.15 | 12.9 / 13.7 | Yes |
+| Leaf Reader source | 61.52 | 53.98 | 14.7 / 16.1 | Yes |
+| Central Reader source | 55.77 | 56.69 | 14.7 / 16.6 | Yes |
+| Reader test | 61.20 | 39.00 | 14.0 / 14.8 | Yes |
+| Reader CSS | 49.20 | 41.87 | 11.4 / 12.7 | Yes |
+| Developer prose | 16.99 | 28.34 | 9.8 / 10.3 | Yes |
+| Academy source | 39.24 | 34.27 | 8.8 / 9.3 | Yes |
+
+The first unchanged sample includes the initial local Node pass after the full
+baseline; subsequent base priming results are retained separately. The
+45-second quiet-machine target remains unproven. These shared-host samples
+must not be described as an uncontended guarantee. Developer prose pays for
+conservative helper selection and can be slower than the unsafe old selector.
+All timing cohorts and every priming/recovery result are retained in ignored
+logs, including the initial above-minute attempt.
+
+### Verification and corruption probes
+
+- `CI=1 node --test tests/tooling/*.test.mjs`: PASS, 71 cases, 51.06 s.
+- `npm run check` final-code full-pass prime: PASS, 187.72 s including npm. Earlier forced ordinary check: PASS, 219.94 s with rendered docs.
+- `npm run check:release -- --no-cache` with fresh read tracing: PASS, 227.80 s,
+  clean tree and artifact drift enforced. Reader: 439 files / 8,405 passed
+  assertions, one skipped. Academy: 152 files / 1,675 passed assertions, four
+  skipped. Native tooling: 71 passed. Worker tests and all ratchets pass.
+- Fresh read audits: Reader 3,075 records, six precautionary consumers, zero
+  uncovered bounded reads; Academy 4,301 records, four precautionary
+  consumers, zero uncovered bounded reads.
+- Final resolver edge additions changed zero descriptors across 2,135 saved
+  modules. The final timing cohort was rerun after the edge and ownership additions.
+- Explicit `npm run docs:build` and the final committed-tree `npm run check`
+  are recorded in `docs-build.log` and `final-clean-check.log` after this report.
+
+| Mutation | Proof type | Observed rejection |
+| --- | --- | --- |
+| release heap 2304 to 1024 | Always-run Node contract | release-workflows fails |
+| reduced-motion CSS query | Resolved filesystem input | styles fails |
+| score correlation 0.55 to 2 | Node runtime contract | speaking-score fails |
+| injected async-utils failure | Changed test itself | merged host fails |
+| Academy members to memberList | Imported public data | content tests fail; TypeScript passes |
+| transitive settings setup throw | Shared dependency / full fallback | full Reader runner fails |
+| README dictionary credit removal | Resolved jsdom filesystem input; complete check CLI | recommended-dictionaries fails on Jitendex/Jiten credit |
+| corpus audio denominator 185 to 184 | Explicit target plus precautionary helper; complete check CLI | source-pipeline-privacy reports audited baseline 185, got 184 |
+| new source-bank MP3 | Recursive directory target; complete check CLI | listening-source-bank no-binary licence guard fails |
+| broken data behind a declared helper | Labelled tooling mechanism fixture; data-only production selection | jsdom host fails; unrelated input does not select it |
+
+All ten mutations were restored. Failed test stages saved no pass marker. The
+heap, score and injected-test rows do not establish narrowed filesystem selection;
+the README, recursive bank and bounded-helper probes cover that distinction.
+These mechanism fixtures are not browser geometry, visual or device acceptance.
+
+### Counts, retained decisions and commits
+
+| Scope | Files before / after | Test files before / after |
+| --- | ---: | ---: |
+| Reader tests | 497 / 497 | 439 / 439 |
+| Academy tests | 163 / 163 | 152 / 152 |
+| Workers | 4 / 4 | 4 / 4 |
+| Native tooling | 19 / 21 | 19 / 21 |
+| Scripts, including declarations | 1,696 / 1,703 | |
+| Whole tracked tree | 7,938 / 7,947 | 614 / 616 |
+
+No new prune verdict is overturned: no prune plan applies, and all earlier
+G-03b retained guards remain. ADR-0035's transitive annotation suppression is
+explicitly overturned because it hid real data inputs. Lifecycle integrity,
+settings, sync, grading, segmentation, privacy and release guards are preserved.
+The runtime source and shipped `src/`, `public/`, `dist/` and `docs/public/`
+bytes match the starting tree. README claims and source attribution are unchanged.
+No new external data, dependency, licence, version or product copy is introduced.
+
+Implementation commits:
+
+```text
+48c8b5299 test(gate): disable child colour in scheduler CI probe
+352450617 fix(gate): scope read declarations to their owning modules
+a4ac5b418 fix(gate): preserve trace ownership and reject invalid read claims
+9fa922938 perf(gate): batch immutable retention header reads
+623a729af perf(gate): overlap tooling and restore canonical writer keys
+c08ed5048 refactor(gate): separate workflow values from filesystem capabilities
+4024a263a test(gate): preserve async tracing and include shared graph inputs
+78b3e41a6 fix(gate): honor shadowed Node globals and fs namespace aliases
+f14c8cb31 test(gate): pin tracing to checkout and verify worker ownership
+b84923706 refactor(tests): own asset reads and hash actual bytes
+9574b08ed refactor(gate): separate Academy manifests from directory reads
+```
+
+Evidence stays under ignored `artifacts/g04c/` and
+`artifacts/g04c-negative-logs/`: timing results and stage logs, initial timing
+cohorts, ten probe results, CI tooling output, forced gates and read audits. No
+artifact is committed. No push, merge, PR, tag, GitHub Release or deployment was
+performed; the coordinator owns delivery. The remaining validation limit is the
+45-second target on a quiet host.
+
+<!-- G-04c report end -->
+
 <!-- G-04b report start -->
 ## G-04b, current-main merge, 28 October 2026
 
