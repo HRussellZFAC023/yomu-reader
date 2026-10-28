@@ -4,7 +4,10 @@ import { dirname, isAbsolute, relative, resolve } from 'node:path';
 
 export function readTargets(source, file, root, ts) {
     const ast = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true);
-    const variables = new Map();
+    const scopes = new Map();
+    const requireFactories = new Set();
+    const requireAliases = new Set();
+    let ownReads = false;
     const fs = new Set();
     const namespaces = new Set();
     const subprocess = new Set();
@@ -14,24 +17,53 @@ export function readTargets(source, file, root, ts) {
     const unknown = [];
     const annotations = [...source.matchAll(/^\s*\/\/\s*@yomu-reads\s+(.+)$/gm)]
         .flatMap(match => match[1].trim().split(/\s+/)).filter(path => path !== 'none');
+    const none = /^\s*\/\/\s*@yomu-reads\s+none\s*$/m.test(source);
     const annotated = /^\s*\/\/\s*@yomu-reads\s+/m.test(source);
     // Subprocess bundlers consume the import closure of their entrypoints.
     for (const match of source.matchAll(/^\s*\/\/\s*@yomu-imports\s+(.+)$/gm)) {
         for (const path of match[1].trim().split(/\s+/)) modules.add(resolve(root, path));
     }
     const reader = /^(?:read(?:File|link|v)?(?:Sync)?|readdir(?:Sync)?|opendir(?:Sync)?|stat(?:Sync)?|lstat(?:Sync)?|existsSync|access(?:Sync)?|realpath(?:Sync)?|open(?:Sync)?|createReadStream|glob(?:Sync)?|copyFile(?:Sync)?|cp(?:Sync)?)$/;
+    const scopeNode = node => ts.isSourceFile(node) || ts.isFunctionLike(node) || ts.isBlock(node)
+        || ts.isForStatement(node) || ts.isForOfStatement(node) || ts.isForInStatement(node) || ts.isCatchClause(node);
+    function scopeOf(node) {
+        for (let parent = node.parent; parent; parent = parent.parent) if (scopeNode(parent)) return parent;
+        return ast;
+    }
+    function bind(name, declaration, initializer) {
+        if (!ts.isIdentifier(name)) {
+            for (const entry of name.elements) if (ts.isBindingElement(entry)) bind(entry.name, declaration);
+            return;
+        }
+        const scope = scopeOf(declaration);
+        if (!scopes.has(scope)) scopes.set(scope, new Map());
+        const bindings = scopes.get(scope);
+        bindings.set(name.text, bindings.has(name.text) ? null : initializer);
+    }
     function collect(node) {
-        if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.initializer) {
-            const values = variables.get(node.name.text) ?? [];
-            values.push(node.initializer);
-            variables.set(node.name.text, values);
+        // Resolve the nearest lexical binding. Mutable, parameter, for-of and
+        // destructured bindings stay opaque rather than borrowing a namesake.
+        if (ts.isVariableDeclaration(node)) bind(node.name, node,
+            ts.isIdentifier(node.name) && (node.parent.flags & ts.NodeFlags.Const)
+            && !ts.isForOfStatement(node.parent.parent) ? node.initializer : null);
+        if (ts.isParameter(node)) bind(node.name, node);
+        if (ts.isImportDeclaration(node) && /^(?:node:)?module$/.test(node.moduleSpecifier.text)) {
+            for (const entry of node.importClause?.namedBindings?.elements ?? []) {
+                if ((entry.propertyName?.text ?? entry.name.text) === 'createRequire') requireFactories.add(entry.name.text);
+            }
+        }
+        if (ts.isImportDeclaration(node) && /^(?:esbuild|vite|glob|globby|fast-glob)(?:\/|$)/.test(node.moduleSpecifier.text)) {
+            unknown.push(`external input loader: ${node.moduleSpecifier.text}`);
         }
         if (ts.isImportDeclaration(node) && /^(?:node:)?fs(?:\/promises)?$/.test(node.moduleSpecifier.text)) {
             const clause = node.importClause;
             if (clause?.name) namespaces.add(clause.name.text);
             if (clause?.namedBindings && ts.isNamespaceImport(clause.namedBindings)) namespaces.add(clause.namedBindings.name.text);
             if (clause?.namedBindings && ts.isNamedImports(clause.namedBindings)) {
-                for (const entry of clause.namedBindings.elements) if (reader.test(entry.propertyName?.text ?? entry.name.text)) fs.add(entry.name.text);
+                for (const entry of clause.namedBindings.elements) {
+                    if (reader.test(entry.propertyName?.text ?? entry.name.text)) fs.add(entry.name.text);
+                    else if ((entry.propertyName?.text ?? entry.name.text) === 'promises') namespaces.add(entry.name.text);
+                }
             }
         }
         if (ts.isImportDeclaration(node) && /^(?:node:)?child_process$/.test(node.moduleSpecifier.text)) {
@@ -40,8 +72,10 @@ export function readTargets(source, file, root, ts) {
             if (node.importClause?.namedBindings && ts.isNamespaceImport(node.importClause.namedBindings)) processNamespaces.add(node.importClause.namedBindings.name.text);
         }
         const initializer = ts.isVariableDeclaration(node) && node.initializer && (ts.isAwaitExpression(node.initializer) ? node.initializer.expression : node.initializer);
+        if (initializer && ts.isCallExpression(initializer) && ts.isIdentifier(node.name)
+            && (requireFactories.has(initializer.expression.getText(ast)) || /(?:^|\.)createRequire$/.test(initializer.expression.getText(ast)))) requireAliases.add(node.name.text);
         if (initializer && ts.isCallExpression(initializer)
-            && (initializer.expression.getText(ast) === 'require' || initializer.expression.kind === ts.SyntaxKind.ImportKeyword)
+            && (initializer.expression.getText(ast) === 'require' || requireAliases.has(initializer.expression.getText(ast)) || initializer.expression.kind === ts.SyntaxKind.ImportKeyword)
             && /^(?:node:)?fs(?:\/promises)?$/.test(initializer.arguments[0]?.text ?? '')) {
             if (ts.isIdentifier(node.name)) namespaces.add(node.name.text);
             else for (const entry of node.name.elements) if (reader.test(entry.propertyName?.text ?? entry.name.text)) fs.add(entry.name.text);
@@ -52,16 +86,27 @@ export function readTargets(source, file, root, ts) {
     function values(node, seen = new Set()) {
         if (!node) return [];
         if (ts.isStringLiteralLike(node)) return [node.text];
-        if (ts.isArrayLiteralExpression(node)) return node.elements.flatMap(element => values(element, seen));
+        if (ts.isArrayLiteralExpression(node)) {
+            const elements = node.elements.map(element => values(element, seen));
+            return elements.every(values => values.length) ? elements.flat() : [];
+        }
         if (ts.isParenthesizedExpression(node) || ts.isAsExpression(node) || ts.isNonNullExpression(node)) return values(node.expression, seen);
         if (ts.isIdentifier(node)) {
             if (node.text === '__dirname') return [dirname(file)];
             if (node.text === '__filename') return [file];
-            if (seen.has(node.text)) return [];
-            const next = new Set([...seen, node.text]);
-            return (variables.get(node.text) ?? []).flatMap(value => values(value, next));
+            for (let scope = node.parent; scope; scope = scope.parent) {
+                if (!scopes.get(scope)?.has(node.text)) continue;
+                const value = scopes.get(scope).get(node.text);
+                if (!value || seen.has(value)) return [];
+                return values(value, new Set([...seen, value]));
+            }
+            return [];
         }
-        if (ts.isConditionalExpression(node)) return [...values(node.whenTrue, seen), ...values(node.whenFalse, seen)];
+        if (ts.isConditionalExpression(node)) {
+            const yes = values(node.whenTrue, seen);
+            const no = values(node.whenFalse, seen);
+            return yes.length && no.length ? [...yes, ...no] : [];
+        }
         if (ts.isTemplateExpression(node)) {
             // A literal directory prefix bounds any interpolated suffix, even
             // when its value contains slashes. Do not mistake a filename prefix
@@ -127,7 +172,8 @@ export function readTargets(source, file, root, ts) {
                 && /^(?:node:)?fs(?:\/promises)?$/.test(expression.expression.arguments[0]?.text ?? '');
             const read = fs.has(name) || ((inlineFs || namespaces.has(owner) || namespaces.has(owner.replace(/\.promises$/, ''))) && reader.test(name));
             const glob = /^(?:import\.meta)$/.test(owner) && /^(?:glob|globEager)$/.test(name);
-            const dynamic = expression.kind === ts.SyntaxKind.ImportKeyword || name === 'require' || /^(?:importActual|importMock|mock|doMock|unmock|doUnmock)$/.test(name) && owner === 'vi';
+            const dynamic = expression.kind === ts.SyntaxKind.ImportKeyword || name === 'require' || requireAliases.has(name) || /^(?:importActual|importMock|mock|doMock|unmock|doUnmock)$/.test(name) && owner === 'vi';
+            if (read) ownReads = true;
             if (read || glob || dynamic) {
                 const paths = values(node.arguments[0]);
                 if (!paths.length) unknown.push(node.getText(ast).slice(0, 160));
@@ -138,7 +184,7 @@ export function readTargets(source, file, root, ts) {
                         if (/^(?:node:)?child_process$/.test(path)) unknown.push(`subprocess module load: ${path}`);
                         if (path.startsWith('.')) modules.add(resolve(dirname(file), path));
                         else if (!/^(?:node:)?[\w@]/.test(path)) unknown.push(`computed module ${path}`);
-                    } else if (glob) add(resolve(dirname(file), path));
+                    } else if (glob) add(resolve(path.startsWith('/') ? root : dirname(file), path.replace(/^\//, '')));
                     else add(path, /^(?:readdir|opendir)/.test(name));
                 }
             }
@@ -148,5 +194,6 @@ export function readTargets(source, file, root, ts) {
     }
     visit(ast);
     for (const path of annotations) add(path);
+    if (none && (ownReads || unknown.some(read => /filesystem|I\/O namespace/.test(read)))) throw new Error(`${file}: @yomu-reads none cannot annotate filesystem reads`);
     return { targets: [...targets].sort(), modules: [...modules].sort(), unknown: annotated ? [] : unknown, declared: annotated };
 }

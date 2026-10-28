@@ -1,5 +1,5 @@
 // Filesystem inputs supplied to generic helpers are confined to these paths or temporary fixtures.
-// @yomu-reads none
+// @yomu-reads public/academy/content/source-pipeline/** docs/public/academy/content/source-pipeline/**
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
 import { existsSync } from 'node:fs';

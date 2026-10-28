@@ -1,5 +1,5 @@
 // Filesystem/subprocess inputs, including generic helpers called by this test.
-// @yomu-reads public/** docs/.vitepress/config.mts docs/public/hosted-appearance-settings.js scripts/lib/hosted-appearance*.cjs tests/reader/helpers/hosted-appearance-module-proof.mjs
+// @yomu-reads public/** docs/public/pdf-reader/index.html docs/public/video-player/index.html docs/public/study/index.html docs/.vitepress/config.mts docs/public/hosted-appearance-settings.js scripts/lib/hosted-appearance*.cjs tests/reader/helpers/hosted-appearance-module-proof.mjs
 // @yomu-imports src/reader/core/hosted-appearance-boot.ts src/reader/settings/hosted-appearance-settings.ts
 import { readFileSync } from 'node:fs';
 import path from 'node:path';

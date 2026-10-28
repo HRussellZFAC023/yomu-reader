@@ -50,3 +50,31 @@ test('namespace aliases, computed fs members and escaped subprocess functions re
     ]) assert.ok(inspect(code).unknown.length, code);
     assert.deepEqual(inspect("const fs = require('node:fs'); fs.readFileSync('style.css');").unknown, []);
 });
+
+test('nearest bindings never borrow shadowed or mutable path initializers', () => {
+    for (const code of [
+        "const file='decoy'; function load(file: string) { readFileSync(file); }",
+        "let file='decoy'; file='actual'; readFileSync(file);",
+        "const file='decoy'; for (const file of files) readFileSync(file);",
+        "const {file} = object; readFileSync(file);",
+    ]) {
+        const reads = inspect("import {readFileSync} from 'node:fs';" + code);
+        assert.deepEqual(reads.targets, []);
+        assert.ok(reads.unknown.length, code);
+    }
+    assert.deepEqual(inspect("import {readFileSync} from 'node:fs'; const file='outer'; { const file='inner'; readFileSync(file); } readFileSync(file);").targets, ['inner', 'outer']);
+});
+test('createRequire aliases, promises aliases and root-absolute Vite globs retain inputs', () => {
+    const reads = inspect(`import {createRequire as factory} from 'node:module';
+        const load = factory(import.meta.url); load('./fixture.json');
+        import {promises as fsp} from 'node:fs'; fsp.readFile('promises.txt');
+        import.meta.glob('/tests/fixtures/*.txt');`);
+    assert.deepEqual(reads.modules, ['/repo/tests/fixture.json']);
+    assert.deepEqual(reads.targets, ['promises.txt', 'tests/fixtures/*.txt']);
+    assert.deepEqual(reads.unknown, []);
+    assert.ok(inspect("import {build} from 'esbuild'; build(options);").unknown.length);
+});
+test('none may only declare a module without filesystem reads', () => {
+    assert.throws(() => inspect("// @yomu-reads none\nimport {readFileSync} from 'node:fs'; readFileSync(path);"), /none cannot annotate filesystem reads/);
+    assert.deepEqual(inspect('// @yomu-reads none\nexport const value=1;').unknown, []);
+});

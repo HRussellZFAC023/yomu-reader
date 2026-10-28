@@ -114,3 +114,14 @@ test('generated filename churn does not invalidate a source-only import graph or
     assert.equal(plan.graphReused, true);
     assert.deepEqual(plan.tests, ['fs.test.ts']);
 });
+
+test('a test annotation cannot silence an imported helper, which must own its declaration', async t => {
+    const { put, select } = fixture(t, false);
+    put('read.ts', "import {readFileSync} from 'node:fs'; export const read=(file: string)=>readFileSync(file,'utf8');");
+    put('fs.test.ts', "// @yomu-reads declared.txt\nimport {read} from './read'; it('helper',()=>read('actual.txt'));");
+    assert.deepEqual((await select(['actual.txt'])).tests, ['fs.test.ts']);
+    assert.deepEqual((await select(['unreferenced.txt'])).tests, ['fs.test.ts']);
+    put('read.ts', "// @yomu-reads actual.txt\nimport {readFileSync} from 'node:fs'; export const read=(file: string)=>readFileSync(file,'utf8');");
+    assert.deepEqual((await select(['actual.txt'])).tests, ['fs.test.ts']);
+    assert.deepEqual((await select(['unreferenced.txt'])).tests, []);
+});

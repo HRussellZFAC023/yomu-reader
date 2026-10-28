@@ -98,13 +98,12 @@ function selectFromGraph(root, changed, graph, inspect) {
     let readSelected = 0;
     for (const [test, deps] of Object.entries(graph.tests)) {
         if (contracts[test]) continue;
-        const declared = inspect(join(root, test)).declared;
         const targets = new Set();
         let precaution = false;
         for (const file of deps) {
             const reads = inspect(file);
             for (const target of reads.targets) targets.add(target);
-            if (reads.unknown.length && !declared) {
+            if (reads.unknown.length) {
                 unresolved[relative(root, file)] = reads.unknown;
                 precaution = true;
             }

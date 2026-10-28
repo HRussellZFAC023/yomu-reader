@@ -1,5 +1,5 @@
 // Filesystem/subprocess inputs, including generic helpers called by this test.
-// @yomu-reads public/academy/** docs/academy/**
+// @yomu-reads public/academy/** docs/academy/** src/academy/content/listening/source-bank/**
 import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import { homedir } from 'node:os';

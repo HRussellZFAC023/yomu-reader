@@ -1,5 +1,5 @@
 // Filesystem inputs supplied to generic helpers are confined to these paths or temporary fixtures.
-// @yomu-reads src/reader/companions/** src/reader/**/*-companion.ts scripts/** dist/greasyfork/**
+// @yomu-reads src/reader/settings/settings-text.ts src/reader/app/visible-page-scanner.ts src/reader/companions/** src/reader/**/*-companion.ts scripts/** dist/greasyfork/**
 import { existsSync, readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
