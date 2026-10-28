@@ -142,3 +142,33 @@ test('Academy keys its runtime imports and CSS import closure without unrelated 
     writeFileSync(css, 'body { color: green; }');
     assert.notEqual(key(), before);
 });
+
+test('generated asset names and retention data do not invalidate native tooling source proofs', t => {
+    const { root, runner } = fixture(t);
+    mkdirSync(join(root, 'config/ci'), { recursive: true });
+    const key = () => { runner.refresh(); return runner.key({ name: 'tooling', command: 'true', ...toolingStageContract(runner.snapshot, ['src/a.ts']) }); };
+    const before = key();
+    writeFileSync(join(root, 'docs/public/yomu.abc.css'), 'generated');
+    writeFileSync(join(root, 'config/ci/content-addressed-retention.json'), '{"generated":true}');
+    assert.equal(key(), before);
+});
+
+test('JavaScript cache excludes independent CSS but retains CSS value dependencies and unfamiliar loaders', async t => {
+    const { javascriptBuildInputs } = await import('../../scripts/lib/gate-inputs.mjs');
+    const { root, runner } = fixture(t);
+    mkdirSync(join(root, 'src'));
+    writeFileSync(join(root, 'src/entry.ts'), 'export const value = 1;');
+    writeFileSync(join(root, 'src/style.css'), 'body {color:red}');
+    const input = () => { runner.refresh(); return runner.key({name:'code',command:'true',inputs:javascriptBuildInputs(root, ['src/**'], ['src/entry.ts'])}); };
+    const before = input();
+    writeFileSync(join(root, 'src/style.css'), 'body {color:green}');
+    assert.equal(input(), before);
+    writeFileSync(join(root, 'src/entry.ts'), "import './style.css';");
+    const withCss = input();
+    writeFileSync(join(root, 'src/style.css'), 'body {color:blue}');
+    assert.notEqual(input(), withCss);
+    writeFileSync(join(root, 'src/entry.ts'), "import text from './style.css?unknown'; export {text};");
+    const unfamiliar = input();
+    writeFileSync(join(root, 'src/style.css'), 'body {color:black}');
+    assert.notEqual(input(), unfamiliar);
+});

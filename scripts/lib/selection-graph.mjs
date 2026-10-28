@@ -8,6 +8,8 @@ import { outputHashes, readJson, repositorySnapshot, selectInputs, stageKey, wri
 import { readTargets } from './read-targets.mjs';
 import { runtimeEnv, testEnvironment, buildEnv } from './stage-runner.mjs';
 
+const generated = path => /^(?:dist\/|docs\/public\/(?:academy|greasyfork|study|newtab)\/|docs\/public\/(?:yomu[./]|hosted-runtime-graph\.js|hosted-appearance-settings\.js))/.test(path);
+
 export function graphStore(root, config, ts) {
     let snapshot;
     try { snapshot = repositorySnapshot(root); } catch { return null; }
@@ -16,7 +18,7 @@ export function graphStore(root, config, ts) {
         'package*.json', 'config/**', '!config/ci/content-addressed-retention.json', 'vite.config.ts', 'tsconfig*.json',
         'scripts/lib/test-selection.mjs', 'scripts/lib/read-targets.mjs', 'scripts/lib/selection-graph.mjs',
     ]), env: Object.fromEntries([...runtimeEnv, ...testEnvironment, ...buildEnv].map(name => [name, process.env[name] ?? null])),
-    extra: [config, Object.keys(snapshot).filter(path => /\.(?:[cm]?[jt]sx?|json|vue)$/.test(path)), outputHashes(root, ['node_modules/.package-lock.json'])] });
+    extra: [config, Object.keys(snapshot).filter(path => !generated(path) && /\.(?:[cm]?[jt]sx?|json|vue)$/.test(path)), outputHashes(root, ['node_modules/.package-lock.json'])] });
     const inspect = file => {
         const source = readFileSync(file, 'utf8');
         const hash = createHash('sha256').update(source).digest('hex');
@@ -31,6 +33,9 @@ export function graphStore(root, config, ts) {
         load() {
             const saved = readJson(path);
             if (!saved || saved.key !== key) return null;
+            // Generated fs inputs do not change import resolution. If a test
+            // actually imports generated modules, rediscover conservatively.
+            if (Object.keys(saved.modules).some(generated)) return null;
             try {
                 for (const [file, previous] of Object.entries(saved.modules)) {
                     const source = readFileSync(join(root, file), 'utf8');

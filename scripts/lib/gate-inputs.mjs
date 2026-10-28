@@ -16,6 +16,14 @@ export function readerBuildInputs(root) {
         ...dependencyInputs(root, ['src/reader/userscript/entry.ts', 'src/reader/newtab/entrypoint.ts'])];
 }
 
+// Reader CSS is built by a separate writer. Keep code byte-exact: if any code
+// entry starts consuming CSS (including value imports), retain the full key.
+export function javascriptBuildInputs(root, inputs, entries) {
+    try {
+        return bundleInputs(root, entries).some(path => /\.css(?:$|\?)/.test(path)) ? inputs : [...inputs, '!**/*.css'];
+    } catch { return inputs; } // unfamiliar loaders/inputs must never skip code
+}
+
 export function hostedSyncSourceInputs(root) {
     // Ask the same bundler as the three sync helpers. Type-only imports do not
     // become runtime inputs; new runtime imports are rediscovered every time.
@@ -46,7 +54,7 @@ export function toolingStageContract(snapshot, compilerInputs) {
     // paths in tests, repository membership and the compiler's resolved file
     // list. They do not assert the bodies of arbitrary product source files.
     return {
-        inputs: ['tests/tooling/**', 'scripts/**', 'config/**', 'vite.config.ts', 'tsconfig*.json'],
-        extra: { repositoryPaths: Object.keys(snapshot), compilerInputs },
+        inputs: ['tests/tooling/**', 'scripts/**', 'config/**', '!config/ci/content-addressed-retention.json', 'vite.config.ts', 'tsconfig*.json'],
+        extra: { repositoryPaths: Object.keys(snapshot).filter(path => !/^(?:dist\/|docs\/public\/|config\/ci\/content-addressed-retention\.json$)/.test(path)), compilerInputs },
     };
 }

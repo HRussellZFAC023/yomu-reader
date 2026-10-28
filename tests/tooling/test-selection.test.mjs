@@ -99,3 +99,18 @@ test('byte-checked discovery cache reuses body edits and rediscovers new import 
     put('a.ts', 'export const a = 4;');
     assert.deepEqual((await select(['c.ts'])).tests, []);
 });
+
+test('generated filename churn does not invalidate a source-only import graph or lose fs readers', async t => {
+    const { root, put, select } = fixture(t, false);
+    const { execFileSync } = await import('node:child_process');
+    const { mkdirSync } = await import('node:fs');
+    execFileSync('git', ['init', '--quiet'], { cwd: root });
+    put('.gitignore', 'node_modules\nartifacts\n');
+    put('fs.test.ts', "import{readFileSync}from'node:fs'; it('generated',()=>readFileSync('dist/app.js','utf8'));");
+    await select(['a.ts']);
+    mkdirSync(join(root, 'dist'));
+    put('dist/app.js', 'generated');
+    const plan = await select(['dist/app.js']);
+    assert.equal(plan.graphReused, true);
+    assert.deepEqual(plan.tests, ['fs.test.ts']);
+});
