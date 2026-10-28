@@ -1,5 +1,13 @@
 # Local gate and Reader test performance
 
+G-04 uses bounded filesystem reads, byte-checked import-graph reuse and one
+shared local transform graph and bounded fork queue for Reader Node, Reader jsdom and Academy. Full
+CI/release suites retain source-scan contracts. [Current timings and proof](./check-speed.md)
+record the observed limits. Cached local docs validation does not restore unused
+rendered output; explicit `docs:build` still materializes it. On a large enough
+local memory budget, compilation overlaps the build; input-stability checks and
+worktree-specific incremental-state restoration preserve the compiler proof.
+
 This is the historical G-02a report. [The current G-03 integration results](./check-speed.md) supersede its Academy-failure and gate-status sections: strict Academy now passes, while the one-minute edit target remains unmet.
 
 G-02a, 27 October 2026. Node 24.16.0 on the shared Mac. The G-01 implementation

@@ -1,5 +1,193 @@
 # Check and build speed
 
+<!-- G-04 report start -->
+## G-04, 28 October 2026
+
+Implementation is committed through f55b3cdba. All seven primed-cache cases pass
+below 60 seconds. The six real corruption probes fail locally; the forced full
+release check passes and shipping bytes match G-03. No push, merge, tag, PR or
+deployment has been performed.
+
+The base is G-03 commit cc0025953, rather than the subsequently moved integration
+branch name. Measurements use Node v24.16.0 on this arm64 Mac, 10 cores and 32 GiB.
+Commands run directly into ignored logs. Each edited case primes the unedited
+base first, changes one comment line, then restores the original bytes in a
+finally block. New comment markers prevent older successful edited builds from
+turning these into unchanged-cache measurements. Comment edits exercise the same
+byte-key invalidation and compilation path; they do not measure changed import
+structure or changed test outcomes.
+
+### Local inputs and scheduling
+
+- Index filesystem reads per module: literals, joined roots, URLs, glob calls,
+  template directory prefixes and explicit @yomu-reads declarations. Subprocess
+  compilation entrypoints can declare @yomu-imports closures. Unknown reads,
+  namespace escapes and computed filesystem members remain conservative.
+- Reuse dependency discovery only after byte checks prove unchanged import/read
+  topology, setup/configuration, installed toolchain and source membership.
+  A changed setup dependency forces full execution; deleted filesystem inputs
+  select their actual readers. A related pass never becomes a full baseline.
+- Key Academy compilation from its actual bundle closure and public inputs.
+  Its delivery stage also keys the hosted Reader graph and CSS used in the
+  revision. A Reader edit can legitimately rebuild Academy when the shared Study
+  runtime imports it. Published docs and their source consumers own docs keys;
+  excluded developer prose does not require a site render.
+- Reader Node, isolated Reader jsdom and Academy share one transform graph and
+  one memory-sized queue. Reviewed Node and Academy modules retain their native
+  full-runner reuse policy; Reader jsdom and mock owners keep fresh processes.
+  Compiler reservations are reclaimed as compilation finishes. Large enough
+  local budgets overlap the compiler, Reader builds and Academy compilation.
+- Verify existing output bytes before restoring anything; use APFS clones for
+  large changed/missing files. Mutable products never hardlink cache blobs.
+  Local docs proof does not restore unused rendered-site copies. Explicit
+  docs:build, forced checks, CI and release materialize and verify those copies.
+- Cache Reader JavaScript separately from independent CSS. CSS imports or
+  unfamiliar loaders retain the broader key. The CSS-change experiment matched
+  all 17 JavaScript products against forced compilation byte for byte.
+- Move eager CSS reads and re-exported Study APIs out of the shared JPDB fixture
+  and into actual consumers. This changes real import/read dependencies instead
+  of teaching selection to ignore them. Academy lesson-flow polling keeps the
+  same assertions and timeout with a 5 ms interval instead of 50 ms; all 46 cases
+  passed in 2.37 s of test bodies in the focused run.
+
+### Contracts retained in full CI and release
+
+| File | Why it is a contract |
+| --- | --- |
+| tests/reader/host-css-armour.test.ts | Scans all TypeScript source for inline annotation style writes. |
+| tests/reader/factory-reset-invariant.test.ts | Discovers managed storage keys across Reader source; retains the data-reset invariant. |
+
+These are listed in config/ci/local-contract-tests.json. Their assertions remain
+in full Reader CI/release schedules. Local affected runs omit them, as requested.
+Forced ordinary checks also run both contracts and the strict Academy suite.
+
+### Primed-cache timings
+
+The G-03 column is the owner's recorded cohort, reproduced below in the historical
+section. A central-module G-03 number and Academy-edit number were not recorded.
+The final-code cohort contains two completed rows before an interruption and five
+resumed rows after the other heavy batch exited. An external browser smoke began
+during the leaf run; it still passed below a minute. The interrupted central
+attempt is excluded. All rows use the same f55b3cdba implementation; documentation
+was in progress, and each row independently primed its exact working base.
+
+| Case | Edited file | G-03 seconds | Final seconds |
+| --- | --- | ---: | ---: |
+| Unchanged | None | 25.31 | 8.26 PASS |
+| Leaf Reader | src/reader/newtab/speaking-score.ts | 171.09 | 49.84 PASS |
+| Central Reader | src/reader/app/main.ts | Not recorded | 48.77 PASS |
+| Reader test | tests/reader/speaking-score.test.ts | 197.38 | 17.43 PASS |
+| CSS | src/reader/styles/reader-words-ocr.css | 227.64 | 43.38 PASS |
+| Developer prose | docs/dev/recorded-pages.md | 135.63 | 13.86 PASS |
+| Academy | src/academy/content/learner-name.ts | Not recorded | 33.86 PASS |
+
+Before the final harness changes, the complete acceptance cohort passed at
+8.10 / 72.34 / 68.06 / 18.41 / 47.47 / 14.62 / 48.41 seconds in the same row
+order. The 72.34 s leaf profile exposed the shared fixture's unnecessary Study
+imports. After moving them, 26 matching Reader hosts / 973 cases passed.
+The Academy cache-integrity retry also exposed a reused loader cache; it now
+owns a fresh module cache, preserving both rejection and verified-result reuse.
+
+### Verification
+
+| Command or proof | Result |
+| --- | --- |
+| Final-code check -- --no-cache | PASS, 332.34 s including npm; other lanes overlapped this run. |
+| Final-code check:release -- --no-cache | PASS, 280.68 s including npm; other lanes overlapped this run. |
+| Native tooling, including six G-01b corruption mechanisms | PASS, 43 cases; failed subprocesses cannot cache pass markers. |
+| Six real mutations through the production planner/StageRunner | All FAIL; no failed test pass marker saved. |
+| Workflow mutation through the complete check CLI | Expected exit 1 / FAIL in 12.53 s; recovery PASS in 8.58 s. |
+| Shipping-byte inventory | PASS: 26 built products and all 387 starting inventory files match exactly. |
+
+The forced release also materialized 859 previously absent Academy media copies.
+Every added copy matches its unchanged public/academy source byte for byte;
+there are no missing or changed entries in the starting inventory. Git confirms
+no changes under src, public, dist, docs/public or the retention manifest against
+cc0025953. This distinguishes materializing existing media from changing shipping
+content. release-shipping-parity.json records that larger materialization.
+
+The earlier final-code ordinary check passed in 239.31 s before the last test-only
+harness/polling changes. The earlier forced ordinary check passed in 304.93 s.
+Neither is quoted as a passing under-minute edit measurement. Full CI has not
+been triggered; no remote result, browser visual acceptance or device result is
+claimed for this gate-only slice.
+
+The real probes use the same G-01b production-stage method, with original bytes
+restored in finally blocks. Native mechanism fixtures separately prove failed-run
+invalidation and compiler discovery. These are gate proofs, not UI acceptance.
+
+| Mutation | Reader / Academy selection | Observed failure |
+| --- | --- | --- |
+| release.yml heap 2304 to 1024 | 3 / 0 | release-workflows; complete CLI also exits 1. |
+| interactions.css reduced-motion query | 5 / 0 | styles reads the actual CSS through fs. |
+| speaking-score correlation threshold 0.55 to 2 | 47 / 14 | speaking-score Node project test. |
+| appended failing async-utils case | 3 / 0 | merged Node host. |
+| public Academy JSON members to memberList | 5 / 39 | Eight test files fail content/integrity checks; TypeScript passes this semantically invalid data mutation. |
+| throw in transitive setup settings/index.ts | Full / 19 | Full selection; Reader fails before completion. |
+
+### Counts and protected plan items
+
+| Scope | Before | After |
+| --- | ---: | ---: |
+| Reader test files | 438 | 438 |
+| Academy test files | 152 | 152 |
+| Worker test files | 4 | 4 |
+| Native tooling files | 12 | 15 |
+| All test files | 606 | 609 |
+| Files under scripts | 1,690 | 1,696 |
+| All tracked files | 7,920 | 7,933 |
+
+No test file or runtime source was deleted in G-04. G-03's overturned verdicts
+below still apply. In this scope, factory-reset storage discovery remains a full
+contract; the bundled ambient-GM reset proof remains intact (e52115d40). The
+reduced-motion fs-read probe and phone-landscape Save regression remain in styles
+(9cb851694), and release-workflows retains its delivery guards (e02c2955e,
+30890710e). Long-input Japanese lookup still checks the exact 900-character
+boundary; its 30 s timeout accommodates contention rather than dropping the
+reachability assertion. JPDB grading, privacy, segmentation/readings and settings
+round trips were preserved. There is no new deletion verdict to overturn.
+
+Implementation commits, in order:
+
+```text
+703207c14 perf(gate): bound filesystem reads and reuse proved import graphs
+b79ef1c08 test(reader): register companions for queued card highlight paint
+ace8f9b15 test(reader): retain CSS corruption probe and long-input reachability
+b577fbf20 perf(cache): preserve verified outputs and clone large APFS restores
+f2e2b240d refactor(gate): separate graph matching and guard escaped readers
+462031400 perf(gate): share local workers and key stages by their consumers
+a7de325ea test(reader): drain prior inset teardown before fake-clock assertions
+c226249b5 fix(gate): let native tooling report expected negative subprocess failures
+b8f93a98a perf(gate): overlap bounded compilation and restore incremental state
+8a384219e perf(gate): scope generic hash readers to their callers
+14beb9aff perf(gate): share transforms while preserving per-lane setup boundaries
+479f2d771 perf(gate): schedule isolated and shared-realm jobs under one budget
+269eb8e85 perf(tests): move eager stylesheet reads into their actual hosts
+b4140b877 perf(gate): retain source proofs across generated asset churn
+d3efc13ed perf(gate): cache code separately and bound local product verification
+0bf99f62e perf(gate): reclaim compiler slots and compile Academy independently
+96740c8f8 perf(gate): prioritize short audits and narrow workflow fixture inputs
+70f8e36aa perf(gate): reuse worker proofs for unrelated Reader edits
+0d5b23615 test(academy): give integrity retry its own loader cache
+89d141ea1 perf(gate): retain reviewed Node module reuse in shared queue
+9db483f21 fix(gate): keep escaped I/O namespaces conservative
+80741beaf perf(tests): import Study APIs only in their JPDB consumers
+a396faae6 perf(tests): bound lesson ownership hash inputs
+f55b3cdba perf(tests): avoid polling delays between Academy state changes
+```
+
+Ignored evidence lives under artifacts/g-04: acceptance is the complete
+pre-harness cohort; final-acceptance contains the first two final-code rows;
+final-acceptance-resumed records all seven passing rows and resumed logs;
+probe-results.json and real-negative-probes.log record the real mutations;
+negative-cli records the workflow CLI failure and recovery;
+check-final-baseline.log and check-release-final-forced.log are the fresh full
+passes; final-clean-check.log is the committed-tree readback;
+release-shipping-parity.json and final-shipping-parity.json record inventories;
+css-code-parity.json records 17-file CSS-change parity. These artifacts are operator evidence and must not be committed.
+
+<!-- G-04 report end -->
+
 ## G-03 integration, 27 October 2026
 
 The four branches are merged locally on `integrate/g-03-gate` from `aebcec6d1`. Correctness verification passes; the one-minute target remains unmet for the four edit cases. No push, tag, PR or deployment was performed.

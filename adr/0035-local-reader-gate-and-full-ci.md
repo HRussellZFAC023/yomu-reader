@@ -1,79 +1,116 @@
-# Local Reader gate: typecheck, Node project, affected jsdom; full suites in CI
+# Local affected gate and full CI/release backstop
 
-Status: adopted for G-02a and integrated with G-01b in G-03, 27 October 2026. The one-minute performance target remains open.
+Status: G-04 revision, 28 October 2026. Measurements and limits are recorded in
+[check-speed.md](../docs/dev/check-speed.md).
 
 ## Context
 
-The local gate must give useful feedback within a minute for an ordinary edit.
-Starting a fresh browser environment and the complete companion graph for each
-small unit test made that impossible. A full Reader pass on this shared Mac took
-637.93 seconds at six workers. Consolidation and setup changes brought it to
-140.36 seconds, which remains too long to run on every edit.
+The local gate should give useful feedback within a minute for ordinary edits.
+Even after G-02's pruning, G-03 took 171–228 seconds for Reader source, test and
+CSS edits. Importers of an opaque filesystem reader were selected on every edit,
+independent test pools ran sequentially, and cached writers recopied outputs.
 
 The owner's testing principle is E2E-first: exercise the built product on
-recorded real pages. Unit fixtures are useful for data integrity, authorization,
-segmentation, readings, and narrow state machines. They do not establish browser
-geometry or visual acceptance.
+recorded real pages. Unit fixtures protect data integrity, authorization,
+segmentation, readings and narrow state machines. They do not establish browser
+geometry or visual acceptance. Preserve protections for learner data and real
+regressions. Do not remove assertions simply to make a timing target.
 
 ## Decision
 
-Retain G-01's content-addressed stage cache, verified output restoration,
-affected-test selection, incremental typecheck, and memory-based worker budget.
-For the local Reader test lane, run the complete pure Node project followed by
-the proved jsdom dependants of inputs changed since the last successful full
-pass. Filesystem, subprocess and computed-import readers are selected
-conservatively because imports alone cannot prove those edges. Discovery runs
-in a child process and includes resolved setup dependencies and the Academy
-mock owner. A related pass never becomes a full-pass baseline.
+Keep content-addressed stage passes, verified output restoration, incremental
+typechecking and a memory-sized worker budget. Full CI runs every Reader shard,
+Academy, workers and tooling. Changed release stages run the full Reader runner
+with its catalogue schedule and the full strict Academy suite. `--no-cache`, CI,
+a missing full baseline or changed compatibility inputs force full execution.
+A related pass never replaces the full-pass baseline.
 
-The Node project has no setup files, uses threads, and retains its module graph.
-Its explicit whitelist excludes browser-dependent tests and module-mock users.
-New files start in jsdom until reviewed. All jsdom files remain isolated in
-forks; disabling jsdom isolation is not a supported gate configuration.
+Local affected runs execute the complete reviewed Node set, affected Reader
+jsdom and affected Academy files in one transform graph and one memory-sized
+fork queue. Reader jsdom files and Academy mock owners get fresh processes.
+Reviewed Node and Academy files share modules inside bounded jobs, with a fresh environment
+and worker state for every file, preserving their full runners' module policy. A public
+runner hook installs Reader setup only for Reader jsdom; Node and Academy keep
+empty setup lists. Job completion releases capacity to every remaining lane.
+Full Reader/CI runners retain their Node threads and catalogue schedules. Local
+retries remain zero. The native scheduler probe proves module reuse, fresh DOMs,
+mock-owner isolation and setup boundaries through the installed Vitest APIs.
 
-Reader integration files import build companions explicitly. The shared jsdom
-setup does not register them. Missing companion access fails with an opt-in
-instruction, including when a caller catches the original error. Deliberate
-absence tests install an explicit empty or partial registry.
+On a local budget of at least nine slots, compilation overlaps the build. On a
+ten-slot budget, Academy compilation also starts independently of Reader delivery:
+five slots for Reader builds, four for the compiler, one for Academy. Source audits
+start after Reader compilation releases capacity. Tests wait for completed products
+and audits, while the compiler reserves four slots in the same dynamic queue.
+Those slots are reclaimed when the compiler finishes. Smaller budgets and full
+forced/release checks retain serial execution. Compiler discovery still asks the
+real TypeScript CLI on every invocation, asynchronously rather than blocking the
+coordinator. Typecheck rejects input changes before caching, and restores matching
+worktree-specific incremental state after undo. Final success requires every lane,
+including typecheck, to pass.
 
-Run projects sequentially: Vitest sizes separate pools independently, so a
-six-worker budget must not become six threads plus six forks. Keep the measured
-catalogue allocation in its own scheduling pass. Other mock and lifecycle files
-need no dedicated tail because their jsdom realms are already isolated.
+A module's filesystem reads are its own inputs. The read index extracts literal
+paths, joined roots, URL paths, directory scans, glob calls and template prefixes.
+A file change selects import dependants and tests whose read targets match it.
+`// @yomu-reads <glob> ...` bounds opaque reads, including generic helpers called
+by an annotated test. `// @yomu-imports <entry> ...` declares import closures
+compiled in subprocesses. These declarations must cover every such input. New
+unresolved reads remain conservative; they cannot silently become zero tests.
+Namespace aliases, computed filesystem members and escaped named subprocess
+functions also remain conservative. Generic fixture exports should not import a
+whole app into tests that only need its unrelated helpers: import those product
+APIs in their actual consumer hosts instead.
 
-Local retries are zero; CI retries twice. CI always runs full regular/JPDB
-shards, the full Academy job, workers, and tooling. A changed Reader stage in
-`check:release` uses the full Reader runner, including the catalogue schedule.
-An exact cached full pass may be reused. `--no-cache`, CI, a missing full
-baseline, or a compatibility-input change forces full execution. Shared setup,
-Vite/TypeScript configuration, lockfile, and runner changes are compatibility
-inputs.
+Whole-source scanners in `config/ci/local-contract-tests.json` are contracts.
+Full CI/release schedules retain them; local affected runs omit them. Their
+assertions are preserved, including the factory-reset storage-key invariant.
 
-Keep geometry coverage in PR CI when deleting stubbed-rectangle units. The
-`layout-smoke` aggregate includes the existing layout cells plus YouTube
-continuation/recycling, page-ruby/clamp healing, and furigana tap-band coverage.
-Nightly-only execution is insufficient for those deletions.
+Discovery runs in a child process and resolves actual setup/config dependencies.
+Its graph can be reused only after byte checks prove unchanged import/read
+topology, configuration, installed toolchain and source-file membership. Changed
+bodies refresh read descriptors. New import edges, files or configuration require
+rediscovery. Discovery failure falls back to full execution. Setup imports remain
+shared; changing one, its read targets, or an unbounded setup reader requires full
+execution. Deleted filesystem inputs use the read index rather than automatically
+running all suites. Missing import edges still fail conservatively.
+
+Reader integration files explicitly import build companions. Shared setup never
+registers them. Missing companion access fails with an opt-in instruction even
+when the caller catches the original error. Deliberate absence tests install an
+explicit empty/partial registry.
+
+Academy keys its runtime source closure, public Academy inputs and the hosted
+graph/CSS it hashes into its revision. Docs keys published pages and actual
+source consumers; excluded developer prose is not a rendered-page input. Tooling
+keys its own implementation/tests/configuration, repository membership and the
+compiler-resolved input list. Compiler input discovery still includes imported
+public JSON and docs modules.
+
+Cached writers verify bytes and restore only missing/different outputs. Large
+files use APFS clones when available. Mutable outputs never hardlink immutable
+cache blobs. Local docs validation caches the page/theme source proof. Generated runtime
+hashes do not invalidate that proof; it does not claim current rendered HTML.
+Local verify explicitly excludes unused rendered-site copies while retaining all
+dist/public product checks. Explicit docs:build, forced checks, CI and release
+materialize and verify the full rendered site. This consumer boundary is explicit:
+leaving a stale rendered directory cannot cause a false local failure or a claim
+that the directory is current.
+Smoke preparation preserves all shipping namespaces; retained header rollback
+accepts only HEAD bytes matching immutable filenames.
 
 ## Consequences and limits
 
-A cold or compatibility-changing local run still takes minutes. The current
-conservative filesystem/dynamic selection also misses the one-minute edit
-target. Deleted generated paths require a full fallback while prior dependency
-edges are unavailable. Full CI and release selection remain necessary.
+Cold and compatibility-changing runs still take minutes. A central module can
+select enough integration tests to exceed a minute; report that measurement
+instead of weakening selection. Full CI remains the backstop for local contracts.
 
-Hosted sync keys the runtime source closure discovered by its bundler and the
-actual built bytes it reads. Tooling keys its implementation/test/configuration
-bytes, repository membership and the compiler-resolved input list. Cached
-writers retain verified byte restoration. Smoke preparation assembles hosted
-Study and preserves all shipping namespaces while the extension builder replaces
-dist. Header rollback may recover a missing retained artifact only from HEAD
-bytes matching its immutable filename; read-only retention checks remain strict.
+Keep geometry coverage in PR CI after deleting stubbed-rectangle units. The
+`layout-smoke` aggregate includes YouTube continuation/recycling, page-ruby/clamp
+healing and furigana tap-band coverage. Nightly-only execution is insufficient.
+A full pass, packaged artifact and browser DOM check are distinct evidence; none
+alone establishes deployment, store, physical-device or visual acceptance.
 
-This decision changes the Reader lane. It does not remove or weaken the strict
-Academy stage inherited by ordinary `check`. Its verification state is recorded
-in [the gate performance report](../docs/dev/check-performance.md).
-
-Preserve tests that guard learner data or a real regression, folding them into a
-related host where safe. A full pass, a packaged artifact, and a browser DOM
-check are distinct evidence; none alone proves deployed or physical-device
-acceptance.
+Reader JavaScript has its own cached writer before CSS-dependent SRI annotation.
+Its CSS-independent key is used only while bundler discovery finds no CSS inputs;
+CSS imports or unfamiliar loaders retain the full key. A changed CSS build was
+compared byte for byte with forced JavaScript compilation. Generic fixture CSS
+reads live in their actual consumer hosts rather than the shared JPDB harness.
