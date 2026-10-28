@@ -9,6 +9,7 @@ import {
     createSubtitleController,
     createInstalledSubtitleController,
     attachVideo,
+    openSingleCueTranscript,
     setupTranscriptCueController,
     renderDrawerHead,
     subtitleDrawerMetaText,
@@ -1361,4 +1362,150 @@ describe('SubtitlePlayerController — fullscreen annotation lifecycle', () => {
             controller.destroy();
         }
     });
+});
+
+describe('subtitle fullscreen ownership and early-document guards', () => {
+    function expectFullscreenPanelDisplayOverride(panel: HTMLElement): void {
+        expect(panel.hidden).toBe(false);
+        expect(panel.classList.contains('jpdb-subtitle-fullscreen')).toBe(true);
+        expect(panel.style.getPropertyValue('display')).toBe('grid');
+        expect(panel.style.getPropertyPriority('display')).toBe('important');
+    }
+    registerSubtitleControllerCleanup();
+    afterEach(() => { vi.useRealTimers(); document.body.innerHTML = ''; });
+    it('does not throw if fullscreen state sync runs before document.body exists', () => {
+        const { controller } = createInstalledSubtitleController({ subtitleOverlayVisible: true });
+        const fullscreen = stubFullscreenElement(null);
+        const body = document.body;
+        const root = document.querySelector<HTMLElement>('.jpdb-subtitle-player')!;
+        const panel = document.querySelector<HTMLElement>('.jpdb-subtitle-list')!;
+        const internals = controllerInternals<{ syncFullscreenState: () => void }>(controller);
+
+        try {
+            document.documentElement.removeChild(body);
+            fullscreen.set(document.documentElement);
+
+            expect(() => internals.syncFullscreenState()).not.toThrow();
+            expect(root.parentElement).toBe(document.documentElement);
+            expect(panel.parentElement).toBe(document.documentElement);
+        } finally {
+            if (!document.body) document.documentElement.appendChild(body);
+            fullscreen.restore();
+            controller.destroy();
+        }
+    });
+
+    it('does not throw during fullscreen sync or layout cleanup before document.documentElement exists', () => {
+        const { controller } = createInstalledSubtitleController({ subtitleOverlayVisible: true });
+        const rootSpy = vi.spyOn(document, 'documentElement', 'get').mockReturnValue(null as unknown as HTMLElement);
+        const internals = controllerInternals<{ clearStableYouTubeTranscriptLayout: () => boolean; syncFullscreenState: () => void }>(controller);
+
+        try {
+            expect(() => internals.syncFullscreenState()).not.toThrow();
+            expect(internals.clearStableYouTubeTranscriptLayout()).toBe(false);
+        } finally {
+            rootSpy.mockRestore();
+            controller.destroy();
+        }
+    });
+
+    it('does not mount the subtitle overlay inside a fullscreen video element', () => {
+        const { controller } = createInstalledSubtitleController({ subtitleOverlayVisible: true });
+        const fullscreen = stubFullscreenElement(null);
+        try {
+            const video = document.createElement('video');
+            document.body.append(video);
+            attachVideo(controller, { video, rect: new DOMRect(0, 0, 640, 360) });
+            const root = document.querySelector<HTMLElement>('.jpdb-subtitle-player')!;
+            const panel = document.querySelector<HTMLElement>('.jpdb-subtitle-list')!;
+            const internals = controllerInternals<{ syncFullscreenState: () => void }>(controller);
+
+            fullscreen.set(video);
+            internals.syncFullscreenState();
+            openSingleCueTranscript(controller, '動画要素の字幕。');
+
+            expect(root.parentElement).toBe(video.parentElement);
+            expect(panel.parentElement).toBe(document.body);
+            expectFullscreenPanelDisplayOverride(panel);
+            expect(document.documentElement.classList.contains('jpdb-subtitle-fullscreen')).toBe(true);
+            expect(root.classList.contains('jpdb-subtitle-fullscreen')).toBe(true);
+        } finally {
+            fullscreen.restore();
+            controller.destroy();
+        }
+    });
+
+    it.each([
+        { name: 'iPad CSS fullscreen', host: '#movie_player', width: 1024, height: 768,
+            url: 'https://www.youtube.com/watch?v=fullscreen123',
+            markup: '<ytd-watch-flexy fullscreen><ytd-player><div id="movie_player" class="html5-video-player ytp-fullscreen"><video></video></div></ytd-player></ytd-watch-flexy>' },
+        { name: 'mobile shell with a separately mounted video', host: 'ytm-player', width: 390, height: 844,
+            url: 'https://m.youtube.com/watch?v=fullscreen123',
+            markup: '<ytm-player fullscreen></ytm-player><div class="mobile-video-slot"><video></video></div>' },
+        { name: 'iPhone inline fullscreen fallback', host: 'ytm-player', width: 390, height: 844,
+            url: 'https://m.youtube.com/watch?v=iphonefullscreen123',
+            markup: '<ytm-player data-yomu-inline-fullscreen="true" class="ytp-fullscreen"><video></video></ytm-player>' },
+    ])('keeps captions in $name and the transcript body-owned', ({ host, width, height, url, markup }) => {
+        const originalLocation = window.location;
+        Object.defineProperty(window, 'location', { configurable: true, value: new URL(url) });
+        try {
+            withViewport(width, height, () => {
+                const { controller } = createInstalledSubtitleController({ subtitleOverlayVisible: true });
+                const fullscreen = stubFullscreenElement(null);
+                try {
+                    document.body.insertAdjacentHTML('beforeend', markup);
+                    const player = document.querySelector<HTMLElement>(host)!;
+                    const video = document.querySelector<HTMLVideoElement>('video')!;
+                    mockElementRect(player, new DOMRect(0, 0, width, height));
+                    mockElementRect(video, new DOMRect(0, 0, width, height));
+                    attachVideo(controller, { video });
+                    const root = document.querySelector<HTMLElement>('.jpdb-subtitle-player')!;
+                    const panel = document.querySelector<HTMLElement>('.jpdb-subtitle-list')!;
+                    const internals = controllerInternals<{ alignToVideo(): void; syncFullscreenState(): void }>(controller);
+                    internals.syncFullscreenState();
+                    openSingleCueTranscript(controller, '全画面の字幕。');
+                    internals.alignToVideo();
+                    expect(root.parentElement).toBe(player);
+                    expect(panel.parentElement).toBe(document.body);
+                    expect(player.contains(panel)).toBe(false);
+                    expectFullscreenPanelDisplayOverride(panel);
+                    expect(root.classList.contains('jpdb-subtitle-fullscreen')).toBe(true);
+                    expect(root.classList.contains('jpdb-subtitle-video-out-of-view')).toBe(false);
+                } finally {
+                    fullscreen.restore();
+                    controller.destroy();
+                }
+            });
+        } finally {
+            Object.defineProperty(window, 'location', { configurable: true, value: originalLocation });
+        }
+    });
+
+    it('does not move the subtitle overlay into unrelated fullscreen elements', () => {
+        const { controller } = createInstalledSubtitleController({ subtitleOverlayVisible: true });
+        const fullscreen = stubFullscreenElement(null);
+        try {
+            document.body.insertAdjacentHTML('beforeend', '<section class="video-card"><video></video><button class="player-control" type="button">Play</button></section><div class="modal"></div>');
+            const video = document.querySelector<HTMLVideoElement>('.video-card video')!;
+            const modal = document.querySelector<HTMLElement>('.modal')!;
+            video.controls = false;
+            attachVideo(controller, { video, rect: new DOMRect(0, 0, 640, 360) });
+            const root = document.querySelector<HTMLElement>('.jpdb-subtitle-player')!;
+            const panel = document.querySelector<HTMLElement>('.jpdb-subtitle-list')!;
+            const internals = controllerInternals<{ syncFullscreenState: () => void }>(controller);
+
+            fullscreen.set(modal);
+            internals.syncFullscreenState();
+
+            expect(root.parentElement).toBe(video.parentElement);
+            expect(panel.parentElement).toBe(document.body);
+            expect(document.documentElement.classList.contains('jpdb-subtitle-fullscreen')).toBe(true);
+            expect(root.classList.contains('jpdb-subtitle-fullscreen')).toBe(true);
+        } finally {
+            fullscreen.restore();
+            controller.destroy();
+        }
+    });
+
+
 });

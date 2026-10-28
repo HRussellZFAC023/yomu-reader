@@ -54,7 +54,9 @@ export function toolingStageContract(snapshot, compilerInputs) {
     // paths in tests, repository membership and the compiler's resolved file
     // list. They do not assert the bodies of arbitrary product source files.
     return {
-        inputs: ['tests/tooling/**', 'scripts/**', 'config/**', '!config/ci/content-addressed-retention.json', 'vite.config.ts', 'tsconfig*.json'],
+        inputs: ['tests/**', 'scripts/**', 'config/**', '!config/ci/content-addressed-retention.json', 'vite.config.ts', 'tsconfig*.json',
+            // Native regression hosts execute workflow steps and owner-script parsers.
+            '.github/workflows/**', 'src/academy/domain/cast-standardization-manifest.ts'],
         extra: { repositoryPaths: Object.keys(snapshot).filter(path => !/^(?:dist\/|docs\/public\/|config\/ci\/content-addressed-retention\.json$)/.test(path)), compilerInputs },
     };
 }

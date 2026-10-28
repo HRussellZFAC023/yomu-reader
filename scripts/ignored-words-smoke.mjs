@@ -113,6 +113,12 @@ async function unhideIgnored(browser, contextOptions, language) {
         const label = await ignored.locator('..').innerText();
         assert(label.includes(language === 'ja' ? '無視' : 'Ignored') && !label.includes('未翻訳'), 'Ignored label is not translated', { language, label });
         assert(!(await page.locator('.jpdb-reader-settings').innerText()).includes('未翻訳'), 'Settings contains untranslated copy');
+        const externalLinks = await page.locator('.jpdb-reader-settings a[target="_blank"]').evaluateAll(links => links.map(link => ({
+            href: link.href, protected: link.relList.contains('noopener') && link.relList.contains('noreferrer'),
+        })));
+        assert(externalLinks.length > 0 && externalLinks.every(link => link.protected),
+            'Settings external links must suppress referrers', { language, externalLinks });
+        console.log(`Settings external links protected (${language}): ${externalLinks.length}`);
         if (contextOptions.hasTouch) await ignored.tap();
         else await ignored.uncheck();
         // Enabling the text channel makes the ignored colour test observable;

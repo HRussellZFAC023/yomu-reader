@@ -267,6 +267,8 @@
     "duplicate-exports": "off"
   },
   "ignoreExports": [
+    // academy-cast-promote / academy-cast-manifest-refresh read these JSON constants.
+    { "file": "src/academy/domain/cast-standardization-manifest.ts", "exports": ["ACADEMY_CAST_STANDARDIZATION_REJECTED", "ACADEMY_CAST_STANDARDIZATION_SUMMARY"] },
     // Exact exports read from esbuild-generated modules by operational tooling.
     { "file": "src/reader/app/i18n.ts", "exports": ["chromeMessageSource", "chromeMessageSourceForLocale"] },
     { "file": "src/reader/app/site-nav.ts", "exports": ["hostedShellNavMarkup"] },

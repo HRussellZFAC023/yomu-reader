@@ -5,7 +5,7 @@ import { spawnSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 // @ts-expect-error Node build helper is exercised directly by sync.
-import { academyBuildManifest, academyBuildSources, academyHostedCounterpart, renderAcademyTemplate, academyBuildCode, academyBuildFile, academyProofTemplate, academyEmittedFilesMatch } from '../../scripts/lib/academy-build-manifest.cjs';
+import { academyBuildManifest, academyBuildSources, academyHostedCounterpart, renderAcademyTemplate, academyBuildCode, academyBuildFile, academyProofTemplate } from '../../scripts/lib/academy-build-manifest.cjs';
 import { join } from "node:path";
 // @ts-expect-error The revision helper is a Node CommonJS module.
 import academyRevisionModule from "../../scripts/lib/academy-revision.cjs";
@@ -20,10 +20,30 @@ function manifest() {
 }
 
 describe('Academy emitted asset manifest', () => {
+    it('requires complete runtime payloads even when templates and emitted assets match', () => {
+        const sources = [['public/academy/art', 'art'], ['public/academy/audio/catalog.json', 'audio/catalog.json']];
+        const payloads: Record<string, Buffer> = { 'art/ASSET-USAGE.json': Buffer.from('usage'), 'art/portrait.webp': Buffer.from('image'), 'audio/catalog.json': Buffer.from('catalog') };
+        const entries = function* (source: string) {
+            if (source.endsWith('/art')) {
+                yield [source + '/ASSET-USAGE.json', Buffer.from('usage')];
+                yield [source + '/portrait.webp', Buffer.from('image')];
+            } else yield [source, Buffer.from('catalog')];
+        };
+        const matches = () => academyRevisionModule.academyRuntimeDeliveryMatches(sources, entries, (file: string) => payloads[file] ?? null);
+        expect(matches()).toBe(true);
+        delete payloads['art/portrait.webp'];
+        expect(matches()).toBe(false);
+        payloads['art/portrait.webp'] = Buffer.from('image');
+        payloads['audio/catalog.json'] = Buffer.from('damaged');
+        expect(matches()).toBe(false);
+    });
+
     it('does not trust a stale sync marker when a lazy chunk or stylesheet is missing or truncated', () => {
         const original = Object.fromEntries(['manifest.json', ...academyBuildManifest(manifest()).files].map((file: string) => [file, Buffer.from(`complete:${file}`)]));
         const hosted = { ...original };
-        const matches = () => academyEmittedFilesMatch(manifest(), (file: string) => original[file] ?? null, (file: string) => hosted[file] ?? null);
+        const sources = academyBuildSources(() => manifest());
+        const entries = function* (source: string) { yield [source, original[source.slice('dist/academy/'.length)]]; };
+        const matches = () => academyRevisionModule.academyRuntimeDeliveryMatches(sources, entries, (file: string) => hosted[file] ?? null);
         expect(matches()).toBe(true);
         delete hosted['chunks/study-a.js'];
         expect(matches()).toBe(false);

@@ -35350,6 +35350,9 @@ function setStaticTemplateHtml(element2, html) {
     const fragment = element2.ownerDocument.createDocumentFragment();
     fragment.append(...Array.from(parsed.body.childNodes));
     hydratePrivateElementState(fragment);
+    for (const link of fragment.querySelectorAll('a[target="_blank"]')) {
+      link.relList.add("noopener", "noreferrer");
+    }
     htmlReplacementTarget(element2).replaceChildren(fragment);
   } catch {
     setInnerHtml(element2, html);
@@ -264222,7 +264225,7 @@ function padClockPart(value) {
 const DEFAULT_ACADEMY_STUDY_DURATION_MS = DEFAULT_STUDY_DURATION_MS;
 class StudyRuntimeLoadFailure extends Error {
 }
-function createCanonicalAcademyStudyModule(loadRuntime = () => import("./runtime-BqzRUN4n.js")) {
+function createCanonicalAcademyStudyModule(loadRuntime = () => import("./runtime-CqEuISCm.js")) {
   return {
     async mount(host2, context2) {
       let runtime;

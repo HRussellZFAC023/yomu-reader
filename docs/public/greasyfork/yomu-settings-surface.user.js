@@ -11460,6 +11460,9 @@ function setStaticTemplateHtml(element, html) {
   const fragment = element.ownerDocument.createDocumentFragment();
   fragment.append(...Array.from(parsed.body.childNodes));
   hydratePrivateElementState(fragment);
+  for (const link of fragment.querySelectorAll('a[target="_blank"]')) {
+    link.relList.add("noopener", "noreferrer");
+  }
   htmlReplacementTarget(element).replaceChildren(fragment);
   } catch {
   setInnerHtml(element, html);

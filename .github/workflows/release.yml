@@ -24,6 +24,7 @@ on:
 
 permissions:
   contents: write
+  actions: read
 
 concurrency:
   group: release-${{ github.ref }}
@@ -54,6 +55,25 @@ jobs:
         uses: actions/checkout@v6
         with:
           ref: ${{ github.event.inputs.tag || github.ref }}
+
+      # Require the full sharded suite and all PR layout hosts on the tagged
+      # commit. Manual retries resolve HEAD too; the dispatch SHA may differ.
+      - name: Wait for CI on the tagged commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          release_sha="$(git rev-parse HEAD)"
+          for attempt in $(seq 1 100); do
+            run=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow CI --commit "$release_sha" --event push --json status,conclusion --jq '.[0] // empty | "\(.status) \(.conclusion)"')
+            case "$run" in
+              "completed success") echo "CI passed for $release_sha."; exit 0 ;;
+              completed*) echo "::error::CI ${run#completed } for $release_sha; not releasing. Rerun CI, then retry Release."; exit 1 ;;
+              "") if [ "$attempt" -ge 10 ]; then echo "::error::No CI run for $release_sha; not releasing."; exit 1; fi ;;
+            esac
+            sleep 30
+          done
+          echo "::error::CI did not finish for $release_sha within 50 minutes; not releasing."
+          exit 1
 
       - name: Checkout UserScript Compiler
         uses: actions/checkout@v6

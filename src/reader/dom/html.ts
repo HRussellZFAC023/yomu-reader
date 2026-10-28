@@ -42,6 +42,9 @@ export function setStaticTemplateHtml(element: HTMLElement, html: string): void 
         // Consume control capabilities while detached, before any page observer
         // or connected-element callback can see their serialized tokens.
         hydratePrivateElementState(fragment);
+        for (const link of fragment.querySelectorAll<HTMLAnchorElement>('a[target="_blank"]')) {
+            link.relList.add('noopener', 'noreferrer');
+        }
         htmlReplacementTarget(element).replaceChildren(fragment);
     } catch {
         setInnerHtml(element, html);

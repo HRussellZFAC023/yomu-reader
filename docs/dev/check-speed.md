@@ -188,6 +188,88 @@ css-code-parity.json records 17-file CSS-change parity. These artifacts are oper
 
 <!-- G-04 report end -->
 
+## G-03b adversarial-review corrections, 27 October 2026
+
+This follow-up supersedes the coverage claims below where they conflict. The five confirmed findings and seven minors are fixed on `integrate/g-03-gate`; none of the deleted test files is restored wholesale. Source proof commit: `4b53a168e`. No push, merge, tag, PR, release or deployment is authorized for this lane.
+
+### Overturned decisions and fixes
+
+| Plan item / finding | Final protection and reason |
+| --- | --- |
+| Delete `subtitles-controller/03-layout-video-inset` as geometry | Merge seven ownership/crash cases into `/01`: fullscreen video, unrelated modal, missing body, missing document element, iPad CSS host, separately mounted mobile shell and iPhone inline fallback. Share the mobile setup in a table; leave inset/rectangle cases deleted. Fullscreen sync now returns safely before the document element exists. These are ownership and exception guards from `9d20c89f6` / `a13fd5b1b`, not visual geometry assertions. |
+| Delete `hosted-shell-settings-authority` as theme fallback | Merge the four scenario families into `hosted-settings-authority`, for both current PDF/Video pages: denied reads, denied incoming-theme writes, failed save/retry in EN/JA, and explicit theme/language persistence through the canonical pair and intent ledger. Protects shipped 2.1.5 regression `fee5db895` and settings persistence. |
+| Delete `docs-published-pages` as source snapshots | Add three small Reader Node cases: route allowlist equality, all internal-doc exclusion families (including operations/reviewer notes), and default keyless lookup-service disclosures derived from `DEFAULT_SETTINGS`. Do not restore the removed public path-matcher API. Protects incident material and the `309e55864` privacy fix. |
+| Replace 22 geometry files with CI layout hosts | Assemble hosted Study after `build` in `layout-smoke`, before the unchanged 16-host command. `copyPublicDir: false` deliberately leaves its shell out of the core build. A clean clone must prove the complete job sequence. |
+| Keep layout coverage gating release | Release waits for successful push CI on `git rev-parse HEAD` after checking out the tag, including manual dispatches. Failed/cancelled/absent/timed-out CI blocks publication; no missing-run bypass. Native tests execute the workflow's shell loop with bounded fake Git/GitHub responses. The seven release smokes remain unchanged. |
+| Merge only audio rights scope | Keep malformed-key/gain/bus/rights rejection and checked-in catalog/protected-route assertions in `grounded-audio-registry`. Exercise routing through public catalog/SFX APIs; keep `mediaUrlFor` private. Unreviewed rights, blank owners and traversal keys must be rejected. No new external source is introduced. |
+| Delete `check-gate-log-guard` as tooling | Ten native classifier/detector cases plus a real zero-exit child printing a failed Vitest summary. Capture that deliberate diagnostic so the outer gate does not mistake it for an actual failure. The removed, unused `unreportedTestFiles` API is not resurrected; its old count-only case is replaced by unexpected-worker-exit coverage. The July exit-status and A46 regressions remain guarded. |
+| Delete `vi-mock-isolation-conformance` | Native conformance walks Academy files and compares every `vi.mock` owner with `academyIsolatedFiles`, the local isolated invocation, config exclusions and affected-run ownership. Shared-fork reuse stays enabled. |
+| Delete `extension-package-parity` as release tooling | Merge six rejection mutations, acceptance for all three targets, and the auxiliary-helper acceptance case into `extension-runtime-hardening` (ten cases). The shipped settings-authority assertion itself is exercised; stale reads, premature acknowledgements, lost delete notifications and failed authoritative reads/enumeration must fail packaging. Protects `950d33caa`. |
+| Remove unused cast/story exports | Restore the two cast JSON constants read by owner scripts, with exact fallow export exemptions and actual-parser tests. Story promotion stops computing/emitting the unconsumed coverage constant; its usage ledger remains. String-based script consumers are real consumers. |
+| Settings static-template optimization | Retain detached static parsing and add the cheap `noopener noreferrer` fix-up before mounting. The existing dialog test checks every external link. The existing ignored-words smoke checks the built Study form in Chromium/EN and WebKit/JA; no smoke or browser launch is added. README/privacy/changelog describe the same behavior. |
+| Academy sync/cache mirror completeness | Move the revision marker out of shared `node_modules` into worktree-local ignored `artifacts`. Before skipping a copy, compare every allowlisted runtime byte, including tracked directory payloads, plus rendered templates. Remove the superseded emitted-only matcher. Existing Node tests cover missing and corrupt payloads; clean-clone proof damages the mirror while retaining its matching marker and verifies repair followed by a valid skip. The changed script bytes invalidate old incomplete build-stage cache entries. |
+
+Native tooling cache inputs now include workflow bytes and the script-owned cast manifest; restored guards cannot be skipped after those inputs change. A native key-ownership case covers this addition. No debt baseline is increased.
+
+### Measurements and verification
+
+Node `v24.16.0`; logs are ignored under `artifacts/g-03b/`. One build/full suite/smoke runs at a time. The first worktree attempt overlapped edits and is discarded as a before measurement.
+
+The valid before run is a pristine shared clone at `cc0025953`, borrowing the existing lock-version-checked `node_modules` by symlink. `npm run check` took **262.17 s and failed**: Reader passed in 157.76 s; Academy reported six failing files because its mirror lacked art/audio/content after the `build-academy` stage had passed. This reproduces the reported false red; it is not a passing speed baseline.
+
+The CI proof uses a separate task-owned installation produced by real `CI=true npm ci`, then symlinks that installation into a reset/clean clone. It runs `CI=true npm run build`, `CI=true node scripts/sync-docs-userscript.cjs`, then exactly `CI=true YOMU_PLAYWRIGHT_CHANNEL=chrome npm run smoke:layout-regressions`. Build alone must lack `dist/newtab/index.html`; sync must supply index, worker, manifest and version files. The same clone then proves Academy's first mirror, missing/corrupt-payload repair with a matching marker, and complete-payload skip. Shared dependencies are not replaced.
+
+| Clean-clone command | Wall seconds | Result |
+| --- | ---: | --- |
+| Real `CI=true npm ci` into task-owned installation | 15.58 | PASS |
+| `CI=true npm run build` (cache disabled by CI) | 14.20 | PASS; Study shell absent as expected |
+| `CI=true node scripts/sync-docs-userscript.cjs` | 12.15 | PASS; complete Study shell supplied |
+| Exact layout job command, all 16 hosts | 415.71 | PASS |
+| Fresh Academy build/sync | 12.49 | PASS; 120 allowlisted entries |
+| Academy sync after deleting art ledger and corrupting audio catalog, marker retained | 3.50 | PASS; full repair, source bytes restored |
+| Academy sync with complete matching payload | 1.22 | PASS; copy skipped |
+
+The layout run also proves all 21 external links in the built Settings form carry `noopener noreferrer` in Chromium/EN and WebKit/JA, and Japanese mode has no `未翻訳`. This is browser DOM evidence; the recorded/fixture geometry cells are behavior checks, not visual-acceptance screenshots. No screenshot is added to product docs.
+
+The focused Reader run passed 214 cases in six files (33.76 s including the existing settings-controller host); the seven-case fullscreen restoration was then reduced to shared setup and re-run successfully (35 total host cases, 5.10 s). Audio passed all nine host cases (2.09 s). The 20 new native cases passed (3.17 s); after capturing the deliberately red child and adding cache-input ownership, the related two native hosts passed 15 cases (14.03 s, including compiler-file discovery). The first post-fix ordinary gate failed in 217.67 s on three newly added privacy/changelog text fragments missing from the Japanese docs catalog. Commit `85c66c54f` supplies them; the focused i18n/publication run passed all 29 cases (12.44 s). No product test failed in that run.
+
+`npm run smoke:prepare` passed in 49.49 s using the pinned compiler `52b7fe463ae503c294421752002da568472dfe4a`. Chrome, Firefox and Safari packages passed validation with zero package warnings/errors and the shipped settings-authority checks. All 26 split Reader/Study/companion/CSS/Academy products match the fresh-install CI clone byte-for-byte, including after packaging/restoration. The compiler still reports its two existing broad-permission warnings; this change does not alter permissions.
+
+| Scope | Test files before | Test files after | All files before | All files after |
+| --- | ---: | ---: | ---: | ---: |
+| Reader | 438 | 439 | 496 | 497 |
+| Academy | 152 | 152 | 163 | 163 |
+| Native tooling | 12 | 16 | 12 | 16 |
+| Whole tracked tree | | | 7,920 | 7,925 |
+
+Workers remain at four test files. Total workflow-assigned tests rise from 606 to 611 files. Five small hosts are added (one Reader Node file and four native tooling files); existing hosts absorb the other guards. No deleted file is restored. Emitted Academy chunks and one immutable runtime pin are replaced, keeping the generated file count unchanged. Nothing under `artifacts/` is staged.
+
+| Local gate measurement | Wall seconds | Result |
+| --- | ---: | --- |
+| Pristine before clone at `cc0025953`, empty local stage cache | 262.17 | FAIL; six Academy files lacked mirrored runtime data |
+| Corrected ordinary gate, full Reader/Academy/workers/tooling | 265.88 | PASS; generated-asset drift advisory while outputs were uncommitted |
+| Immediate unchanged repeat | 48.21 | PASS; byte-identical cached stages, same advisory |
+
+The corrected full pass includes 439 Reader files, 152 Academy files, four worker files and 46 native cases in 16 tooling files. Docs rendering, locale checks, verify, weight, complexity, file-size and dead-code gates pass. No cold speed-up is claimed: the before run failed and cache/load conditions differ. The unchanged run is under one minute; the existing four edit-case speed gaps described below remain unaddressed by this correctness follow-up.
+
+After committing generated assets and this report, final acceptance runs `npm run check` from a clean tree with artifact drift enforced. Its authoritative log/duration is `artifacts/g-03b/final-clean-check.log`; `artifacts/g-03b/docs-build-final.log` records the explicit `npm run docs:build`. After the clean-clone layout proof, only Japanese docs translations, this report and regenerated copies were committed; the 26 Reader/Study/Academy products remain byte-identical to that proof. No remote CI or deployment is claimed.
+
+Implementation and generated-asset commits (the report itself is a separate documentation commit):
+
+```text
+ec690812f fix(gate): assemble layout hosts and require tagged CI before release
+9c3bb28e6 fix(academy): preserve data consumed by art promotion scripts
+34322eadf fix(academy): require a complete runtime mirror before skipping sync
+e537e64c6 test(academy): retain audio rights and protected media validation
+7df87766e test(reader): retain publication and settings authority regressions
+e5aa2de04 fix(subtitles): guard early documents and retain fullscreen ownership
+bde5243d5 fix(settings): suppress referrers on all external template links
+40f0c9470 fix(gate): key restored native guards and capture expected failures
+4b53a168e test(settings): check external link privacy in both browser engines
+85c66c54f docs(privacy): translate settings link protection for Japanese readers
+9643e6495 build(reader): regenerate settings and subtitle delivery assets
+```
+
 ## G-03 integration, 27 October 2026
 
 The four branches are merged locally on `integrate/g-03-gate` from `aebcec6d1`. Correctness verification passes; the one-minute target remains unmet for the four edit cases. No push, tag, PR or deployment was performed.

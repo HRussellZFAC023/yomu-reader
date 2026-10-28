@@ -16,6 +16,7 @@
 
 ### Fixed
 
+- External links in Settings suppress the referring page address again.
 - Piccoma navigation and menu labels keep their spacing and position when よむ annotates them.
 - Page-authored ruby stays intact when you hide readings or pause annotations, and kana-first clamped rows stay readable.
 - Long pages annotate without freezing the page.

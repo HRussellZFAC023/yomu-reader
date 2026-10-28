@@ -83,14 +83,6 @@ function readAcademyBuildCode(directory) {
     });
 }
 
-function academyEmittedFilesMatch(manifest, readBuilt, readHosted) {
-    return ['manifest.json', ...academyBuildManifest(manifest).files].every(file => {
-        const built = readBuilt(file);
-        const hosted = readHosted(file);
-        return built !== null && hosted !== null && Buffer.from(built).equals(Buffer.from(hosted));
-    });
-}
-
 function academyBuildFile(directory, pathname) {
     if (!pathname.startsWith('/academy/')) return null;
     const file = pathname.slice('/academy/'.length);
@@ -115,4 +107,4 @@ function academyProofTemplate(directory, sourceDirectory, pathname) {
     };
 }
 
-module.exports = { BUILD_MANIFEST, academyBuildManifest, academyBuildSources, academyHostedCounterpart, renderAcademyTemplate, academyBuildCode, readAcademyBuildCode, academyBuildFile, academyProofTemplate, academyEmittedFilesMatch };
+module.exports = { BUILD_MANIFEST, academyBuildManifest, academyBuildSources, academyHostedCounterpart, renderAcademyTemplate, academyBuildCode, readAcademyBuildCode, academyBuildFile, academyProofTemplate };
