@@ -110,7 +110,12 @@ export function readTargets(source, file, root, ts) {
         if (ts.isExportDeclaration(node) && /^(?:node:)?(?:fs(?:\/promises)?|child_process)$/.test(node.moduleSpecifier?.text ?? '')) {
             unknown.push(`I/O re-export: ${node.getText(ast)}`);
         }
-        const declaration = node.parent && (ts.isImportSpecifier(node.parent) || ts.isImportClause(node.parent) || ts.isNamespaceImport(node.parent) || ts.isBindingElement(node.parent));
+        const declaration = node.parent && (ts.isImportSpecifier(node.parent) || ts.isImportClause(node.parent) || ts.isNamespaceImport(node.parent) || ts.isBindingElement(node.parent)
+            || ts.isVariableDeclaration(node.parent) && node.parent.name === node);
+        const directCall = node.parent && ts.isCallExpression(node.parent) && node.parent.expression === node;
+        const namespaceMember = node.parent && ts.isPropertyAccessExpression(node.parent) && node.parent.expression === node;
+        if (ts.isIdentifier(node) && !declaration && (namespaces.has(node.text) || processNamespaces.has(node.text)) && !namespaceMember) unknown.push(`escaped I/O namespace: ${node.text}`);
+        if (ts.isIdentifier(node) && subprocess.has(node.text) && !declaration && !directCall) unknown.push(`escaped subprocess: ${node.text}`);
         if (ts.isIdentifier(node) && fs.has(node.text) && !declaration && !(ts.isCallExpression(node.parent) && node.parent.expression === node)) unknown.push(`escaped filesystem reader: ${node.text}`);
         if (ts.isPropertyAccessExpression(node) && namespaces.has(node.expression.getText(ast)) && reader.test(node.name.text)
             && !(ts.isCallExpression(node.parent) && node.parent.expression === node)) unknown.push(`escaped filesystem reader: ${node.getText(ast)}`);

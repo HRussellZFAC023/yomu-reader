@@ -41,3 +41,12 @@ test('filesystem API escapes and re-exports stay conservative; inline require re
 test('CommonJS subprocess aliases cannot disappear from the opaque-read index', () => {
     assert.ok(inspect("const {execFileSync: run} = require('node:child_process'); run('node', args);").unknown.length);
 });
+test('namespace aliases, computed fs members and escaped subprocess functions remain conservative', () => {
+    for (const code of [
+        "import fs from 'node:fs'; const io = fs; io.readFileSync(input);",
+        "const fs = require('node:fs'); fs[operation](input);",
+        "import {execFileSync} from 'node:child_process'; const run = execFileSync; run('node', args);",
+        "import * as cp from 'node:child_process'; const run = cp; run.execFileSync('node', args);",
+    ]) assert.ok(inspect(code).unknown.length, code);
+    assert.deepEqual(inspect("const fs = require('node:fs'); fs.readFileSync('style.css');").unknown, []);
+});
