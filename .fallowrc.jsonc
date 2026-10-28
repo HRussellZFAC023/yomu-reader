@@ -38,6 +38,8 @@
     "scripts/profile-gate.mjs",
     "scripts/run-affected-tests.mjs",
     "scripts/run-local-tests.mjs",
+    "scripts/lib/local-gate-pool.mjs",
+    "scripts/lib/local-gate-worker.mjs",
     "scripts/build-greasyfork-libraries.mjs",
     "scripts/annotate-greasyfork-requires.cjs",
     "scripts/check-public-docs.mjs",

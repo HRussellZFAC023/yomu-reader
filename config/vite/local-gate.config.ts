@@ -16,7 +16,7 @@ export default defineConfig({
         setupFiles: [], globals: true, retry: 0, testTimeout: 30_000,
         minWorkers: 1,
         maxWorkers: Number(process.env.YOMU_CI_MAX_WORKERS ?? process.env.VITEST_MAX_FORKS) || workerBudget(),
-        pool: 'forks',
+        pool: './scripts/lib/local-gate-pool.mjs',
         poolOptions: { forks: { isolate: true, execArgv: [`--max-old-space-size=${process.env.YOMU_VITEST_FORK_HEAP_MB ?? 2304}`] } },
     },
 });
