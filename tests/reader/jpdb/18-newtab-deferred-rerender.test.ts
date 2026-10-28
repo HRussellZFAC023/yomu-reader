@@ -1,10 +1,12 @@
 import '../../../src/reader/companions/register-build-companions';
+import { NewTabController } from '../../../src/reader/newtab/controller';
+import { NewTabRuntime } from '../../../src/reader/newtab/runtime';
+import { searchWordDetailHtml } from '../../../src/reader/newtab/search-view';
+import type { NewTabSearchDetailViewContext } from '../../../src/reader/newtab/search-view';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
     registerReaderHelpersCleanup,
     DEFAULT_SETTINGS,
-    NewTabController,
-    NewTabRuntime,
     ReaderApp,
     appendKnownAnkiRenderedWord,
     appendRenderedReaderWord,
@@ -14,7 +16,6 @@ import {
     emptyCardRenderData,
     registerRenderedWordPrivateState,
     renderedWordPrivateValue,
-    searchWordDetailHtml,
     setInnerHtml,
     testAozoraCard,
     testFallbackCard,
@@ -26,7 +27,6 @@ import type {
     CardRenderData,
     JPDBCard,
     JPDBToken,
-    NewTabSearchDetailViewContext,
     YomitanTermEntry,
 } from './fixtures';
 

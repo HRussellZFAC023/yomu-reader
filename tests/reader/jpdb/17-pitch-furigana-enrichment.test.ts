@@ -1,11 +1,11 @@
 import '../../../src/reader/companions/register-build-companions';
+import { NewTabRuntime } from '../../../src/reader/newtab/runtime';
 import { describe, expect, it, vi } from 'vitest';
 import {
     registerReaderHelpersCleanup,
     BACKGROUND_PITCH_ENRICHMENT_CONCURRENCY,
     DEFAULT_SETTINGS,
     JITEN_BACKGROUND_DETAIL_TIMEOUT_MS,
-    NewTabRuntime,
     PITCH_ENRICHMENT_LIMIT,
     PUBLIC_FALLBACK_SPELLING_SEARCH_LIMIT,
     ReaderApp,

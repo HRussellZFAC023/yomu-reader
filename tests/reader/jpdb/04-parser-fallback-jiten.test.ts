@@ -1,4 +1,7 @@
 import '../../../src/reader/companions/register-build-companions';
+import { buildNewTabPalette } from '../../../src/reader/newtab/index';
+import { isYomuNewTabUrl } from '../../../src/reader/newtab/url';
+import { resolveNewTabBrandAssets } from '../../../src/reader/newtab/index';
 import { describe, expect, it, vi } from 'vitest';
 import { privateRasterImageForHost } from '../../../src/reader/ocr/private-raster-presenter';
 import {
@@ -10,7 +13,6 @@ import {
     ReaderParser,
     SETTINGS_STORAGE_KEY,
     ShuffledAudioDeck,
-    buildNewTabPalette,
     card,
     collectScanTargets,
     createAudioPreviewCard,
@@ -27,7 +29,6 @@ import {
     formatAudioUrl,
     isYomuHostedAppUrl,
     isYomuHostedPassivePage,
-    isYomuNewTabUrl,
     jitenTestCard,
     jpdbFirstParseOptions,
     mockAudioBlobUserscriptRequest,
@@ -38,7 +39,6 @@ import {
     mockSpeechSynthesis,
     parseSegmentedFallbackTokens,
     resolveAnkiWordAudio,
-    resolveNewTabBrandAssets,
     resolveUserscriptBlobResponse,
     setupJpdbWordVoicePlayback,
     stubInstantIntersectionObserver,
