@@ -37,7 +37,7 @@ test('one transform graph preserves all three environment/setup lanes under one 
         if(ctx.config.maxWorkers!==2 || ctx.config.poolOptions.forks.isolate!==true) throw Error('unbounded shared pool');
         for(const p of ctx.projects) if(p.getSerializableConfig().defines.__YOMU_VERSION__!=='2.2.0') throw Error('mutated project defines');
         console.log(ctx.projects.length); await ctx.close();`;
-    const env = { ...process.env, YOMU_CI_MAX_WORKERS: '2', YOMU_CHECK_SESSION: '' };
+    const env = { ...process.env, YOMU_CI_MAX_WORKERS: '2', YOMU_CHECK_SESSION: '', NO_COLOR: '1' };
     assert.equal(execFileSync(process.execPath, ['--input-type=module', '-e', script], { cwd: root, env, encoding: 'utf8' }).trim(), '1');
     const result = spawnSync(process.execPath, ['node_modules/vitest/vitest.mjs', 'run', '--config', 'config/vite/local-gate.config.ts'], { cwd: root, env, encoding: 'utf8' });
     assert.equal(result.status, 0, result.stdout + result.stderr);
