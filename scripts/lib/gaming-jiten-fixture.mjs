@@ -1,4 +1,16 @@
-// Shared remote-only fixture for the two native Gaming Jiten proofs.
+// Shared settings and remote responses for the two native Gaming Jiten proofs.
+export async function importGamingJitenSettings({ page, overlay, importSettings, fixtureKey, settings = {} }) {
+    await overlay.evaluate(() => window.yomuGaming.hideOverlay());
+    await page.evaluate(() => window.yomuGaming.showApp());
+    await importSettings(page, {
+        jitenApiKey: fixtureKey, apiKey: '', apiGradingProvider: 'jiten', parserProvider: 'jiten',
+        jitenMiningEnabled: true, jpdbMiningEnabled: false, enableReviews: true,
+        audioEnabled: false, autoPlayAudio: false, audioSources: [],
+        jitenDefinitionsEnabled: true, jpdbDefinitionsEnabled: false,
+        ...settings,
+    });
+}
+
 export function gamingJitenFixture({ knownState, decks = [] }) {
     const wordId = 1234;
     const requests = [];

@@ -1,5 +1,5 @@
 import { choosePrivateDeck } from './smoke-test-helpers.mjs';
-import { gamingJitenFixture } from './gaming-jiten-fixture.mjs';
+import { gamingJitenFixture, importGamingJitenSettings } from './gaming-jiten-fixture.mjs';
 
 // Exercise the packaged renderer, preload and capture IPC, then the Reader's actual
 // provider transport. Only remote HTTP responses are fixtures; no action is replaced.
@@ -11,14 +11,7 @@ export async function assertGamingJitenActions({ app, page, overlay, importSetti
     });
     await app.context().route(/^https?:\/\//, route);
     try {
-        await overlay.evaluate(() => window.yomuGaming.hideOverlay());
-        await page.evaluate(() => window.yomuGaming.showApp());
-        await importSettings(page, {
-            jitenApiKey: fixtureKey, apiKey: '', apiGradingProvider: 'jiten', parserProvider: 'jiten',
-            jitenMiningEnabled: true, jpdbMiningEnabled: false, enableReviews: true,
-            audioEnabled: false, autoPlayAudio: false, audioSources: [],
-            jitenDefinitionsEnabled: true, jpdbDefinitionsEnabled: false,
-        });
+        await importGamingJitenSettings({ page, overlay, importSettings, fixtureKey });
         await page.evaluate(() => window.yomuGaming.hideApp());
         await recapture(overlay);
         const word = await findWord(overlay, '冒険');

@@ -1,6 +1,6 @@
 import path from 'node:path';
 import assert from 'node:assert/strict';
-import { gamingJitenFixture } from './gaming-jiten-fixture.mjs';
+import { gamingJitenFixture, importGamingJitenSettings } from './gaming-jiten-fixture.mjs';
 
 // Built Electron Settings, preload/capture IPC and Reader controls. Remote Jiten
 // responses are deterministic fixtures, and every nonlocal request is intercepted.
@@ -9,14 +9,7 @@ export async function assertGamingGradingMode({ app, page, overlay, importSettin
     const { wordId, requests, route } = gamingJitenFixture({ knownState: [2] });
     await app.context().route(/^https?:\/\//, route);
     try {
-        await overlay.evaluate(() => window.yomuGaming.hideOverlay());
-        await page.evaluate(() => window.yomuGaming.showApp());
-        await importSettings(page, {
-            twoButtonReviews: true, jitenApiKey: fixtureKey, apiKey: '', apiGradingProvider: 'jiten', parserProvider: 'jiten',
-            jitenMiningEnabled: true, jpdbMiningEnabled: false, enableReviews: true,
-            audioEnabled: false, autoPlayAudio: false, audioSources: [],
-            jitenDefinitionsEnabled: true, jpdbDefinitionsEnabled: false,
-        });
+        await importGamingJitenSettings({ page, overlay, importSettings, fixtureKey, settings: { twoButtonReviews: true } });
         await openSettingsPanel(page, 'api');
         if (await page.locator('select[name="twoButtonReviews"]').inputValue() !== 'true') {
             throw new Error('Gaming Settings did not show imported Pass/Fail grading.');
