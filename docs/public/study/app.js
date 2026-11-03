@@ -52909,10 +52909,12 @@ ${entry.reading}`);
     const choose = () => {
       const choice = choices[select2.selectedIndex - 1];
       select2.selectedIndex = 0;
-      if (choice) void addToChosenDeck(host, select2, async () => {
-        await performAction(select2, card, sentence, { kind: "card-action", action: "add", deckSource: choice.source, deckId: choice.id });
-        if (select2.isConnected) refreshMembership?.();
-      });
+      if (choice) void addToChosenDeck(
+        host,
+        select2,
+        () => performAction(select2, card, sentence, { kind: "card-action", action: "add", deckSource: choice.source, deckId: choice.id }),
+        refreshMembership
+      );
     };
     let browsing = false;
     select2.addEventListener("keydown", trustedReaderEventHandler((event) => {
@@ -52935,10 +52937,11 @@ ${entry.reading}`);
     select2.addEventListener("pointerdown", letGo);
     select2.addEventListener("blur", letGo);
   }
-  async function addToChosenDeck(host, select2, add) {
+  async function addToChosenDeck(host, select2, add, refreshMembership) {
     const scope = host.getRootNode();
     const focused = scope.activeElement === host;
     await add();
+    if (select2.isConnected) refreshMembership?.();
     const active = scope.activeElement;
     if (!focused || active && active !== host.ownerDocument.body && !active.matches(".jpdb-reader-popover")) return;
     const hosts = scope.querySelectorAll(`.jpdb-reader-popover .${DECK_SELECT_CLASS}`);
@@ -92513,11 +92516,11 @@ ${reading}`);
                 <legend>${escapedUiText(language2, "sources")}</legend>
                 <div data-target-dictionary-content>
                 ${renderTranslationLanguageControl(settings2)}
-                ${renderDefinitionTranslationControls(settings2)}
                 ${renderSettingsDisclosure(uiText(language2, "popupOrderTitle"), `
                     <div class="jpdb-reader-dictionary-priorities" data-source-editor data-definition-source-editor>
                         ${renderDictionarySourceRows(settings2)}
                     </div>`, ' data-help-key="popupOrderTitle"')}
+                ${renderDefinitionTranslationControls(settings2)}
                 <div class="jpdb-reader-dictionary-status" data-dictionary-status role="status" aria-live="polite">${escapedUiText(language2, "checkingDictionaries")}</div>
                 <div class="jpdb-reader-recommended-dictionaries" data-recommended-dictionaries>
                     ${renderRecommendedDictionaries([], "en", includeCatalogBrowse, "ja", expandCatalogBrowse)}

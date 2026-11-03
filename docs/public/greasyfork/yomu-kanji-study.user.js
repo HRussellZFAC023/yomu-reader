@@ -17196,10 +17196,12 @@ function mountDeckSelect(host, choices, card, sentence, performAction, membershi
   const choose = () => {
   const choice = choices[select.selectedIndex - 1];
   select.selectedIndex = 0;
-  if (choice) void addToChosenDeck(host, select, async () => {
-    await performAction(select, card, sentence, { kind: "card-action", action: "add", deckSource: choice.source, deckId: choice.id });
-    if (select.isConnected) refreshMembership?.();
-  });
+  if (choice) void addToChosenDeck(
+    host,
+    select,
+    () => performAction(select, card, sentence, { kind: "card-action", action: "add", deckSource: choice.source, deckId: choice.id }),
+    refreshMembership
+  );
   };
   let browsing = false;
   select.addEventListener("keydown", trustedReaderEventHandler((event) => {
@@ -17222,10 +17224,11 @@ function mountDeckSelect(host, choices, card, sentence, performAction, membershi
   select.addEventListener("pointerdown", letGo);
   select.addEventListener("blur", letGo);
 }
-async function addToChosenDeck(host, select, add) {
+async function addToChosenDeck(host, select, add, refreshMembership) {
   const scope = host.getRootNode();
   const focused = scope.activeElement === host;
   await add();
+  if (select.isConnected) refreshMembership?.();
   const active = scope.activeElement;
   if (!focused || active && active !== host.ownerDocument.body && !active.matches(".jpdb-reader-popover")) return;
   const hosts = scope.querySelectorAll(`.jpdb-reader-popover .${DECK_SELECT_CLASS}`);
