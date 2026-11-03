@@ -8,6 +8,7 @@ import { deflateSync } from 'node:zlib';
 import { _electron as electron } from 'playwright';
 import { typeIntoFocusedControl } from './lib/smoke-test-helpers.mjs';
 import { assertGamingJitenActions } from './lib/gaming-jiten-actions-smoke.mjs';
+import { assertGamingGradingMode } from './lib/gaming-grading-mode-smoke.mjs';
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const appRoot = path.resolve(scriptDir, '..');
@@ -157,6 +158,10 @@ try {
     assertSmoke(await page.locator('[data-action="area-capture"]').count() === 0, 'Removed region selector is still offered.');
     step('grade and add a word through the connected Jiten popup (deterministic API fixture)');
     await assertGamingJitenActions({ app, page, overlay, importSettings: importBrowserSettingsExport, recapture: pressCaptureShortcutForFreshOverlayDocument, findWord: ocrWordForVisualText });
+    step('saved Pass/Fail preference controls Gaming buttons and submitted Jiten ratings');
+    await assertGamingGradingMode({ app, page, overlay, importSettings: importBrowserSettingsExport,
+        openSettingsPanel, recapture: pressCaptureShortcutForFreshOverlayDocument, findWord: ocrWordForVisualText,
+        evidenceDir: path.join(appRoot, 'qa-artifacts') });
     console.log(`Desktop fixture OCR: ${fullScreenRequest.png.width}x${fullScreenRequest.png.height}; fresh recapture passed. Native hardware gaps: ${path.relative(appRoot, hardwareGapPath)}`);
     smokePassed = true;
 } finally {
