@@ -126,7 +126,9 @@ userscript-manager and Study compatibility. Keep the website-first ordering
 until the saved Greasy Fork author URL and mode above have been changed and
 reopened to confirm persistence; this workflow does not change that account
 setting. Build, browser localization, artifact verification, and same-run Pages
-artifact deployment remain required.
+artifact deployment remain required. The manual route also rejects regenerated
+artifact drift and compares the uploaded copies with committed candidate bytes
+using the protected main revision's generated-artifact manifest.
 
 ## What fails the run, and what only gets reported
 

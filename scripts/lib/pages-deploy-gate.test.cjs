@@ -1,7 +1,9 @@
 'use strict';
 
 const assert = require('node:assert/strict');
-const { readFileSync } = require('node:fs');
+const { execFileSync } = require('node:child_process');
+const { readFileSync, mkdirSync, mkdtempSync, writeFileSync, unlinkSync } = require('node:fs');
+const { tmpdir } = require('node:os');
 const { join } = require('node:path');
 const { test } = require('node:test');
 const { approvePagesSource, checkoutCommit, verifyJobs, EXPECTED_JOBS } = require('./pages-deploy-gate.cjs');
@@ -179,6 +181,9 @@ test('workflow runs input only through env, checks exact checkout, and gates upl
     assert.match(workflow, /git rev-parse 'HEAD\^\{tree\}'/);
     assert.ok(workflow.indexOf('name: Verify published artifacts') < workflow.indexOf('name: Recheck manual deployment provenance before upload'));
     assert.ok(workflow.indexOf('PAGES_SOURCE_VERIFIED') < workflow.indexOf('name: Upload Pages artifact'));
+    assert.ok(workflow.indexOf("require('./scripts/lib/generated-artifacts.mjs')") < workflow.indexOf('name: Check out validated manual source'));
+    assert.ok(workflow.indexOf('PAGES_ARTIFACT_BYTES_VERIFIED') > workflow.indexOf('name: Verify published artifacts'));
+    assert.ok(workflow.indexOf('PAGES_ARTIFACT_BYTES_VERIFIED') < workflow.indexOf('name: Upload Pages artifact'));
 });
 
 async function runUploadRecheck(control, receipt, deploy = false) {
@@ -233,5 +238,60 @@ for (const [name, mutate] of [
         mutate(control.state);
         await assert.rejects(runUploadRecheck(control, receipt), /during build/);
         await assert.rejects(runUploadRecheck(control, receipt, true), /during build/);
+    });
+}
+
+function byteFixture() {
+    const root = mkdtempSync(join(tmpdir(), 'pages-byte-guard-'));
+    const env = { ...process.env, GITHUB_WORKSPACE: root,
+        GIT_CONFIG_COUNT: '1', GIT_CONFIG_KEY_0: 'safe.directory', GIT_CONFIG_VALUE_0: root };
+    const git = args => execFileSync('git', args, { cwd: root, env, encoding: 'utf8' });
+    git(['init', '--quiet']);
+    const files = ['yomu.user.js', 'study/app.js', 'study/version.json', 'greasyfork/current.js', 'greasyfork/historical.js', 'yomu.hash.css'];
+    for (const file of files) {
+        for (const dir of ['docs/public', 'docs/.vitepress/dist']) {
+            const path = join(root, dir, file);
+            mkdirSync(join(path, '..'), { recursive: true });
+            writeFileSync(path, Buffer.from([0, 255, ...Buffer.from(file)]));
+        }
+    }
+    writeFileSync(join(root, '.gitattributes'), '* -text\n');
+    writeFileSync(join(root, '.gitignore'), 'docs/.vitepress/dist/\n');
+    git(['add', '--', '.gitattributes', '.gitignore', 'docs/public']);
+    git(['-c', 'user.name=Pages Fixture', '-c', 'user.email=pages-fixture@example.invalid', 'commit', '--quiet', '-m', 'fixture']);
+    env.SOURCE_SHA = git(['rev-parse', 'HEAD']).trim();
+    env.ARTIFACT_PATHS = JSON.stringify(['docs/public/yomu.user.js', 'docs/public/study', 'docs/public/greasyfork', 'docs/public/yomu.*.css']);
+    const workflow = readFileSync(join(__dirname, '../../.github/workflows/deploy-pages.yml'), 'utf8').replaceAll('\r\n', '\n');
+    const block = workflow.split('      - name: Require exact committed manual artifact bytes\n')[1].split('      - name: ')[0];
+    const script = block.split('          script: |\n')[1].split('\n')
+        .filter(line => line.startsWith('            ')).map(line => line.slice(12)).join('\n');
+    const execute = new (Object.getPrototypeOf(async function () {}).constructor)('require', 'process', 'core', script);
+    const messages = [];
+    return { root, env, messages, run: () => execute(require, { env }, { info: message => messages.push(message) }) };
+}
+
+test('actual manual byte guard compares binary bootstrap, Study/version, and current/historical wildcard pins', async () => {
+    const fixture = byteFixture();
+    await fixture.run();
+    assert.deepEqual(fixture.messages, [`PAGES_ARTIFACT_BYTES_VERIFIED ${JSON.stringify({ source_sha: fixture.env.SOURCE_SHA, files: 6 })}`]);
+});
+
+for (const [name, mutate, error] of [
+    ['bootstrap regenerated', fixture => writeFileSync(join(fixture.root, 'docs/public/yomu.user.js'), 'drift'), /artifact bytes differ/],
+    ['Study version regenerated', fixture => writeFileSync(join(fixture.root, 'docs/public/study/version.json'), 'wrong version'), /artifact bytes differ/],
+    ['new current pin', fixture => writeFileSync(join(fixture.root, 'docs/public/greasyfork/new.js'), 'new pin'), /artifact bytes differ/],
+    ['new ignored pin', fixture => {
+        writeFileSync(join(fixture.root, '.gitignore'), 'docs/.vitepress/dist/\ndocs/public/greasyfork/ignored.js\n');
+        writeFileSync(join(fixture.root, 'docs/public/greasyfork/ignored.js'), 'ignored pin');
+    }, /artifact bytes differ/],
+    ['uploaded Study body drift', fixture => writeFileSync(join(fixture.root, 'docs/.vitepress/dist/study/app.js'), 'drift'), /upload body differs/],
+    ['uploaded historical pin drift', fixture => writeFileSync(join(fixture.root, 'docs/.vitepress/dist/greasyfork/historical.js'), 'drift'), /upload body differs/],
+    ['missing uploaded CSS pin', fixture => unlinkSync(join(fixture.root, 'docs/.vitepress/dist/yomu.hash.css')), /ENOENT/],
+    ['changed source HEAD', fixture => { fixture.env.SOURCE_SHA = MAIN; }, /HEAD changed/],
+]) {
+    test(`actual manual byte guard rejects ${name}`, async () => {
+        const fixture = byteFixture();
+        mutate(fixture);
+        await assert.rejects(fixture.run(), error);
     });
 }
