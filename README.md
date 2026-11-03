@@ -76,6 +76,8 @@ Words can still be looked up without a coloured underline. Search and comment fi
 
 OCR text and corner marks on ordinary page images scroll with the image. Decorative blurred copies do not get a second mark.
 
+On paused videos, completed OCR keeps subtitles and playback controls visible.
+
 The よむ button and its menu keep their screen size during pinch zoom. The menu closes when you pan or change the visible viewport.
 
 No account and no setup. [How to learn Japanese with よむ](https://yomureader.com/learn/) is one page.

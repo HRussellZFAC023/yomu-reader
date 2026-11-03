@@ -114,6 +114,8 @@ Once the ready mark fades, tapping the same scanned image does not show it again
 
 OCR text and corner marks on ordinary page images scroll with the image. Decorative blurred copies do not get a second mark.
 
+On paused videos, completed OCR keeps subtitles and playback controls visible.
+
 The よむ button and its menu keep their screen size during pinch zoom. The menu closes when you pan or change the visible viewport.
 
 ## How do I put my dictionary first in the popup? {#popup-order}
