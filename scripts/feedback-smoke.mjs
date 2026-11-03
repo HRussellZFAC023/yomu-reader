@@ -987,13 +987,29 @@ async function loadHostedVideoAndSubtitleTogether(page) {
 }
 
 async function assertHostedManualPanelCloseRestoresPlayer(page) {
-    await pinHostedSubtitleControlRail(page);
-    await page.locator('.jpdb-subtitle-rail [data-action="panel"]').click();
+    await page.locator('.jpdb-subtitle-list [data-action="close-panel"]').click();
     await page.waitForFunction(() => document.querySelector('.jpdb-subtitle-list')?.hidden === true, null, { timeout: 6000 });
     const hiddenLayout = await readHostedPlayerLayoutState(page);
     assert(hostedPlayerLayoutRestored(hiddenLayout), 'Hosted video player did not restore full-width controls after manually closing the subtitle panel', hiddenLayout);
     const subtitleState = await readHostedOnVideoSubtitleState(page);
     assert(hostedOnVideoSubtitleVisible(subtitleState), 'Hosted video subtitles disappeared after manually closing the subtitle panel', subtitleState);
+    await pinHostedSubtitleControlRail(page);
+    await page.locator('.jpdb-subtitle-rail [data-action="next"]').click();
+    await page.waitForFunction(() => {
+        const line = document.querySelector('.jpdb-subtitle-lines')?.cloneNode(true);
+        line?.querySelectorAll('rt,rp').forEach(node => node.remove());
+        return line?.textContent?.includes('犬と鳥を見る');
+    }, null, { timeout: 6000 });
+    const nextCue = await readHostedOnVideoSubtitleState(page);
+    assert(hostedOnVideoSubtitleVisible(nextCue, '犬と鳥を見る'), 'Hosted video did not paint the next cue above the video with the subtitle panel hidden', nextCue);
+    await page.locator('.jpdb-subtitle-rail [data-action="previous"]').click();
+    await page.waitForFunction(() => {
+        const line = document.querySelector('.jpdb-subtitle-lines')?.cloneNode(true);
+        line?.querySelectorAll('rt,rp').forEach(node => node.remove());
+        return line?.textContent?.includes('猫を見る');
+    }, null, { timeout: 6000 });
+    const previousCue = await readHostedOnVideoSubtitleState(page);
+    assert(hostedOnVideoSubtitleVisible(previousCue), 'Hosted video did not restore the previous cue with the subtitle panel hidden', previousCue);
     await page.screenshot({ path: path.join(ARTIFACTS, 'feedback-video-panel-hidden-subtitles.png'), fullPage: false });
 }
 
@@ -1727,7 +1743,7 @@ function hostedFullscreenSubtitleReady(state) {
         && includesText(state.toggleLabel, 'Exit fullscreen')
         && includesText(state.lineText, '猫を見る')
         && fullscreenRectFillsViewport(state)
-        && fullscreenCueVisibleInsideStage(state);
+        && hostedCueVisibleInsideStage(state);
 }
 
 function hostedInlineFullscreenSubtitleReady(state) {
@@ -1744,7 +1760,7 @@ function hostedInlineFullscreenSubtitleReady(state) {
         && includesText(state.lineText, '猫を見る')
         && fullscreenStageFillsViewport(state)
         && fullscreenRootFitsInsideStage(state)
-        && fullscreenCueVisibleInsideStage(state);
+        && hostedCueVisibleInsideStage(state);
 }
 
 function fullscreenRectFillsViewport(state) {
@@ -1777,7 +1793,7 @@ function fullscreenRootFitsInsideStage(state) {
         && root.bottom <= stage.bottom + 1;
 }
 
-function fullscreenCueVisibleInsideStage(state) {
+function hostedCueVisibleInsideStage(state) {
     const line = state.lineRect;
     const stage = state.stageRect;
     if (!line?.width || !line.height || !stage) return false;
@@ -2129,15 +2145,7 @@ function hostedPlayerLayoutRestored(layout) {
 
 async function readHostedOnVideoSubtitleState(page) {
     return page.evaluate(() => {
-        const rect = element => {
-            const box = element?.getBoundingClientRect();
-            return box ? {
-                width: box.width,
-                height: box.height,
-                left: box.left,
-                right: box.right,
-            } : null;
-        };
+        const rect = element => element?.getBoundingClientRect().toJSON() ?? null;
         const root = document.querySelector('.jpdb-subtitle-player');
         const text = document.querySelector('.jpdb-subtitle-text');
         const line = document.querySelector('.jpdb-subtitle-lines');
@@ -2164,11 +2172,19 @@ async function readHostedOnVideoSubtitleState(page) {
             })(),
             textRect: rect(text),
             lineRect: rect(line),
+            stageRect: rect(document.querySelector('[data-yomu-video-frame]')),
+            viewport: { width: window.innerWidth, height: window.innerHeight },
+            lineOnTop: (() => {
+                const box = line?.getBoundingClientRect();
+                if (!box?.width || !box.height) return false;
+                const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2);
+                return Boolean(hit && line.contains(hit));
+            })(),
         };
     });
 }
 
-function hostedOnVideoSubtitleVisible(state) {
+function hostedOnVideoSubtitleVisible(state, expectedText = '猫を見る') {
     const lineRect = state.lineRect;
     const textRect = state.textRect;
     return state.panelHidden === true
@@ -2181,13 +2197,14 @@ function hostedOnVideoSubtitleVisible(state) {
         && state.textVisibility !== 'hidden'
         && state.lineDisplay !== 'none'
         && state.lineVisibility !== 'hidden'
-        && includesText(state.lineText, '猫を見る')
+        && includesText(state.lineText, expectedText)
         && Boolean(lineRect)
         && Boolean(textRect)
         && lineRect.width > 0
         && lineRect.height > 0
         && textRect.width > 0
-        && textRect.height > 0;
+        && textRect.height > 0
+        && hostedCueVisibleInsideStage(state);
 }
 
 function hostedSubtitleOverlayVisible(state) {
