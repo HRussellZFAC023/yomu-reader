@@ -11,6 +11,7 @@ import { card, emptyCardRenderData, testCardPopoverRenderer } from './jpdb/fixtu
 import { installGmStorageFixture } from './helpers/settings-persistence-fixture';
 import { setInnerHtml } from '../../src/reader/dom';
 import { renderNewTabKanjiInfoSection } from '../../src/reader/newtab/kanji-render';
+import { allowSyntheticReaderInteractionsForTests } from '../../src/reader/ui/trusted-interaction';
 
 function settings(ids = ['__jpdb__'], outputLanguage = 'ko'): ReaderSettings {
     return { ...DEFAULT_SETTINGS, interfaceLanguage: 'en', languageProfiles: DEFAULT_SETTINGS.languageProfiles.map(profile => ({ ...profile, outputLanguage, definitionTranslationProviderIds: ids })) };
@@ -23,6 +24,12 @@ function popup(): HTMLElement {
 
 function response(text: string): Response {
     return new Response(JSON.stringify({ sentences: [{ trans: text }] }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+}
+
+function retryButton(root: ParentNode): HTMLButtonElement {
+    const button = root.querySelector<HTMLButtonElement>('[data-definition-translation-retry]');
+    if (!button) throw new Error('Failed translation has no retry action.');
+    return button;
 }
 
 describe('opt-in dictionary translation lifecycle (fixture provider responses)', () => {
@@ -83,6 +90,83 @@ describe('opt-in dictionary translation lifecycle (fixture provider responses)',
         expect(root.querySelector('[data-definition-translation]')).toBeNull();
         expect(root.querySelector('[data-definition-translation-text]')?.textContent).toContain('to read');
         expect(root.querySelector('.jpdb-reader-definition-original')).toBeNull();
+    });
+
+    it('recovers a failed translation on a later install while deduplicating concurrent recovery', async () => {
+        vi.useFakeTimers({ toFake: ['Date'] });
+        const root = popup();
+        let finish: (value: Response) => void = () => undefined;
+        const fetch = vi.fn().mockRejectedValueOnce(new Error('fixture offline')).mockImplementation(() => new Promise<Response>(resolve => { finish = resolve; }));
+        vi.stubGlobal('fetch', fetch);
+        await installDefinitionTranslationBehaviors(root, settings());
+        expect(root.querySelector('[data-definition-translation-state="error"]')).not.toBeNull();
+        expect(root.textContent).toContain('to read');
+        vi.setSystemTime(Date.now() + 60_000);
+        const recovery = installDefinitionTranslationBehaviors(root, settings());
+        const duplicate = installDefinitionTranslationBehaviors(root, settings());
+        finish(response('읽다'));
+        await Promise.all([recovery, duplicate]);
+        expect(fetch).toHaveBeenCalledTimes(2);
+        expect(root.querySelector('[lang="ko"]')?.textContent).toBe('읽다');
+        expect(root.querySelectorAll('[data-definition-translation]')).toHaveLength(1);
+        expect(root.querySelectorAll('.jpdb-reader-definition-original')).toHaveLength(1);
+        await installDefinitionTranslationBehaviors(root, settings());
+        expect(fetch).toHaveBeenCalledTimes(2);
+    });
+
+    it('does not turn repeated failed hydration into a tight request loop', async () => {
+        vi.useFakeTimers({ toFake: ['Date'] });
+        const root = popup();
+        const fetch = vi.fn(async () => { throw new Error('fixture still offline'); });
+        vi.stubGlobal('fetch', fetch);
+        await installDefinitionTranslationBehaviors(root, settings());
+        for (let index = 0; index < 20; index += 1) {
+            root.append(document.createElement('span'));
+            await installDefinitionTranslationBehaviors(root, settings());
+        }
+        expect(fetch).toHaveBeenCalledTimes(1);
+        expect(root.querySelector('[data-definition-translation]')).toBeNull();
+        vi.setSystemTime(Date.now() + 60_000);
+        for (let index = 0; index < 20; index += 1) await installDefinitionTranslationBehaviors(root, settings());
+        expect(fetch).toHaveBeenCalledTimes(2);
+        expect(root.textContent).toContain('to read');
+    });
+
+    it('lets a user retry immediately with the frozen payload while rejecting page-forged clicks', async () => {
+        const root = popup();
+        const fetch = vi.fn().mockRejectedValueOnce(new Error('fixture offline')).mockResolvedValue(response('읽다'));
+        vi.stubGlobal('fetch', fetch);
+        await installDefinitionTranslationBehaviors(root, settings());
+        const button = retryButton(root);
+        expect(button.textContent).toBe('Try again');
+        root.querySelector('[data-definition-translation-text]')?.setAttribute('data-definition-translation-payload', 'PRIVATE_SUBSTITUTION');
+        allowSyntheticReaderInteractionsForTests(false);
+        button.click();
+        expect(fetch).toHaveBeenCalledTimes(1);
+        allowSyntheticReaderInteractionsForTests(true);
+        button.click();
+        await vi.waitFor(() => expect(root.querySelector('[lang="ko"]')?.textContent).toBe('읽다'));
+        expect(fetch).toHaveBeenCalledTimes(2);
+        expect(new URL(String(fetch.mock.calls.map(call => call[0])[1])).searchParams.get('q')).toBe('to read');
+        expect(root.querySelector('[data-definition-translation-retry]')).toBeNull();
+    });
+
+    it('does not retry a failed source from an aborted or changed-profile popup', async () => {
+        const root = popup();
+        let current = settings();
+        const controller = new AbortController();
+        const fetch = vi.fn(async () => { throw new Error('fixture offline'); });
+        vi.stubGlobal('fetch', fetch);
+        await installDefinitionTranslationBehaviors(root, current, { signal: controller.signal, getSettings: () => current });
+        const button = retryButton(root);
+        current = settings([], 'fr');
+        button.click();
+        expect(fetch).toHaveBeenCalledTimes(1);
+        current = settings();
+        controller.abort();
+        button.click();
+        expect(fetch).toHaveBeenCalledTimes(1);
+        expect(root.querySelector('[data-definition-translation]')).toBeNull();
     });
 
     it('ignores forged markers and sends the frozen public payload when page data attributes change', async () => {

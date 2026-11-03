@@ -337,6 +337,20 @@
   min-width: 0;
 }
 
+.jpdb-reader-definition-failure {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0.4rem 0.65rem;
+  font-size: 0.85rem;
+}
+
+.jpdb-reader-definition-failure > button {
+  min-height: 32px;
+  font: inherit;
+}
+
 .jpdb-reader-definition-original {
   margin: 0.25rem 0.65rem 0.65rem;
   border: 0;

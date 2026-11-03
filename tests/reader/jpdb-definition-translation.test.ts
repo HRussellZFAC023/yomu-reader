@@ -97,6 +97,53 @@ describe('public native JPDB definition translation', () => {
         expect(document.querySelector('[data-definition-translation]')).toBeNull();
     });
 
+    it('retries a failed native translation immediately on the same node without refetching public content', async () => {
+        setup('/vocabulary/1266440/retry-recovery');
+        document.querySelector('.subsection-composed-of-kanji')?.remove();
+        const original = document.querySelector('.subsection-meanings > .subsection');
+        const requests: URL[] = [];
+        let translationAttempts = 0;
+        vi.stubGlobal('fetch', vi.fn(async (input: unknown) => {
+            const url = new URL(String(input));
+            requests.push(url);
+            if (url.hostname === 'jpdb.io') return new Response(vocabulary);
+            translationAttempts += 1;
+            if (translationAttempts === 1) throw new Error('fixture offline');
+            return new Response(JSON.stringify({ sentences: [{ trans: '부르다' }] }));
+        }));
+        await installJpdbDefinitionTranslation(document, settings());
+        expect(document.querySelector('[data-definition-translation-state="error"]')).toBe(original);
+        const retry = document.querySelector<HTMLButtonElement>('[data-definition-translation-retry]');
+        if (!retry) throw new Error('Native source has no retry action.');
+        retry.click();
+        await vi.waitFor(() => expect(translationAttempts).toBe(2));
+        await vi.waitFor(() => expect(document.querySelector('[lang="ko"]')?.textContent).toBe('부르다'));
+        expect(requests.filter(url => url.hostname === 'jpdb.io')).toHaveLength(1);
+        expect(document.querySelector('[lang="ko"]')?.textContent).toBe('부르다');
+        expect(document.querySelector('.jpdb-reader-definition-original .subsection')).toBe(original);
+    });
+
+    it('cannot retry failed native text after a private route reuses its node', async () => {
+        setup('/vocabulary/1266440/stale-retry');
+        document.querySelector('.subsection-composed-of-kanji')?.remove();
+        const fetch = vi.fn(async (input: unknown) => {
+            if (new URL(String(input)).hostname === 'jpdb.io') return new Response(vocabulary);
+            throw new Error('fixture offline');
+        });
+        vi.stubGlobal('fetch', fetch);
+        await installJpdbDefinitionTranslation(document, settings());
+        const retry = document.querySelector<HTMLButtonElement>('[data-definition-translation-retry]');
+        if (!retry) throw new Error('Native source has no retry action.');
+        history.replaceState(null, '', '/deck/private');
+        const description = document.querySelector('.description');
+        if (!description) throw new Error('Native source has no original description.');
+        description.textContent = 'PRIVATE_REUSED_NODE';
+        retry.click();
+        expect(fetch).toHaveBeenCalledTimes(2);
+        expect(document.querySelector('[data-definition-translation]')).toBeNull();
+        expect(description.textContent).toBe('PRIVATE_REUSED_NODE');
+    });
+
     it('does not apply a response after native navigation reuses the page', async () => {
         setup('/vocabulary/1266440/spa-test');
         let finish: (value: Response) => void = () => undefined;
