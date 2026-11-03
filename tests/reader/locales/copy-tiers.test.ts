@@ -153,7 +153,16 @@ describe('D43 copy tiers are a property of the string', () => {
         const humanCritical = messages.filter((message) => message.tier === 'human-critical');
         const byIdAlone = humanCritical.filter((message) => copyTierOf(message.id).tier === 'human-critical');
         expect({ total: messages.length, critical: humanCritical.length, byId: byIdAlone.length })
-            .toEqual({ total: 1233, critical: 427, byId: 422 });
+            .toEqual({ total: 1240, critical: 432, byId: 427 });
+        // 2.2.1 restores two translation controls and adds five deck-save failure messages.
+        for (const key of ['translationLanguage', 'translationLanguageHelp']) {
+            expect(chromeMessageSource()).toHaveProperty(key);
+            expect(copyTierOf(legacyChromeMessageId(key)).tier, key).toBe('machine-draft-ok');
+        }
+        for (const key of ['collectDetailsUnavailable', 'collectServiceUnavailable', 'collectFailureTitle', 'collectFailureHelp', 'collectFailureDismiss']) {
+            expect(chromeMessageSource()).toHaveProperty(key);
+            expect(copyTierOf(legacyChromeMessageId(key)).tier, key).toBe('human-critical');
+        }
         // W1-63 names Auto and its pixel-size setting; both are supplementary.
         for (const key of ['subtitleFontSizeAuto', 'subtitleFontSizePixelsAuto']) {
             expect(copyTierOf(legacyChromeMessageId(key)).tier, key).toBe('machine-draft-ok');

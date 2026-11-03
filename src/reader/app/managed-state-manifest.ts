@@ -49,6 +49,7 @@ const MANAGED_STATE_MANIFEST: readonly ManagedStateEntry[] = [
     { owner: 'app/managed-web-storage', kind: 'session', prefix: 'yomu:web-owner:v2:' },
     { owner: 'app/storage local provenance', kind: 'local', key: 'yomu:local-storage-provenance:v1' },
     { owner: 'app/card-state-signal', kind: 'gm', key: 'yomu:card-state-signal' },
+    { owner: 'cards/collection-save-failure', kind: 'gm', key: 'yomu:collection-save-failure:v1' },
     { owner: 'app/storage leases', kind: 'gm', prefix: 'yomu:lease:' },
     { owner: 'srs/account-sync', kind: 'gm', key: 'yomu:private:academy-device:v1' },
     { owner: 'srs/account-sync', kind: 'gm', key: 'yomu:private:academy-device-pending:v1' },

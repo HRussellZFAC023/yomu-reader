@@ -1,14 +1,14 @@
 import { loadSettings, subscribeToSettingsStorageChanges } from '../settings/index';
 import type { ReaderSettings } from './types';
-import { USERSCRIPT_STORAGE_BRIDGE_READY_EVENT } from './constants';
+import { USERSCRIPT_SETTINGS_CHANGED_EVENT, USERSCRIPT_STORAGE_BRIDGE_READY_EVENT } from './constants';
 import { addWindowEventListener, removeWindowEventListener } from '../platform/window-events';
 import { isHostedYomuOrigin } from './storage';
 import { createAsyncReconciliation } from './async-reconciliation';
 
 /**
- * One settings subscription that also reconciles a userscript storage bridge
- * installed after the page runtime. Cleanup invalidates an in-flight bridge
- * read, so a replaced or destroyed Reader cannot receive a stale callback.
+ * Reconcile a late storage bridge and native changes from its installed realm.
+ * Both events are hints only: settings always come from the strict loader.
+ * Cleanup invalidates in-flight reads for a replaced or destroyed Reader.
  */
 export function subscribeToReaderSettingsChanges(
     onSettings: (settings: ReaderSettings) => void,
@@ -23,8 +23,11 @@ export function subscribeToReaderSettingsChanges(
         if (!active) return;
         receive(await loadSettings());
     }, () => undefined);
-    const onStorageBridgeReady = (): void => reconciliation.request();
-    if (hostedBridge) addWindowEventListener(USERSCRIPT_STORAGE_BRIDGE_READY_EVENT, onStorageBridgeReady);
+    const reconcileStorage = (): void => reconciliation.request();
+    if (hostedBridge) {
+        addWindowEventListener(USERSCRIPT_STORAGE_BRIDGE_READY_EVENT, reconcileStorage);
+        addWindowEventListener(USERSCRIPT_SETTINGS_CHANGED_EVENT, reconcileStorage);
+    }
     // Subscribe first, then sample. A bridge can become ready between the
     // caller's initial load and listener installation; without this pass the
     // ready event is lost and a hosted Study tab can remain on provisional
@@ -34,6 +37,9 @@ export function subscribeToReaderSettingsChanges(
         active = false;
         reconciliation.stop();
         unsubscribeStoredChanges();
-        if (hostedBridge) removeWindowEventListener(USERSCRIPT_STORAGE_BRIDGE_READY_EVENT, onStorageBridgeReady);
+        if (hostedBridge) {
+            removeWindowEventListener(USERSCRIPT_STORAGE_BRIDGE_READY_EVENT, reconcileStorage);
+            removeWindowEventListener(USERSCRIPT_SETTINGS_CHANGED_EVENT, reconcileStorage);
+        }
     };
 }

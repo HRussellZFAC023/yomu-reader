@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi, type Mock } from 'vitest';
 import '../../src/reader/companions/register-build-companions';
 import { NewTabRuntime, startNewTabRuntime } from '../../src/reader/newtab/runtime';
+import { SettingsDialogController } from '../../src/reader/settings/dialog-controller';
 
 import {
     DEFAULT_SETTINGS,
@@ -18,7 +19,7 @@ const SETTINGS_COMMIT_KEY = '__yomuSettingsPersistenceCommitV1';
 function prepareRenderingRuntime(
     runtime: NewTabRuntime,
     renderPage: () => Promise<unknown> = vi.fn(async () => undefined),
-    options: { realSettingsStorageSubscription?: boolean } = {},
+    options: { realSettingsStorageSubscription?: boolean; realSettingsDialog?: boolean } = {},
 ): Record<string, unknown> {
     const internals = runtime as unknown as Record<string, unknown>;
     internals.installExternalRefreshListener = vi.fn();
@@ -34,7 +35,9 @@ function prepareRenderingRuntime(
     if (!options.realSettingsStorageSubscription) {
         internals.installSettingsStorageSubscription = vi.fn();
     }
-    internals.settingsDialog = { resumePendingCloudSettingsSync: vi.fn(async () => undefined) };
+    if (!options.realSettingsDialog) {
+        internals.settingsDialog = { resumePendingCloudSettingsSync: vi.fn(async () => undefined) };
+    }
     return internals;
 }
 
@@ -409,26 +412,23 @@ describe('packaged Study startup and settings recovery', () => {
         runtime.destroy();
     });
 
-    it('opens account settings from the Firefox-safe Study link after welcome', async () => {
+    it('opens account settings from the Firefox-safe Study link without starting Study', async () => {
         window.history.replaceState({}, '', '/newtab/index.html#settings=api');
         installPackagedSettings({
             localDictionariesEnabled: false,
         });
         const calls: string[] = [];
         const { runtime, internals } = prepareOrderedRuntime(calls);
-        internals.onboarding = {
-            showIfNeeded: vi.fn(async () => { calls.push('welcome'); return false; }),
-            waitForCompletion: vi.fn(async () => undefined),
-        };
         recordOpenedSettings(internals, calls);
 
         await runtime.init();
 
-        expect(calls).toEqual(['render', 'settings:api']);
+        expect(calls).toEqual(['settings:api']);
+        expect(internals.createNewTabController).not.toHaveBeenCalled();
         expect(location.hash).toBe('');
     });
 
-    it('captures packaged Appearance settings before render replaces the requested hash', async () => {
+    it('keeps the Appearance settings link free of a review-card route until Settings closes', async () => {
         window.history.replaceState({}, '', '/newtab/index.html#settings=appearance');
         installPackagedSettings({
             localDictionariesEnabled: false,
@@ -449,8 +449,60 @@ describe('packaged Study startup and settings recovery', () => {
 
         await runtime.init();
 
-        expect(calls).toEqual(['render', 'settings:appearance']);
-        expect(location.hash).toBe('#review=study-card-1');
+        expect(calls).toEqual(['settings:appearance']);
+        expect(renderPage).not.toHaveBeenCalled();
+        expect(location.hash).toBe('');
+    });
+
+    it.each(['close', 'escape', 'backdrop'] as const)('starts Study once after closing the initial real Settings form using %s', async closeWith => {
+        vi.stubGlobal('location', new URL('https://yomureader.com/study/#settings=appearance'));
+        stubClonedGmValueReader(new Map([[SETTINGS_STORAGE_KEY, {
+            ...DEFAULT_SETTINGS,
+            localDictionariesEnabled: false,
+            ankiEnabled: false,
+        }]]));
+        const runtime = new NewTabRuntime();
+        const renderPage = vi.fn(async () => undefined);
+        const internals = prepareRenderingRuntime(runtime, renderPage, { realSettingsDialog: true });
+        try {
+            await runtime.init();
+            expect(document.querySelector('form.jpdb-reader-settings [data-settings-panel="appearance"]')).not.toBeNull();
+            expect(internals.createNewTabController).not.toHaveBeenCalled();
+            expect(renderPage).not.toHaveBeenCalled();
+
+            // A settings restore or refresh replaces the form without leaving Settings.
+            const settingsDialog = internals.settingsDialog;
+            expect(settingsDialog).toBeInstanceOf(SettingsDialogController);
+            if (!(settingsDialog instanceof SettingsDialogController)) throw new Error('Missing real Settings controller');
+            settingsDialog.open('api');
+            expect(renderPage).not.toHaveBeenCalled();
+
+            const form = document.querySelector<HTMLFormElement>('.jpdb-reader-settings');
+            expect(form).not.toBeNull();
+            if (closeWith === 'close') form?.querySelector<HTMLButtonElement>('[data-settings-close]')?.click();
+            else if (closeWith === 'escape') form?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+            else document.querySelector<HTMLElement>('.jpdb-reader-backdrop')?.click();
+
+            expect(document.querySelector('.jpdb-reader-settings')).toBeNull();
+            expect(internals.createNewTabController).toHaveBeenCalledOnce();
+            expect(renderPage).toHaveBeenCalledOnce();
+        } finally {
+            runtime.destroy();
+        }
+    });
+
+    it('tears down initial Settings without starting Study', async () => {
+        vi.stubGlobal('location', new URL('https://yomureader.com/study/#settings=appearance'));
+        stubClonedGmValueReader(new Map([[SETTINGS_STORAGE_KEY, { ...DEFAULT_SETTINGS, localDictionariesEnabled: false }]]));
+        const runtime = new NewTabRuntime();
+        const renderPage = vi.fn(async () => undefined);
+        prepareRenderingRuntime(runtime, renderPage, { realSettingsDialog: true });
+
+        await runtime.init();
+        runtime.destroy();
+
+        expect(document.querySelector('.jpdb-reader-settings')).toBeNull();
+        expect(renderPage).not.toHaveBeenCalled();
     });
 
     it('reloads settings when a late userscript storage bridge reaches the Study runtime', async () => {

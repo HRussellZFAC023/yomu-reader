@@ -1867,6 +1867,8 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   margin: 0;
   padding: 0;
   border: 0;
+  /* The paused video already paints the frame, including its controls and captions. */
+  opacity: 0;
   pointer-events: none;
   object-fit: fill;
 }

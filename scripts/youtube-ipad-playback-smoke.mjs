@@ -48,34 +48,112 @@ ytd-watch-metadata { display:flex; gap:12px; padding-top:30px; }
 <button><span class="ytSpecButtonShapeNextButtonTextContent">チャンネル登録</span></button></ytd-watch-metadata>
 <button id="fullscreen">Fullscreen fixture</button>`;
 
+function installPlaybackFixture({ name, text, bindInteractions = false }) {
+    const f = window.YomuPlaybackFixture;
+    const settings = { ...f.DEFAULT_SETTINGS, interfaceLanguage: 'en', annotationsPaused: true,
+        subtitlePlayerEnabled: true, subtitleOverlayVisible: true, subtitleControlsMode: 'always',
+        subtitleTranscriptVisible: false, localDictionariesEnabled: false, apiKey: '' };
+    const controller = new f.SubtitlePlayerController({ getSettings: () => settings, parseJapanese: async () => [], onSettingsChange: () => {} });
+    controller.install();
+    if (bindInteractions) {
+        controller.abortController = new AbortController();
+        controller.bindInteractionEvents();
+    }
+    const video = document.querySelector('video');
+    Object.defineProperties(video, { currentTime: { configurable: true, value: 5 }, paused: { configurable: true, value: true } });
+    controller.video = video;
+    controller.cues = [{ start: 0, end: 100, text, transcriptEligible: true }];
+    controller.currentCue = controller.cues[0];
+    controller.refresh();
+    window[name] = { controller, settings, video };
+}
+
+// The live m.youtube player has a .html5-video-container at z-index:10,
+// without desktop .ytp-chrome-top/.ytp-chrome-bottom elements. Reproduce the
+// reported landscape letterbox boundary with real controller UI and browser
+// hit testing. This is a deterministic behavior fixture, not visual acceptance.
+async function checkMobileVideoLayer(browser, engineName) {
+    const { page, errors } = await newTouchSmokePage(browser, { width:1194, height:600 });
+    try {
+        await page.route('**/*', route => route.fulfill({ contentType:'text/html', body:`
+            <meta name="viewport" content="width=device-width,initial-scale=1">
+            <style>${css}</style><style>
+            body { margin:0; background:#000; }
+            #movie_player { position:relative; width:100vw; height:100vh; background:#000; }
+            .html5-video-container { position:absolute; inset:0 100px; z-index:10; }
+            video { position:absolute; width:100%; height:100%; background:#6394a4; z-index:100; }
+            #mobile-fullscreen { position:fixed; right:0; bottom:0; z-index:100; }
+            </style><div id="movie_player" class="html5-video-player"><div class="html5-video-container"><video></video></div></div>
+            <button id="mobile-fullscreen">Fullscreen fixture</button>` }));
+        await page.goto('https://m.youtube.com/watch?v=mobile-layer-fixture', { waitUntil:'domcontentloaded' });
+        await page.addScriptTag({ content:bundle.outputFiles[0].text });
+        await page.evaluate(installPlaybackFixture, { name: 'mobileLayerFixture', text: '日本語の字幕です。' });
+        await page.evaluate(() => {
+            document.querySelector('#mobile-fullscreen').onclick = () => document.querySelector('#movie_player').requestFullscreen();
+        });
+        await page.waitForSelector('.jpdb-subtitle-rail button[data-action="visibility"]');
+        for (const videoTier of [10, 35]) {
+            if (videoTier===35) {
+                await page.locator('#mobile-fullscreen').click();
+                await page.waitForFunction(()=>document.fullscreenElement?.contains(document.querySelector('.jpdb-subtitle-player')));
+            }
+            await page.evaluate(tier=>{
+                document.querySelector('.html5-video-container').style.zIndex=String(tier);
+                window.mobileLayerFixture.controller.refresh();
+            },videoTier);
+            const paint=await page.evaluate(()=>{
+                const rail=document.querySelector('.jpdb-subtitle-rail');
+                const buttons=[...rail.querySelectorAll('button')].map(button=>{
+                    const rect=button.getBoundingClientRect();
+                    const point={x:rect.left+rect.width/2,y:rect.top+rect.height/2};
+                    return {action:button.dataset.action,rect:rect.toJSON(),point,
+                        hit:button.contains(document.elementFromPoint(point.x,point.y))};
+                }).filter(button=>button.rect.width&&button.rect.height);
+                return {tier:getComputedStyle(rail.closest('.jpdb-subtitle-player')).zIndex,buttons,
+                    video:document.querySelector('video').getBoundingClientRect().toJSON()};
+            });
+            assert(paint.buttons.some(button=>button.point.x<paint.video.left),`${engineName}: fixture lacks a letterbox control`);
+            assert(paint.buttons.some(button=>button.point.x>paint.video.left),`${engineName}: fixture lacks a control over video`);
+            await page.screenshot({path:`${artifacts}/${engineName}-mobile-layer-${videoTier}-fixture.png`});
+            assert(paint.buttons.every(button=>button.hit),`${engineName}: mobile video covers toolbar ${JSON.stringify(paint)}`);
+            assert.equal(Number(paint.tier),videoTier+1,`${engineName}: caption tier escaped the outer video context`);
+        }
+        const visibility=page.locator('.jpdb-subtitle-rail button[data-action="visibility"]');
+        await visibility.tap();
+        assert.equal(await page.evaluate(()=>window.mobileLayerFixture.settings.subtitleOverlayVisible),false,`${engineName}: covered visibility control did not receive tap`);
+        await visibility.tap();
+        assert.equal(await page.evaluate(()=>window.mobileLayerFixture.settings.subtitleOverlayVisible),true);
+        const popup=await visibility.evaluate(button=>{
+            const rect=button.getBoundingClientRect();
+            const dialog=document.createElement('div');
+            dialog.id='mobile-native-dialog';dialog.setAttribute('role','dialog');
+            dialog.style.cssText=`position:absolute;inset:0;background:white;z-index:60`;
+            document.querySelector('#movie_player').append(dialog);
+            return {x:rect.left+rect.width/2,y:rect.top+rect.height/2};
+        });
+        assert(await page.evaluate(({x,y})=>document.elementFromPoint(x,y)?.id==='mobile-native-dialog',popup),`${engineName}: toolbar covers the native mobile dialog`);
+        await page.locator('#mobile-native-dialog').evaluate(dialog=>dialog.remove());
+        assert(await visibility.evaluate(button=>{const r=button.getBoundingClientRect();return button.contains(document.elementFromPoint(r.left+r.width/2,r.top+r.height/2));}),`${engineName}: toolbar did not return after dialog closed`);
+        assert.deepEqual(errors,[],`${engineName}: mobile fixture browser errors`);
+        console.log(`${engineName}: mobile toolbar clears video context and stays below native dialogs`);
+    } finally { await page.close(); }
+}
+
 for (const [engineName, engine] of [['chromium', chromium], ['webkit', webkit]]) {
     const browser = await engine.launch();
     try {
+        await checkMobileVideoLayer(browser, engineName);
         const { page, errors } = await newTouchSmokePage(browser, { width:1024, height:768 }, error => console.error(`${engineName}: ${error.message}`));
         await page.route('**/*', route => route.request().url().startsWith('https://www.youtube.com/watch?')
             ? route.fulfill({ contentType:'text/html', body:html }) : route.abort());
         await page.goto('https://www.youtube.com/watch?v=fixture123', { waitUntil: 'domcontentloaded' });
         await page.addScriptTag({ content:bundle.outputFiles[0].text });
+        await page.evaluate(installPlaybackFixture, { name: 'fixture', text: '英語の動画にも字幕を表示します。', bindInteractions: true });
         await page.evaluate(() => {
-            const f = window.YomuPlaybackFixture;
-            const settings = { ...f.DEFAULT_SETTINGS, interfaceLanguage:'en', annotationsPaused:true,
-                subtitlePlayerEnabled:true, subtitleOverlayVisible:true, subtitleTranscriptVisible:false,
-                subtitleControlsMode:'always', localDictionariesEnabled:false, apiKey:'' };
-            const controller = new f.SubtitlePlayerController({ getSettings:()=>settings, parseJapanese:async()=>[], onSettingsChange:()=>{} });
-            controller.install();
-            controller.abortController = new AbortController();
-            controller.bindInteractionEvents();
-            const video = document.querySelector('video');
-            Object.defineProperties(video, { currentTime:{ configurable:true, value:5 }, paused:{ configurable:true, value:true } });
-            controller.video = video;
-            controller.cues = [{ start:0, end:100, text:'英語の動画にも字幕を表示します。', transcriptEligible:true }];
-            controller.currentCue = controller.cues[0];
-            controller.refresh();
             document.querySelector('.ytp-progress-bar-container').addEventListener('click', event => {
                 const box = event.currentTarget.getBoundingClientRect();
                 window.seekFraction = (event.clientX-box.left)/box.width;
             });
-            window.fixture = { controller, settings, video };
         });
         await page.waitForFunction(() => document.querySelector('.jpdb-subtitle-lines')?.textContent.includes('英語の動画'));
         const ownership = await page.evaluate(() => {

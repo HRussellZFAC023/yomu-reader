@@ -987,32 +987,64 @@ async function loadHostedVideoAndSubtitleTogether(page) {
 }
 
 async function assertHostedManualPanelCloseRestoresPlayer(page) {
-    await pinHostedSubtitleControlRail(page);
-    await page.locator('.jpdb-subtitle-rail [data-action="panel"]').click();
+    await page.locator('.jpdb-subtitle-list [data-action="close-panel"]').click();
     await page.waitForFunction(() => document.querySelector('.jpdb-subtitle-list')?.hidden === true, null, { timeout: 6000 });
     const hiddenLayout = await readHostedPlayerLayoutState(page);
     assert(hostedPlayerLayoutRestored(hiddenLayout), 'Hosted video player did not restore full-width controls after manually closing the subtitle panel', hiddenLayout);
     const subtitleState = await readHostedOnVideoSubtitleState(page);
     assert(hostedOnVideoSubtitleVisible(subtitleState), 'Hosted video subtitles disappeared after manually closing the subtitle panel', subtitleState);
+    await pinHostedSubtitleControlRail(page);
+    await page.locator('.jpdb-subtitle-rail [data-action="next"]').click();
+    await waitForHostedCue(page, '犬と鳥を見る');
+    const nextCue = await readHostedOnVideoSubtitleState(page);
+    assert(hostedOnVideoSubtitleVisible(nextCue, '犬と鳥を見る'), 'Hosted video did not paint the next cue above the video with the subtitle panel hidden', nextCue);
+    await page.locator('.jpdb-subtitle-rail [data-action="previous"]').click();
+    await waitForHostedCue(page, '猫を見る');
+    const previousCue = await readHostedOnVideoSubtitleState(page);
+    assert(hostedOnVideoSubtitleVisible(previousCue), 'Hosted video did not restore the previous cue with the subtitle panel hidden', previousCue);
     await page.screenshot({ path: path.join(ARTIFACTS, 'feedback-video-panel-hidden-subtitles.png'), fullPage: false });
 }
 
+async function waitForHostedCue(page, expectedText) {
+    await page.waitForFunction(expected => {
+        const line = document.querySelector('.jpdb-subtitle-lines')?.cloneNode(true);
+        line?.querySelectorAll('rt,rp').forEach(node => node.remove());
+        return line?.textContent?.includes(expected);
+    }, expectedText, { timeout: 6000 });
+}
+
 async function assertHostedThemeToggleResponsiveWithLoadedSubtitles(page) {
+    // Exercise both directions while the transcript stays closed. The deadline
+    // lives in Node: a renderer stuck in an observer loop cannot run its own
+    // timeout or finish page.evaluate, including the animation-frame probe.
+    for (let toggle = 0; toggle < 2; toggle += 1) {
+        let deadline;
+        try {
+            await Promise.race([
+                toggleHostedThemeWithLoadedSubtitles(page),
+                new Promise((_, reject) => {
+                    deadline = setTimeout(() => reject(new Error('Hosted theme toggle did not return browser frames and a timer within 6 seconds')), 6000);
+                }),
+            ]);
+        } finally {
+            clearTimeout(deadline);
+        }
+    }
+    await page.screenshot({ path: path.join(ARTIFACTS, 'feedback-video-theme-toggle.png'), fullPage: false });
+}
+
+async function toggleHostedThemeWithLoadedSubtitles(page) {
     const before = await readHostedThemeState(page);
+    const hidden = await page.locator('.jpdb-subtitle-list').evaluate(panel => panel.hidden);
+    assert(hidden, 'Hosted theme-freeze regression requires the subtitle panel to be closed');
     await page.locator('[data-theme-toggle]').click({ timeout: 6000 });
     await page.waitForFunction(previous => {
         const root = document.documentElement;
-        const changed = root.classList.contains('yomu-page-theme-light') !== previous.light
-            || root.classList.contains('yomu-page-theme-dark') !== previous.dark;
-        const line = document.querySelector('.jpdb-subtitle-lines');
-        if (!line) return false;
-        const clone = line.cloneNode(true);
-        clone.querySelectorAll('rt,rp').forEach(node => node.remove());
-        return changed && (clone.textContent ?? '').includes('猫を見る');
+        return root.classList.contains('yomu-page-theme-light') !== previous.light
+            && root.classList.contains('yomu-page-theme-dark') !== previous.dark;
     }, before, { timeout: 2000 });
     const state = await readHostedThemeResponsivenessState(page);
-    assert(hostedThemeToggleResponsive(state), 'Hosted dark-mode toggle became slow or hid subtitles after loading a video/subtitle file', state);
-    await page.screenshot({ path: path.join(ARTIFACTS, 'feedback-video-theme-toggle.png'), fullPage: false });
+    assert(hostedThemeToggleResponsive(state), 'Hosted theme toggle did not settle with responsive video subtitles and saved settings', state);
 }
 
 async function readHostedThemeState(page) {
@@ -1023,55 +1055,40 @@ async function readHostedThemeState(page) {
 }
 
 async function readHostedThemeResponsivenessState(page) {
-    return page.evaluate(async () => {
+    const state = await page.evaluate(async settingsKey => {
+        await new Promise(resolve => setTimeout(resolve, 0));
         const start = performance.now();
         await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
         const frameDelayMs = performance.now() - start;
         const root = document.documentElement;
-        const line = document.querySelector('.jpdb-subtitle-lines');
         const themeToggle = document.querySelector('[data-theme-toggle]');
-        const overlay = document.querySelector('.jpdb-subtitle-player');
-        const panel = document.querySelector('.jpdb-subtitle-list');
+        const sharedSettings = await globalThis.GM_getValue(settingsKey, {});
         return {
+            timerAndFramesReturned: true,
             frameDelayMs,
             light: root.classList.contains('yomu-page-theme-light'),
             dark: root.classList.contains('yomu-page-theme-dark'),
+            readerLight: root.classList.contains('jpdb-reader-theme-light'),
+            readerDark: root.classList.contains('jpdb-reader-theme-dark'),
+            sharedTheme: sharedSettings.theme,
+            pageTheme: localStorage.getItem('yomu-page-theme'),
+            toggleDisabled: themeToggle?.disabled ?? true,
             toggleLabel: themeToggle?.getAttribute('aria-label') ?? '',
-            subtitleOverlay: readHostedSubtitleVisibilityInPage(overlay, line, panel),
         };
-
-        function readHostedSubtitleVisibilityInPage(rootElement, lineElement, panelElement) {
-            const rect = element => {
-                const box = element?.getBoundingClientRect();
-                return box ? { width: box.width, height: box.height } : null;
-            };
-            const rootStyle = rootElement ? getComputedStyle(rootElement) : null;
-            const lineStyle = lineElement ? getComputedStyle(lineElement) : null;
-            return {
-                panelHidden: panelElement?.hidden ?? null,
-                rootHidden: rootElement?.hidden ?? null,
-                rootHiddenClass: rootElement?.classList.contains('jpdb-subtitle-hidden') ?? null,
-                rootOutOfView: rootElement?.classList.contains('jpdb-subtitle-video-out-of-view') ?? null,
-                rootDisplay: rootStyle?.display ?? null,
-                rootVisibility: rootStyle?.visibility ?? null,
-                lineDisplay: lineStyle?.display ?? null,
-                lineVisibility: lineStyle?.visibility ?? null,
-                lineText: (() => {
-                if (!lineElement) return '';
-                const clone = lineElement.cloneNode(true);
-                clone.querySelectorAll('rt,rp').forEach(node => node.remove());
-                return clone.textContent ?? '';
-            })(),
-                rootRect: rect(rootElement),
-                lineRect: rect(lineElement),
-            };
-        }
-    });
+    }, SETTINGS_KEY);
+    return { ...state, subtitleOverlay: await readHostedOnVideoSubtitleState(page) };
 }
 
 function hostedThemeToggleResponsive(state) {
-    return state.frameDelayMs < 1000
+    const expectedTheme = state.light ? 'light' : 'dark';
+    return state.timerAndFramesReturned
+        && state.frameDelayMs < 1000
         && state.light !== state.dark
+        && state.readerLight === state.light
+        && state.readerDark === state.dark
+        && state.sharedTheme === expectedTheme
+        && state.pageTheme === expectedTheme
+        && state.toggleDisabled === false
         && includesText(state.toggleLabel, state.light ? 'Switch to dark theme' : 'Switch to light theme')
         && hostedSubtitleOverlayVisible(state.subtitleOverlay);
 }
@@ -1126,7 +1143,7 @@ async function installHostedPausedVideoCaptureStub(page) {
 }
 
 async function readHostedPausedVideoOcrState(page) {
-    return page.evaluate(() => {
+    const state = await page.evaluate(() => {
         const rect = element => element?.getBoundingClientRect().toJSON() ?? null;
         const style = element => {
             const computed = element ? getComputedStyle(element) : null;
@@ -1141,8 +1158,6 @@ async function readHostedPausedVideoOcrState(page) {
         const status = document.querySelector('.jpdb-ocr-video-frame-status');
         const resume = document.querySelector('.jpdb-ocr-video-frame-resume');
         const root = document.querySelector('.jpdb-subtitle-player');
-        const line = document.querySelector('.jpdb-subtitle-lines');
-        const panel = document.querySelector('.jpdb-subtitle-list');
         const video = document.querySelector('video');
         const timeline = window.__yomuHostedPausedOcrTimeline ?? { originalCurrentTime: null, writes: [] };
         return {
@@ -1151,10 +1166,10 @@ async function readHostedPausedVideoOcrState(page) {
             resumeButtons: document.querySelectorAll('.jpdb-ocr-video-frame-resume').length,
             railResumeButtons: document.querySelectorAll('.jpdb-subtitle-rail .jpdb-ocr-video-frame-resume').length,
             fallbackResumeButtons: document.querySelectorAll('.jpdb-ocr-video-frame-resume-fallback').length,
-            railResumeActive: root?.classList.contains('jpdb-ocr-video-frame-resume-active') ?? false,
-            framePending: frame?.classList.contains('jpdb-ocr-video-frame-pending') ?? false,
-            statusPending: status?.classList.contains('jpdb-ocr-video-frame-pending') ?? false,
-            currentTime: video?.currentTime ?? null,
+            railResumeActive: hasClass(root, 'jpdb-ocr-video-frame-resume-active'),
+            framePending: hasClass(frame, 'jpdb-ocr-video-frame-pending'),
+            statusPending: hasClass(status, 'jpdb-ocr-video-frame-pending'),
+            currentTime: currentTime(video),
             originalCurrentTime: timeline.originalCurrentTime,
             currentTimeWrites: timeline.writes,
             frameStyle: style(frame),
@@ -1164,32 +1179,16 @@ async function readHostedPausedVideoOcrState(page) {
             statusRect: rect(status),
             resumeRect: rect(resume),
             videoRect: rect(video),
-            subtitleOverlay: readHostedSubtitleVisibilityInPage(root, line, panel),
         };
 
-        function readHostedSubtitleVisibilityInPage(rootElement, lineElement, panelElement) {
-            const rootStyle = rootElement ? getComputedStyle(rootElement) : null;
-            const lineStyle = lineElement ? getComputedStyle(lineElement) : null;
-            return {
-                panelHidden: panelElement?.hidden ?? null,
-                rootHidden: rootElement?.hidden ?? null,
-                rootHiddenClass: rootElement?.classList.contains('jpdb-subtitle-hidden') ?? null,
-                rootOutOfView: rootElement?.classList.contains('jpdb-subtitle-video-out-of-view') ?? null,
-                rootDisplay: rootStyle?.display ?? null,
-                rootVisibility: rootStyle?.visibility ?? null,
-                lineDisplay: lineStyle?.display ?? null,
-                lineVisibility: lineStyle?.visibility ?? null,
-                lineText: (() => {
-                if (!lineElement) return '';
-                const clone = lineElement.cloneNode(true);
-                clone.querySelectorAll('rt,rp').forEach(node => node.remove());
-                return clone.textContent ?? '';
-            })(),
-                rootRect: rect(rootElement),
-                lineRect: rect(lineElement),
-            };
+        function hasClass(element, name) {
+            return element?.classList.contains(name) ?? false;
+        }
+        function currentTime(element) {
+            return element?.currentTime ?? null;
         }
     });
+    return { ...state, subtitleOverlay: await readHostedOnVideoSubtitleState(page) };
 }
 
 function hostedPausedVideoOcrSafe(state) {
@@ -1646,78 +1645,42 @@ async function openHostedLinesPanel(page) {
 }
 
 async function readHostedFullscreenSubtitleState(page) {
-    return page.evaluate(() => {
-        const rect = element => element?.getBoundingClientRect().toJSON() ?? null;
-        const stage = document.querySelector('[data-yomu-video-frame]');
-        const root = document.querySelector('.jpdb-subtitle-player');
-        const line = document.querySelector('.jpdb-subtitle-lines');
-        const panel = document.querySelector('.jpdb-subtitle-list');
-        const toggle = document.querySelector('[data-fullscreen-toggle]');
-        return {
-            fullscreenTag: document.fullscreenElement?.tagName ?? null,
-            documentInlineClass: document.documentElement.classList.contains('jpdb-subtitle-inline-fullscreen'),
-            stageInline: stage?.getAttribute('data-yomu-inline-fullscreen') ?? null,
-            stageActive: stage?.hasAttribute('data-fullscreen-active') ?? false,
-            rootParentIsStage: Boolean(stage && root?.parentElement === stage),
-            rootFullscreenClass: root?.classList.contains('jpdb-subtitle-fullscreen') ?? false,
-            rootOutOfView: root?.classList.contains('jpdb-subtitle-video-out-of-view') ?? true,
-            rootRect: rect(root),
-            stageRect: rect(stage),
-            lineRect: rect(line),
-            // Hit-test the cue's centre: the caption must paint above the
-            // video, not merely sit inside the stage's box.
-            lineOnTop: (() => {
-                const box = line?.getBoundingClientRect();
-                if (!box?.width || !box.height) return false;
-                const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2);
-                return Boolean(hit && root?.contains(hit));
-            })(),
-            panelHidden: panel?.hidden ?? null,
-            // Base text only: furigana annotations (rt readings and their rp
-            // parens) are legitimate in the cue line — the contract is that
-            // the cue's BASE text survives fullscreen, decorated or not.
-            lineText: (() => {
-                if (!line) return '';
-                const clone = line.cloneNode(true);
-                clone.querySelectorAll('rt,rp').forEach(node => node.remove());
-                return clone.textContent ?? '';
-            })(),
-            toggleLabel: toggle?.getAttribute('aria-label') ?? '',
-            toggleVisible: toggle ? getComputedStyle(toggle).display !== 'none' : false,
-            viewport: { width: window.innerWidth, height: window.innerHeight },
-        };
-    });
+    return page.evaluate(readHostedSubtitleInPage, { hitContainer: 'root', missingRootOutOfView: true });
 }
 
 function hostedFullscreenSubtitleReady(state) {
-    return state.fullscreenTag === 'SECTION'
-        && state.stageActive === true
-        && state.rootParentIsStage
-        && state.rootFullscreenClass
-        && !state.rootOutOfView
-        && state.panelHidden === true
-        && state.toggleVisible
-        && includesText(state.toggleLabel, 'Exit fullscreen')
-        && includesText(state.lineText, '猫を見る')
-        && fullscreenRectFillsViewport(state)
-        && fullscreenCueVisibleInsideStage(state);
+    return [
+        state.fullscreenTag === 'SECTION',
+        state.stageActive === true,
+        state.rootParentIsStage,
+        state.rootFullscreenClass,
+        !state.rootOutOfView,
+        state.panelHidden === true,
+        state.toggleVisible,
+        includesText(state.toggleLabel, 'Exit fullscreen'),
+        includesText(state.lineText, '猫を見る'),
+        fullscreenRectFillsViewport(state),
+        hostedCueVisibleInsideStage(state),
+    ].every(Boolean);
 }
 
 function hostedInlineFullscreenSubtitleReady(state) {
-    return state.fullscreenTag === null
-        && state.documentInlineClass
-        && state.stageInline === 'true'
-        && state.stageActive === true
-        && state.rootParentIsStage
-        && state.rootFullscreenClass
-        && !state.rootOutOfView
-        && state.panelHidden === true
-        && state.toggleVisible
-        && includesText(state.toggleLabel, 'Exit fullscreen')
-        && includesText(state.lineText, '猫を見る')
-        && fullscreenStageFillsViewport(state)
-        && fullscreenRootFitsInsideStage(state)
-        && fullscreenCueVisibleInsideStage(state);
+    return [
+        state.fullscreenTag === null,
+        state.documentInlineClass,
+        state.stageInline === 'true',
+        state.stageActive === true,
+        state.rootParentIsStage,
+        state.rootFullscreenClass,
+        !state.rootOutOfView,
+        state.panelHidden === true,
+        state.toggleVisible,
+        includesText(state.toggleLabel, 'Exit fullscreen'),
+        includesText(state.lineText, '猫を見る'),
+        fullscreenStageFillsViewport(state),
+        fullscreenRootFitsInsideStage(state),
+        hostedCueVisibleInsideStage(state),
+    ].every(Boolean);
 }
 
 function fullscreenRectFillsViewport(state) {
@@ -1750,15 +1713,17 @@ function fullscreenRootFitsInsideStage(state) {
         && root.bottom <= stage.bottom + 1;
 }
 
-function fullscreenCueVisibleInsideStage(state) {
+function hostedCueVisibleInsideStage(state) {
     const line = state.lineRect;
     const stage = state.stageRect;
-    if (!line?.width || !line.height || !stage) return false;
-    return state.lineOnTop
-        && line.left >= Math.max(stage.left, 0) - 1
-        && line.top >= Math.max(stage.top, 0) - 1
-        && line.right <= Math.min(stage.right, state.viewport.width) + 1
-        && line.bottom <= Math.min(stage.bottom, state.viewport.height) + 1;
+    if (![line?.width, line?.height, stage].every(Boolean)) return false;
+    return [
+        state.lineOnTop,
+        line.left >= Math.max(stage.left, 0) - 1,
+        line.top >= Math.max(stage.top, 0) - 1,
+        line.right <= Math.min(stage.right, state.viewport.width) + 1,
+        line.bottom <= Math.min(stage.bottom, state.viewport.height) + 1,
+    ].every(Boolean);
 }
 
 async function readHostedSubtitleStyleMobileState(page) {
@@ -2101,47 +2066,81 @@ function hostedPlayerLayoutRestored(layout) {
 }
 
 async function readHostedOnVideoSubtitleState(page) {
-    return page.evaluate(() => {
-        const rect = element => {
-            const box = element?.getBoundingClientRect();
-            return box ? {
-                width: box.width,
-                height: box.height,
-                left: box.left,
-                right: box.right,
-            } : null;
-        };
-        const root = document.querySelector('.jpdb-subtitle-player');
-        const text = document.querySelector('.jpdb-subtitle-text');
-        const line = document.querySelector('.jpdb-subtitle-lines');
-        const panel = document.querySelector('.jpdb-subtitle-list');
-        const rootStyle = root ? getComputedStyle(root) : null;
-        const textStyle = text ? getComputedStyle(text) : null;
-        const lineStyle = line ? getComputedStyle(line) : null;
-        return {
-            panelHidden: panel?.hidden ?? null,
-            rootHidden: root?.hidden ?? null,
-            rootHiddenClass: root?.classList.contains('jpdb-subtitle-hidden') ?? null,
-            rootOutOfView: root?.classList.contains('jpdb-subtitle-video-out-of-view') ?? null,
-            rootDisplay: rootStyle?.display ?? null,
-            rootVisibility: rootStyle?.visibility ?? null,
-            textDisplay: textStyle?.display ?? null,
-            textVisibility: textStyle?.visibility ?? null,
-            lineDisplay: lineStyle?.display ?? null,
-            lineVisibility: lineStyle?.visibility ?? null,
-            lineText: (() => {
-                if (!line) return '';
-                const clone = line.cloneNode(true);
-                clone.querySelectorAll('rt,rp').forEach(node => node.remove());
-                return clone.textContent ?? '';
-            })(),
-            textRect: rect(text),
-            lineRect: rect(line),
-        };
-    });
+    return page.evaluate(readHostedSubtitleInPage, { hitContainer: 'line', missingRootOutOfView: null });
 }
 
-function hostedOnVideoSubtitleVisible(state) {
+function readHostedSubtitleInPage({ hitContainer, missingRootOutOfView }) {
+    const root = document.querySelector('.jpdb-subtitle-player');
+    const text = document.querySelector('.jpdb-subtitle-text');
+    const line = document.querySelector('.jpdb-subtitle-lines');
+    const panel = document.querySelector('.jpdb-subtitle-list');
+    const stage = document.querySelector('[data-yomu-video-frame]');
+    const toggle = document.querySelector('[data-fullscreen-toggle]');
+    return {
+        fullscreenTag: property(document.fullscreenElement, 'tagName'),
+        documentInlineClass: document.documentElement.classList.contains('jpdb-subtitle-inline-fullscreen'),
+        stageInline: attribute(stage, 'data-yomu-inline-fullscreen'),
+        stageActive: hasAttribute(stage, 'data-fullscreen-active'),
+        rootParentIsStage: hasParent(root, stage),
+        rootFullscreenClass: hasClass(root, 'jpdb-subtitle-fullscreen', false),
+        panelHidden: property(panel, 'hidden'),
+        rootHidden: property(root, 'hidden'),
+        rootHiddenClass: hasClass(root, 'jpdb-subtitle-hidden'),
+        rootOutOfView: hasClass(root, 'jpdb-subtitle-video-out-of-view', missingRootOutOfView),
+        rootDisplay: style(root, 'display'),
+        rootVisibility: style(root, 'visibility'),
+        textDisplay: style(text, 'display'),
+        textVisibility: style(text, 'visibility'),
+        lineDisplay: style(line, 'display'),
+        lineVisibility: style(line, 'visibility'),
+        lineText: baseText(line),
+        rootRect: rect(root),
+        textRect: rect(text),
+        lineRect: rect(line),
+        stageRect: rect(stage),
+        viewport: { width: window.innerWidth, height: window.innerHeight },
+        lineOnTop: lineOnTop(hitContainer === 'root' ? root : line),
+        toggleLabel: attribute(toggle, 'aria-label', ''),
+        toggleVisible: toggle ? getComputedStyle(toggle).display !== 'none' : false,
+    };
+
+    function property(element, name, fallback = null) {
+        return element ? element[name] : fallback;
+    }
+    function attribute(element, name, fallback = null) {
+        return element?.getAttribute(name) ?? fallback;
+    }
+    function hasAttribute(element, name) {
+        return element?.hasAttribute(name) ?? false;
+    }
+    function hasClass(element, name, fallback = null) {
+        return element ? element.classList.contains(name) : fallback;
+    }
+    function hasParent(element, parent) {
+        return Boolean(parent && element?.parentElement === parent);
+    }
+    function style(element, name) {
+        return element ? getComputedStyle(element)[name] : null;
+    }
+    function rect(element) {
+        return element?.getBoundingClientRect().toJSON() ?? null;
+    }
+    function baseText(element) {
+        if (!element) return '';
+        const clone = element.cloneNode(true);
+        clone.querySelectorAll('rt,rp').forEach(node => node.remove());
+        return clone.textContent ?? '';
+    }
+    function lineOnTop(container) {
+        const box = rect(line);
+        if (!box) return false;
+        if (![box.width, box.height].every(Boolean)) return false;
+        const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2);
+        return Boolean(hit && container?.contains(hit));
+    }
+}
+
+function hostedOnVideoSubtitleVisible(state, expectedText = '猫を見る') {
     const lineRect = state.lineRect;
     const textRect = state.textRect;
     return state.panelHidden === true
@@ -2154,13 +2153,14 @@ function hostedOnVideoSubtitleVisible(state) {
         && state.textVisibility !== 'hidden'
         && state.lineDisplay !== 'none'
         && state.lineVisibility !== 'hidden'
-        && includesText(state.lineText, '猫を見る')
+        && includesText(state.lineText, expectedText)
         && Boolean(lineRect)
         && Boolean(textRect)
         && lineRect.width > 0
         && lineRect.height > 0
         && textRect.width > 0
-        && textRect.height > 0;
+        && textRect.height > 0
+        && hostedCueVisibleInsideStage(state);
 }
 
 function hostedSubtitleOverlayVisible(state) {

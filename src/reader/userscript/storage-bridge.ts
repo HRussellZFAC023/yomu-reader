@@ -1,5 +1,5 @@
 import { isYomuStorageBridgeHostedUrl } from '../app/pages';
-import { USERSCRIPT_STORAGE_BRIDGE_READY_EVENT } from '../app/constants';
+import { USERSCRIPT_SETTINGS_CHANGED_EVENT, USERSCRIPT_STORAGE_BRIDGE_READY_EVENT } from '../app/constants';
 import { detectInstalledReaderRuntime, type InstalledReaderRuntimeKind } from '../app/runtime-presence';
 import {
     bridgeRequestAddressedTo, createBridgeOwnerId, expectedBridgeKind, mayClaimBridge, readyBridgeOwner,
@@ -8,6 +8,7 @@ import {
 import { isBridgeManagedStorageKey, isPrivateManagedStorageKey } from '../app/managed-storage-keys';
 import { bridgeEventDetail, normalizedBridgeEventDetail } from './bridge-detail';
 import { userscriptGmApi } from './gm-api';
+import { scheduleBridgeRetry } from './bridge-retry';
 import { addWindowEventListener, createWindowCustomEvent, dispatchWindowEvent, removeWindowEventListener } from '../platform/window-events';
 import {
     clearLegacyExtensionManagedStorage,
@@ -79,6 +80,7 @@ const EXTENSION_STORAGE_BRIDGE_MARKER = 'yomuExtensionStorageBridge';
 const EXTENSION_STORAGE_TARGET: GmStorageTarget = 'extension-storage';
 const BRIDGE_TIMEOUT_MS = 10000;
 let bridgeRequestListenerCleanup: (() => void) | undefined;
+let bridgeSettingsListenerCleanup: (() => void) | undefined;
 let bridgeOwnerId: string | undefined;
 let clientOwner: BridgeOwner | undefined;
 let extensionStorageBridgeAdvertisedByThisRealm = false;
@@ -131,7 +133,9 @@ export function installedStorageResponderReady(): boolean {
     return readyBridgeOwner(bridgeMarkerDataset(), BRIDGE_KEYS, expectedStorageBridgeKind()) !== null;
 }
 
-export function installUserscriptGmStorageBridge(): void {
+type SubscribeToSettingsChanges = (notify: () => void) => () => void;
+
+export function installUserscriptGmStorageBridge(subscribeToSettingsChanges?: SubscribeToSettingsChanges): void {
     const installation = userscriptStorageBridgeInstallation();
     if (!installation) return;
     const kind = detectInstalledReaderRuntime() === 'extension' ? 'extension' : 'userscript';
@@ -142,6 +146,7 @@ export function installUserscriptGmStorageBridge(): void {
         return;
     }
     bridgeRequestListenerCleanup?.();
+    bridgeSettingsListenerCleanup?.();
     const ownerId = createBridgeOwnerId('yomu-storage');
     bridgeOwnerId = ownerId;
     installation.markerDataset[BRIDGE_OWNER] = ownerId;
@@ -159,6 +164,12 @@ export function installUserscriptGmStorageBridge(): void {
             || !storageBridgeResponderAccepts(detail) || handledRequestIds.has(detail.id)) return;
         rememberBridgeRequestId(handledRequestIds, detail.id);
         void handleStorageBridgeRequest(detail, installation.accessors, assertActive);
+    });
+    bridgeSettingsListenerCleanup = subscribeToSettingsChanges?.(() => {
+        if (bridgeOwnerId !== ownerId || bridgeMarkerDataset()?.[BRIDGE_OWNER] !== ownerId) return;
+        // A page may only use this as a wake-up hint. No settings, storage keys
+        // or private values leave the installed realm through notifications.
+        dispatchBridgeEvent(USERSCRIPT_SETTINGS_CHANGED_EVENT);
     });
     dispatchStorageBridgeReady();
 }
@@ -194,17 +205,20 @@ function advertiseExtensionStorageBridge(markerDataset: DOMStringMap): void {
     extensionStorageBridgeAdvertisedByThisRealm = true;
 }
 
-export function installUserscriptGmStorageBridgeWhenReady(): void {
-    installUserscriptGmStorageBridge();
+export function installUserscriptGmStorageBridgeWhenReady(subscribeToSettingsChanges?: SubscribeToSettingsChanges): void {
+    installUserscriptGmStorageBridge(subscribeToSettingsChanges);
     if (typeof window === 'undefined' || typeof document === 'undefined') return;
     if (!shouldInstallUserscriptStorageBridge()) return;
     if (hasInstalledUserscriptStorageBridge()) return;
-    scheduleUserscriptStorageBridgeRetry();
+    scheduleBridgeRetry({ installed: hasInstalledUserscriptStorageBridge,
+        install: () => installUserscriptGmStorageBridge(subscribeToSettingsChanges) });
 }
 
 export function uninstallUserscriptGmStorageBridge(): void {
     bridgeRequestListenerCleanup?.();
     bridgeRequestListenerCleanup = undefined;
+    bridgeSettingsListenerCleanup?.();
+    bridgeSettingsListenerCleanup = undefined;
     const markerDataset = bridgeMarkerDataset();
     if (markerDataset && markerDataset[BRIDGE_OWNER] === bridgeOwnerId) {
         delete markerDataset[BRIDGE_MARKER];
@@ -430,23 +444,6 @@ function shouldInstallUserscriptStorageBridge(): boolean {
         return typeof location !== 'undefined' && isYomuStorageBridgeHostedUrl(location.href);
     } catch {
         return false;
-    }
-}
-
-function scheduleUserscriptStorageBridgeRetry(): void {
-    const retry = () => {
-        if (hasInstalledUserscriptStorageBridge()) return;
-        installUserscriptGmStorageBridge();
-    };
-    if (typeof queueMicrotask === 'function') {
-        queueMicrotask(retry);
-    } else {
-        void Promise.resolve().then(retry);
-    }
-    window.setTimeout(retry, 0);
-    window.setTimeout(retry, 250);
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', retry, { once: true });
     }
 }
 

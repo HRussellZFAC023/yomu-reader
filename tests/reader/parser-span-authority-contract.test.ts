@@ -217,6 +217,63 @@ function tokenSummary(text: string, tokens: readonly JPDBToken[]) {
 }
 
 describe('ReaderParser span authority contract', () => {
+    it('does not treat word-internal final-particle kana before CJK as a confirmed span boundary', async () => {
+        const text = 'なにわ男子';
+        const harness = providerHarness({
+            provider: 'local',
+            text,
+            lexicon: { なに: { spelling: '何', reading: 'なに', rules: 'pn' } },
+        });
+
+        // Both Chromium and Firefox preserve なにわ as a single word segment.
+        await withFakeSegmenter([
+            { segment: 'なにわ', index: 0, isWordLike: true },
+            { segment: '男子', index: 3, isWordLike: true },
+        ], async parser => {
+            const [tokens] = await parser.parse([text], SPAN_OPTIONS);
+            expect(tokens[0]).toMatchObject({
+                start: 0,
+                end: 3,
+                card: { spelling: 'なにわ', source: 'fallback' },
+            });
+        }, harness.dependencies);
+    });
+
+    it.each(['jpdb', 'jiten', 'public', 'local'] as const)(
+        'keeps a confirmed polite verb before a final particle glued by Firefox segmentation for %s',
+        async provider => {
+            const text = '決まりましたか？';
+            const harness = providerHarness({
+                provider,
+                text,
+                lexicon: { 決まる: { spelling: '決まる', reading: 'きまる', rules: 'v5r' } },
+            });
+
+            // Firefox 142 (ICU4X) includes the final か in its たか segment.
+            await withFakeSegmenter([
+                { segment: '決まり', index: 0, isWordLike: true },
+                { segment: 'まし', index: 3, isWordLike: true },
+                { segment: 'たか', index: 5, isWordLike: true },
+            ], async parser => {
+                const [tokens] = await parser.parse([text], SPAN_OPTIONS);
+                expect(tokens[0]).toMatchObject({
+                    start: 0,
+                    end: 6,
+                    card: { spelling: '決まる', source: sourceForProvider(provider) },
+                });
+
+                for (let offset = 0; offset < 6; offset += 1) {
+                    const token = await parser.lookupTokenAt(text, offset, { start: 0, end: 7 }, SPAN_OPTIONS);
+                    expect(token).toMatchObject({
+                        start: 0,
+                        end: 6,
+                        card: { spelling: '決まる', source: sourceForProvider(provider) },
+                    });
+                }
+            }, harness.dependencies);
+        },
+    );
+
     it('ignores provider offsets and prevents conflicting paragraph decorations from choosing or resizing spans', async () => {
         const text = '優しい言葉';
         const harness = providerHarness({

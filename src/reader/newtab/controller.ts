@@ -1,4 +1,5 @@
 import { STARTER_WORDS } from './starter-words';
+import { dismissCollectionSaveFailure, showCollectionSaveFailure } from './collection-save-notice';
 import {
     browseSourceForCard,
     filterBrowseCards,
@@ -1023,6 +1024,7 @@ export class NewTabController {
         root.dataset.newtabBound = 'true';
 
         const shouldRenderContent = this.renderContentShell(root, isNew);
+        await showCollectionSaveFailure(root, this.language());
         if (this.practiceVisible) {
             await this.showPracticeSessions(root, false);
             return;
@@ -1955,6 +1957,11 @@ export class NewTabController {
     }
 
     private handleRootUtilityClick(root: HTMLElement, event: MouseEvent, action: NewTabAction | undefined): boolean {
+        if (action === 'dismiss-collection-failure') {
+            event.preventDefault();
+            void dismissCollectionSaveFailure(root).catch(error => log.warn('Dismissing the save failure notice failed', error));
+            return true;
+        }
         if (action === 'recover-review-recording') {
             event.preventDefault();
             void this.recoverReviewRecording(root);

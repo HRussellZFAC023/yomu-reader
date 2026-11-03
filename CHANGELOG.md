@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.2.1] - 2026-11-03
+
+### Fixed
+
+- Firefox lookup recognizes complete inflected words before question particles, including 決まりました in 決まりましたか. Hovering or clicking opens the full word. (`smoke:parser-glyph-identity`)
+- Opening Settings no longer starts a Study review or flashes a cached card. Closing Settings starts Study normally. (`tests/reader/newtab-runtime-onboarding.test.ts`)
+- An open hosted Study tab receives settings changes saved through the installed userscript or extension on another page. (`smoke:hosted-settings-live-sync`)
+- Failed deck saves retain a sanitized explanation in Study, with Settings and Dismiss controls. Saving the same word successfully clears its old error. (`tests/reader/collection-save-diagnostics.test.ts`)
+- Settings → Sources offers a translation language again. Automatic sentence and provider-example translations use that saved choice instead of always requesting English. (`tests/reader/translation-language.test.ts`)
+- Mobile YouTube subtitle controls stay above the video while native dialogs retain their priority. (`smoke:youtube-ipad-playback`)
+- Turning off Request Japanese sites saves the preference before returning to the original page, preventing an immediate redirect back to Japanese. (`tests/reader/preferred-site-language.test.ts`, `smoke:userscript-boot`)
+- Completed OCR on paused videos keeps playback controls and subtitles visible. The redundant captured image stays transparent while recognized text remains available for lookup. (`smoke:youtube-paused-frame-register`)
+
 ## [2.2.0] - 2026-10-27
 
 ### Changed

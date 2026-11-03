@@ -17,6 +17,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { deflateSync } from 'node:zlib';
 import { chromium } from 'playwright';
+import { verifyPdfScanVisibility } from './lib/pdf-scan-visibility-smoke.mjs';
 
 import {
     addGmStorageBridgeInitScript,
@@ -146,6 +147,13 @@ function multiPageImageOnlyPdfBytes() {
     ]);
 }
 
+function multiPageImageBackedOcrPdfBytes() {
+    return buildPdfFixture([
+        { lines: ['第一ページの透明なOCR文字です。'], scannedImage: 1, invisibleText: true },
+        { lines: ['第二ページの透明なOCR文字です。'], scannedImage: 2, invisibleText: true },
+    ]);
+}
+
 function imageBackedOcrPdfBytes() {
     return buildPdfFixture([{
         lines: [
@@ -174,7 +182,7 @@ function buildPdfFixture(pages) {
     const pagesRef = addObject('');
     const fontRef = glyphs.size ? addFontObjects(addObject, addStream, glyphs) : 0;
     const pageRefs = pages.map(page => {
-        const imageRef = page.scannedImage ? addImageObject(addStream) : 0;
+        const imageRef = page.scannedImage ? addImageObject(addStream, page.scannedImage) : 0;
         const contentRef = addStream('', pageContentStream(page, glyphs));
         const resourceParts = [];
         if (fontRef) resourceParts.push(`/Font << /F1 ${fontRef} 0 R >>`);
@@ -188,14 +196,14 @@ function buildPdfFixture(pages) {
     return serializePdf(objects, catalogRef);
 }
 
-function addImageObject(addStream) {
+function addImageObject(addStream, variant) {
     const width = 96;
     const height = 128;
     const pixels = Buffer.alloc(width * height * 3);
     for (let y = 0; y < height; y += 1) {
         for (let x = 0; x < width; x += 1) {
             const offset = (y * width + x) * 3;
-            const paper = 235 + ((x + y) % 9);
+            const paper = 235 + ((x + y + (variant === 2 ? 4 : 0)) % 9);
             pixels[offset] = paper;
             pixels[offset + 1] = Math.max(0, paper - 8);
             pixels[offset + 2] = Math.max(0, paper - 18);
@@ -375,12 +383,7 @@ function pdfSmokeSettingsForTarget(baseUrl, targetLanguage) {
     };
 }
 
-async function openInReader(browser, baseUrl, pdfBytes, fileName, settings = pdfSmokeSettings(baseUrl)) {
-    const page = await browser.newPage({ viewport: { width: 1280, height: 1000 } });
-    await page.emulateMedia({ reducedMotion: 'reduce' });
-    const consoleErrors = [];
-    page.on('console', message => { if (message.type() === 'error') consoleErrors.push(message.text()); });
-    await page.exposeFunction(PDF_SMOKE_REQUEST_BRIDGE, async request => {
+async function fetchFixtureResponse(request) {
         const response = await fetch(request.url, {
             method: request.method || 'GET',
             headers: request.headers || {},
@@ -391,6 +394,20 @@ async function openInReader(browser, baseUrl, pdfBytes, fileName, settings = pdf
             responseText: await response.text(),
             contentType: response.headers.get('content-type') ?? 'text/plain',
         };
+}
+
+async function openInReader(browser, baseUrl, pdfBytes, fileName, settings = pdfSmokeSettings(baseUrl)) {
+    const page = await browser.newPage({ viewport: { width: 1280, height: 1000 } });
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    const consoleErrors = [];
+    page.on('console', message => { if (message.type() === 'error') consoleErrors.push(message.text()); });
+    await page.exposeFunction(PDF_SMOKE_REQUEST_BRIDGE, async request => {
+        // Word activation is covered locally; optional remote dictionary and
+        // translation services must not make this synthetic PDF guard flaky.
+        if (new URL(request.url).origin !== baseUrl) {
+            return { status: 404, responseText: '{}', contentType: 'application/json' };
+        }
+        return fetchFixtureResponse(request);
     });
     await page.addInitScript(() => {
         for (const storageKey of Object.keys(localStorage)) {
@@ -557,10 +574,25 @@ async function readState(page) {
 }
 
 async function waitForOcrText(page, text, label, context = {}) {
-    await page.waitForFunction(expected => [...document.querySelectorAll('.jpdb-ocr-line')]
-        .some(line => (line.getAttribute('data-ocr-text') || line.getAttribute('aria-label') || '')
-            .replace(/\s+/g, '')
-            .includes(expected)), text, { timeout: 25000 })
+    await page.waitForFunction(expected => {
+        // Retained answers can have semantic text while their page's overlay is hidden.
+        return [...document.querySelectorAll('.jpdb-ocr-line')]
+            .filter(line => semanticText(line).includes(expected))
+            .some(lineIsVisible);
+
+        function semanticText(line) {
+            return (line.getAttribute('data-ocr-text') || line.getAttribute('aria-label') || '').replace(/\s+/g, '');
+        }
+
+        function lineIsVisible(line) {
+            const rect = line.getBoundingClientRect();
+            const style = getComputedStyle(line);
+            return [rect.width > 0, rect.height > 0,
+                rect.bottom > 0, rect.top < innerHeight, rect.right > 0, rect.left < innerWidth,
+                style.display !== 'none', style.visibility !== 'hidden', Number(style.opacity || '1') > 0,
+                !line.closest('[hidden]')].every(Boolean);
+        }
+    }, text, { timeout: 25000 })
         .catch(async error => {
             const state = await readState(page);
             throw new Error(`${label}: ${error.message}\n${JSON.stringify({ ocrRequests, ocrPayloads, state, context }, null, 2)}`);
@@ -768,6 +800,7 @@ async function run() {
         Object.assign(report, await verifyScannedPdf(browser, server.origin, imageOnlyPdfBytes()));
         report.imageBackedOcr = await verifyImageBackedOcrPdf(browser, server.origin, imageBackedOcrPdfBytes());
         Object.assign(report, await verifyScannedPageChanges(browser, server.origin, multiPageImageOnlyPdfBytes()));
+        report.imageBackedPageChanges = await verifyScannedPageChanges(browser, server.origin, multiPageImageBackedOcrPdfBytes());
 
         console.log(JSON.stringify(report, null, 2));
         console.log('\nPDF reader smoke passed.');
@@ -935,9 +968,10 @@ async function verifyImageBackedOcrPdf(browser, origin, imageBackedOcrPdf) {
     const state = await readState(page);
     assertImageBackedOcrState(state, beforeOcr);
     await waitForHiddenTextLayerToSettle(page);
+    const visibility = await verifyPdfScanVisibility(page, 1, OCR_SMOKE_TEXT);
     await page.screenshot({ path: path.join(appRoot, 'qa-artifacts', 'pdf-reader-image-backed-ocr.png') }).catch(() => {});
     await page.close();
-    return state;
+    return { ...state, visibility };
 }
 
 function assertImageBackedOcrState(state, beforeOcr) {
@@ -981,7 +1015,7 @@ async function verifyScannedPageChanges(browser, origin, scannedTwoPagePdf) {
     const scannedPageOne = await verifyFirstScannedPage(page);
     const scannedPageTurn = await turnToSecondScannedPage(page);
     const scannedPageTwo = await verifySecondScannedPage(page, beforeOcr);
-    const scannedZoom = await verifyScannedPageZoom(page, beforeOcr);
+    const scannedZoom = await verifyScannedPageZoom(page, beforeOcr, scannedPageTwo.visibility);
     await page.screenshot({ path: path.join(appRoot, 'qa-artifacts', 'pdf-reader-scanned-page-change.png') }).catch(() => {});
     await page.close();
     return { scannedPageOne, scannedPageTurn, scannedPageTwo, scannedZoom };
@@ -996,7 +1030,8 @@ async function verifyFirstScannedPage(page) {
     assert(state.ocrTextSample.includes(OCR_PAGE_ONE_TEXT), 'page 1 scanned OCR should show the page 1 result', state);
     assert(state.ocrPageTextNodeCount === 0, 'page 1 scanned OCR should remain scanner-isolated while preserving its generated glyphs', state);
     assert(pageOneVisibleLines.some(isPageOneOcrLine), 'page 1 OCR line should be visibly anchored to page 1 before navigation', { pageOneVisibleLines, pageOneState: state });
-    return { ...state, pageOneVisibleLines };
+    const visibility = await verifyPdfScanVisibility(page, 1, OCR_PAGE_ONE_TEXT);
+    return { ...state, pageOneVisibleLines, visibility };
 }
 
 function isPageOneOcrLine(line) {
@@ -1089,14 +1124,18 @@ async function verifySecondScannedPage(page, beforeOcr) {
     assert(!pageTwoVisibleText.includes(OCR_PAGE_ONE_TEXT), 'page 2 should not show stale page 1 OCR after rescanning', { pageTwoVisibleText, pageTwoState: state });
     assert(state.ocrPageTextNodeCount === 0, 'page 2 scanned OCR should remain scanner-isolated while preserving its generated glyphs', state);
     assert(pageTwoVisibleLines.some(isPageTwoOcrLine), 'page 2 OCR line should be visibly anchored to page 2 after navigation', { pageTwoVisibleLines, pageTwoState: state });
-    return { ...state, pageTwoVisibleText, pageTwoVisibleLines };
+    const visibility = await verifyPdfScanVisibility(page, 2, OCR_PAGE_TWO_TEXT);
+    return { ...state, pageTwoVisibleText, pageTwoVisibleLines, visibility };
 }
 
 function isPageTwoOcrLine(line) {
     return line.page === '2' && line.text.includes(OCR_PAGE_TWO_TEXT) && line.visualText.includes(OCR_PAGE_TWO_TEXT);
 }
 
-async function verifyScannedPageZoom(page, beforeOcr) {
+async function verifyScannedPageZoom(page, beforeOcr, beforeZoomVisibility) {
+    // Zoom repaints both the visible page and its neighbor. Give those synthetic
+    // OCR responses the same text so request scheduling cannot change this check.
+    queuedOcrTexts.push(OCR_PAGE_TWO_TEXT, OCR_PAGE_TWO_TEXT);
     const pageTwoBox = await page.locator('.pdf-page[data-page-number="2"]').evaluate(element => Math.round(element.getBoundingClientRect().width));
     const zoomStart = Date.now();
     await page.click('[data-zoom-in]');
@@ -1109,7 +1148,12 @@ async function verifyScannedPageZoom(page, beforeOcr) {
     const zoomMs = Date.now() - zoomStart;
     assert(zoomMs < 8000, 'zooming a scanned PDF page should stay responsive', { zoomMs });
     assert(ocrRequests >= beforeOcr + 2, 'scanned page-change flow should have exercised both OCR requests', { beforeOcr, ocrRequests, ocrPayloads });
-    return { zoomMs };
+    await waitForScannedPageReady(page, 2);
+    await waitForOcrText(page, OCR_PAGE_TWO_TEXT, 'zoomed page 2 scanned PDF OCR did not render');
+    const visibility = await verifyPdfScanVisibility(page, 2, OCR_PAGE_TWO_TEXT);
+    assert(visibility.normalizedBox.every((value, index) => Math.abs(value - beforeZoomVisibility.normalizedBox[index]) < 0.015),
+        'zoomed scanned PDF OCR should stay registered to the same page region', { before: beforeZoomVisibility, after: visibility });
+    return { zoomMs, visibility };
 }
 
 run().catch(error => {

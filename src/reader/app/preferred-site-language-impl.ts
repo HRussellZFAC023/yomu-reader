@@ -192,6 +192,10 @@ function disablePreferredJapaneseSiteLanguage(
         ? shouldReloadCookieShapedResponse
         : false;
     cancelPreferredJapaneseSiteRedirectWatcher();
+    // The settings save owns the next call. Navigating now unloads its pending
+    // write and lets the next document restore the still-persisted "on" value.
+    // Keep the remembered source too, so that call can restore the exact URL.
+    if (deferCookieResponseReloadUntilPersisted) return;
     // Disabling also retires this tab's loop-suppression provenance. A cold
     // authoritative opt-out must not navigate, but a later explicit opt-in in
     // the same tab still needs permission to redirect the host once.

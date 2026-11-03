@@ -271,7 +271,8 @@ import { uiText } from '../app/i18n';
 import { userFacingErrorText } from './user-facing-errors';
 import { translateJapaneseSentence } from '../study/tools';
 import { targetCanLookupCharacter, usesJapaneseCharacterStudy, usesJapaneseProviders } from '../languages/character-lookup';
-import { OUTPUT_LANGUAGE, TARGET_LANGUAGE } from '../languages/selection';
+import { TARGET_LANGUAGE } from '../languages/selection';
+import { translationOutputLanguage } from '../translation/languages';
 import { immersionKitCapabilitiesFor } from '../sources/examples/immersion-kit';
 import { abortPendingTargetExampleSources, installTargetExampleSources } from '../sources/examples/mount';
 import { applyInterfaceLocaleToRoot } from '../locales/direction';
@@ -7624,7 +7625,7 @@ export class ReaderApp {
     private async performPopoverJapaneseParse(popover: HTMLElement): Promise<void> {
         installProviderExampleBehaviors(popover, {
             interfaceLanguage: this.settings.interfaceLanguage,
-            outputLanguage: OUTPUT_LANGUAGE,
+            outputLanguage: translationOutputLanguage(this.settings),
             blurTranslations: this.settings.immersionKitRevealTranslationOnClick,
             translate: translateJapaneseSentence,
             isCurrentRoot: root => this.isCurrentPopoverRoot(root),

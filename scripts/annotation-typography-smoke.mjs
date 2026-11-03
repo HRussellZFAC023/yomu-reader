@@ -11,8 +11,8 @@
 // computed result in real engines:
 //   * each word's base glyphs compute the same font as the host text around it;
 //   * each reading is half the base size, regular weight, the page's face and
-//     kana set solid, one muted colour for linked and plain words
-//     alike, at 4.5:1;
+//     kana set solid, and the same ink as its own base word, including links
+//     (ADR-0026's W1-63 update supersedes the former paragraph-wide muted ink);
 //   * each reading is centred over its own word and clear of its neighbours;
 //   * a reading wider than its kanji overhangs the plain words and text beside
 //     it, out of its own link too, so the kanji keeps its place in the line
@@ -239,7 +239,7 @@ async function checkScenario(browser, engine, theme) {
         await page.waitForTimeout(200);
         const switched = await page.evaluate(measurePage);
         report.runs[`${id}-theme-switch`] = switched;
-        judgeReadings(`${id}-theme-switch`, switched, opposite.paper);
+        judgeReadings(`${id}-theme-switch`, switched);
         judgeStudyState(`${id}-theme-switch`, switched, opposite.paper);
     } finally {
         await context.close();
@@ -248,7 +248,7 @@ async function checkScenario(browser, engine, theme) {
 
 function judge(id, measured, paper) {
     judgeWords(id, measured);
-    judgeReadings(id, measured, paper);
+    judgeReadings(id, measured);
     judgeStudyState(id, measured, paper);
     judgeOverhang(id, measured);
     judgeLineEdges(id, measured);
@@ -263,12 +263,10 @@ function judgeWords(id, measured) {
     if (measured.footnoteWords) fail(`${id}: the footnote marker was annotated.`, measured);
 }
 
-function judgeReadings(id, measured, paper) {
+function judgeReadings(id, measured) {
     for (const paragraph of ['sentence', 'linked']) {
         const readings = measured.readings.filter(reading => reading.paragraph === paragraph);
         if (!readings.length) fail(`${id}: #${paragraph} shows no readings.`, measured);
-        const colours = new Set(readings.map(reading => reading.color));
-        if (colours.size !== 1) fail(`${id}: #${paragraph} readings use ${colours.size} colours (${[...colours].join(', ')}).`, readings);
     }
     for (const reading of measured.readings) {
         const expectedSize = Math.max(6, reading.baseFontSize * 0.5);
@@ -277,7 +275,7 @@ function judgeReadings(id, measured, paper) {
         if (reading.fontFamily !== reading.baseFontFamily) fail(`${id}: reading ${reading.text} is set in ${reading.fontFamily}.`, reading);
         if (reading.letterSpacing !== 'normal' && Number.parseFloat(reading.letterSpacing) !== 0) fail(`${id}: reading ${reading.text} is not set solid (${reading.letterSpacing}).`, reading);
         if (reading.fontFeatureSettings !== 'normal') fail(`${id}: reading ${reading.text} takes host font features (${reading.fontFeatureSettings}).`, reading);
-        if (contrast(reading.color, paper) < 4.5) fail(`${id}: reading ${reading.text} (${reading.color}) is below 4.5:1 on ${paper}.`, reading);
+        if (reading.color !== reading.baseColor) fail(`${id}: reading ${reading.text} uses ${reading.color}, not its base word's ink (${reading.baseColor}).`, reading);
         if (Math.abs(reading.centre - reading.baseCentre - (reading.marginStart - reading.marginEnd) / 2) > 1.5) fail(`${id}: reading ${reading.text} is off its word's centre by ${(reading.centre - reading.baseCentre).toFixed(1)}px.`, reading);
     }
     for (const [left, right] of measured.readingNeighbours) {
@@ -408,6 +406,7 @@ function measurePage() {
             letterSpacing: style.letterSpacing,
             baseFontSize: Number.parseFloat(baseStyle.fontSize),
             baseFontFamily: baseStyle.fontFamily,
+            baseColor: baseStyle.color,
             baseLetterSpacing: baseStyle.letterSpacing,
             fontFeatureSettings: style.fontFeatureSettings,
             left: rect.left,

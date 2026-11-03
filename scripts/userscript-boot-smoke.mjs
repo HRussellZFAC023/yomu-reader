@@ -17,6 +17,7 @@ import {
     addScriptTagWithCspFallback,
     installUserscriptCssResource,
 } from './lib/smoke-test-helpers.mjs';
+import { runPreferredSiteLanguageRegressions } from './lib/preferred-site-language-smoke.mjs';
 
 const { cssPath: CSS_PATH, root: ROOT, scriptPath: SCRIPT_PATH } = createSmokePaths(import.meta.dirname);
 assertBuiltArtifacts([SCRIPT_PATH, CSS_PATH], ROOT);
@@ -62,6 +63,7 @@ try {
     const reports = [
         await bootScenario('plain', fixture.origin, 'ja'),
         await bootScenario('youtube', 'https://www.youtube.com/watch?v=yomu-runtime-boot', 'ko'),
+        ...await runPreferredSiteLanguageRegressions(browser, { scriptPath: SCRIPT_PATH, cssPath: CSS_PATH }),
     ];
     console.log(JSON.stringify({ fixture: true, reports }, null, 2));
     console.log('userscript boot smoke passed');

@@ -1981,9 +1981,8 @@ export class ImageOcrController {
         this.schedulePosition();
     }
 
-    // Reveal the rest of the overlay once OCR has produced text: the frame image
-    // and status indicator un-gate (the resume/play control is already visible from the
-    // moment the video paused), so the readable text appears with its status.
+    // Mark the frame ready and reveal its status after text is recognized. The
+    // raster remains invisible so the original player's controls and captions paint.
     private revealVideoFrameOverlay(image: HTMLImageElement): void {
         if (!this.videoFrameVideos.has(image)) return;
         setPrivateRasterClass(image, 'jpdb-ocr-video-frame-pending', false);

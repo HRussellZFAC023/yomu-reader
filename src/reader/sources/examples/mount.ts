@@ -1,6 +1,7 @@
 import { escapeHtml, htmlToFirstElement } from '../../dom/index';
 import { uiText } from '../../app/i18n';
-import { OUTPUT_LANGUAGE, TARGET_LANGUAGE } from '../../languages/selection';
+import { TARGET_LANGUAGE } from '../../languages/selection';
+import { translationOutputLanguage } from '../../translation/languages';
 import { installProviderTranslationReveal } from '../provider-examples';
 import { exampleSourceStateKey, renderExampleSourceRow } from './availability-render';
 import { declaredExampleCapabilities, exampleSourcesForTarget } from './registry';
@@ -21,7 +22,7 @@ const DEFAULT_EXAMPLE_LIMIT = 8;
  */
 export function renderTargetExampleSourceMounts(settings: ReaderSettings, sourceAttributes: SourceAttributes): string {
     const targetLanguage = TARGET_LANGUAGE;
-    const outputLanguage = OUTPUT_LANGUAGE;
+    const outputLanguage = translationOutputLanguage(settings);
     return declaredExampleCapabilities(targetLanguage).map(row => {
         if (!row.capabilities.supported) {
             return renderExampleSourceRow({
@@ -116,7 +117,7 @@ async function loadOneSource(
     controller: AbortController,
 ): Promise<void> {
     const targetLanguage = TARGET_LANGUAGE;
-    const outputLanguage = OUTPUT_LANGUAGE;
+    const outputLanguage = translationOutputLanguage(options.settings);
     let collection: ExampleCollection<ExampleRecord>;
     try {
         collection = await adapter.search({

@@ -11,15 +11,13 @@
 // Uses a plain WebKit/Chromium touch context (NOT devices['iPad …']) because the
 // mobile-emulation screen scale desyncs tap(x,y) from layout coordinates.
 // Requires `npm run build` first (OCR ships in the yomu-video companion).
-import { chromium, firefox, webkit } from 'playwright';
 import path from 'node:path';
-import { mkdirSync, writeFileSync } from 'node:fs';
-import { createSmokePaths, addGmStorageBridgeInitScript, makePng, YOMU_SETTINGS_KEY } from './lib/smoke-harness.mjs';
-import { addScriptTagWithCspFallback, installUserscriptCssResource } from './lib/smoke-test-helpers.mjs';
+import { writeFileSync } from 'node:fs';
+import { addGmStorageBridgeInitScript, makePng, YOMU_SETTINGS_KEY } from './lib/smoke-harness.mjs';
+import { bookwalkerSmokePaths, openBookwalkerSmoke, bootBookwalkerSmoke, routeBookwalkerFixture } from './lib/bookwalker-smoke.mjs';
 
-const { scriptPath: SCRIPT_PATH, cssPath: CSS_PATH, dist: DIST, artifacts: ARTIFACTS } = createSmokePaths(import.meta.dirname);
-const ARTIFACT_DIR = path.join(ARTIFACTS, 'bookwalker-tap-passthrough');
-const COMPANIONS = ['yomu-anki', 'yomu-kanji-study', 'yomu-settings-surface', 'yomu-video', 'yomu-ocr-manga'].map(n => path.join(DIST, 'greasyfork', `${n}.user.js`));
+const PATHS = bookwalkerSmokePaths(import.meta.dirname, 'bookwalker-tap-passthrough');
+const ARTIFACT_DIR = PATHS.artifactDir;
 const BRIDGE = '__yomuTapRequest';
 const IMG_URL = 'https://c.bookwalker.jp/scrambled/page-001.png';
 
@@ -42,28 +40,68 @@ const MOCK_OCR = { width: 800, height: 1130, lines: [{ text: 'ずっと秘密に
 const POPOVER_SEL = '.jpdb-reader-popover[data-jpdb-reader-root="true"]';
 const failures = [];
 const rows = [];
-mkdirSync(ARTIFACT_DIR, { recursive: true });
 
-async function runCase(engineName) {
-    const engine = engineName === 'webkit' ? webkit : engineName === 'firefox' ? firefox : chromium;
-    const browser = await engine.launch({ headless: true });
-    const ctx = await browser.newContext({ viewport: { width: 900, height: 1300 }, hasTouch: true, locale: 'ja-JP', bypassCSP: true });
-    const page = await ctx.newPage();
+async function installTapFixture(page, ctx) {
     await page.exposeFunction(BRIDGE, async req => { const u = req.url || ''; if (u === IMG_URL) return { status: 200, bytes: [...PAGE_PNG], contentType: 'image/png', responseText: '' }; if (/7331|\/ocr(\?|$)/.test(u)) return { status: 200, responseText: JSON.stringify(MOCK_OCR) }; return { status: 503, responseText: '' }; });
     await addGmStorageBridgeInitScript(page, { key: YOMU_SETTINGS_KEY, value: SETTINGS, requestBridgeName: BRIDGE });
-    await ctx.route('**/*', r => { const url = r.request().url(); if (url.startsWith('blob:') || url.startsWith('data:')) return r.continue(); const u = new URL(url); if (u.href === IMG_URL) return r.fulfill({ status: 200, contentType: 'image/png', body: PAGE_PNG }); if (u.hostname === 'viewer.bookwalker.jp') return r.fulfill({ status: 200, contentType: 'text/html; charset=utf-8', body: fixtureHtml() }); return r.fulfill({ status: 404, body: '' }); });
+    await routeBookwalkerFixture(ctx, new Map([[IMG_URL, PAGE_PNG]]), fixtureHtml());
+}
+
+async function waitForTapOverlay(page, timeoutMs) {
+    const start = Date.now();
+    while (Date.now() - start < timeoutMs) {
+        if (await page.evaluate(() => document.querySelectorAll('.jpdb-ocr-line .jpdb-reader-word').length) >= 1) return true;
+        await page.waitForTimeout(100);
+    }
+    return false;
+}
+
+async function waitForWordPopover(page) {
+    try {
+        await page.waitForFunction(s => {
+            const root = document.querySelector(s);
+            if (!root) return false;
+            return [
+                root.getAttribute('role') === 'dialog',
+                root.querySelector('.jpdb-reader-popover-body'),
+                baseSpelling(root).replace(/\s+/gu, '') === '秘密',
+            ].every(Boolean);
+
+            function baseSpelling(popover) {
+                const spelling = popover.querySelector('.jpdb-reader-spelling');
+                if (!spelling) return '';
+                const clone = spelling.cloneNode(true);
+                // Only base text counts; ruby fallback parentheses are not part of the headword.
+                clone.querySelectorAll('rt, rp').forEach(node => node.remove());
+                return clone.textContent ?? '';
+            }
+        }, POPOVER_SEL, { timeout: 6000 });
+        return true;
+    } catch {
+        return false;
+    }
+}
+
+function recordTapResult(result) {
+    const { engineName, ok, rendered, wordTurns, popover, scannerIsolated, overlayKept, marginTurns } = result;
+    console.log(`${ok ? 'PASS' : 'FAIL'}: ${engineName} — wordTurns=${wordTurns}(want 0) lookup=${popover} scannerIsolated=${scannerIsolated} overlayKept=${overlayKept} marginTurns=${marginTurns}(want >0)${rendered ? '' : ' [overlay never rendered]'}`);
+    rows.push(result);
+    if (!ok) failures.push(engineName);
+}
+
+async function runCase(engineName) {
+    const { browser, context: ctx, page } = await openBookwalkerSmoke(engineName, {
+        viewport: { width: 900, height: 1300 }, hasTouch: true,
+    });
+    await installTapFixture(page, ctx);
     await page.goto('https://viewer.bookwalker.jp/de_x/', { waitUntil: 'domcontentloaded', timeout: 30000 });
-    await installUserscriptCssResource(page, CSS_PATH).catch(() => page.addStyleTag({ path: CSS_PATH }).catch(() => {}));
-    for (const c of COMPANIONS) await addScriptTagWithCspFallback(page, c).catch(() => {});
-    await addScriptTagWithCspFallback(page, SCRIPT_PATH);
-    await page.waitForTimeout(900);
+    await bootBookwalkerSmoke(page, PATHS, { ignoreCssFailure: true });
     await page.evaluate(() => window.__draw());
     await page.waitForTimeout(300);
     // Scan the page (a bare-canvas tap — the genuine turn zone — renders the overlay).
     const c = await page.evaluate(() => { const r = document.querySelector('#c0').getBoundingClientRect(); return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + 110) }; });
     await page.touchscreen.tap(c.x, c.y);
-    let rendered = false; const start = Date.now();
-    while (Date.now() - start < 8000) { if (await page.evaluate(() => document.querySelectorAll('.jpdb-ocr-line .jpdb-reader-word').length) >= 1) { rendered = true; break; } await page.waitForTimeout(100); }
+    const rendered = await waitForTapOverlay(page, 8000);
     // Arm the page-turn handlers now (so the scan tap above doesn't count).
     await page.evaluate(() => { window.__armTurn(); window.__turns = 0; });
     // 1) Control FIRST (before any lookup popover can cover the margin): a bare-canvas
@@ -73,8 +111,7 @@ async function runCase(engineName) {
     await page.waitForTimeout(300);
     const marginTurns = await page.evaluate(() => window.__turns);
     // Re-scan settles the overlay back; wait for the word again, then reset the counter.
-    const restart = Date.now();
-    while (Date.now() - restart < 6000) { if (await page.evaluate(() => document.querySelectorAll('.jpdb-ocr-line .jpdb-reader-word').length) >= 1) break; await page.waitForTimeout(100); }
+    await waitForTapOverlay(page, 6000);
     await page.evaluate(() => { window.__turns = 0; });
     const w = await page.evaluate(() => {
         const baseText = word => {
@@ -101,39 +138,14 @@ async function runCase(engineName) {
     });
     // 2) Tap the WORD: must NOT turn, must open the lookup, must keep the overlay.
     await page.touchscreen.tap(w.x, w.y);
-    let popover = false;
-    try {
-        await page.waitForFunction(s => {
-            const root = document.querySelector(s);
-            return Boolean(
-                root
-                && root.getAttribute('role') === 'dialog'
-                && root.querySelector('.jpdb-reader-popover-body')
-                // Exact, with furigana rt/rp stripped: renderRuby interleaves
-                // `<rp>(</rp>…<rp>)</rp>`, and `includes` would also pass for a
-                // popover showing a longer word that merely contains this one.
-                && (() => {
-                    const spelling = root.querySelector('.jpdb-reader-spelling');
-                    if (!spelling) return false;
-                    const clone = spelling.cloneNode(true);
-                    clone.querySelectorAll('rt, rp').forEach(node => node.remove());
-                    return (clone.textContent ?? '').replace(/\s+/gu, '') === '秘密';
-                })()
-            );
-        }, POPOVER_SEL, { timeout: 6000 });
-        popover = true;
-    } catch {
-        popover = false;
-    }
+    const popover = await waitForWordPopover(page);
     const wordTurns = await page.evaluate(() => window.__turns);
     const overlayKept = await page.evaluate(() => document.querySelectorAll('.jpdb-ocr-line .jpdb-reader-word').length) >= 1;
     const screenshot = path.join(ARTIFACT_DIR, `${engineName}.png`);
     await page.screenshot({ path: screenshot, fullPage: false }).catch(() => undefined);
 
-    const ok = rendered && w && scannerIsolated && wordTurns === 0 && popover && overlayKept && marginTurns > 0;
-    console.log(`${ok ? 'PASS' : 'FAIL'}: ${engineName} — wordTurns=${wordTurns}(want 0) lookup=${popover} scannerIsolated=${scannerIsolated} overlayKept=${overlayKept} marginTurns=${marginTurns}(want >0)${rendered ? '' : ' [overlay never rendered]'}`);
-    rows.push({ engineName, ok, rendered, wordTurns, popover, scannerIsolated, overlayKept, marginTurns, screenshot });
-    if (!ok) failures.push(engineName);
+    const ok = [rendered, w, scannerIsolated, wordTurns === 0, popover, overlayKept, marginTurns > 0].every(Boolean);
+    recordTapResult({ engineName, ok, rendered, wordTurns, popover, scannerIsolated, overlayKept, marginTurns, screenshot });
     await ctx.close();
     await browser.close();
 }

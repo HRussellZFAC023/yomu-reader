@@ -33,6 +33,7 @@ import {
     writePrefixedGmValues,
 } from './hosted-study-harness.mjs';
 import { seedPageLocalDictionaries } from './lookup-perf-fixture.mjs';
+import { proveAsynchronousDefinitionOrder } from './definition-order-async-proof.mjs';
 
 const { artifacts: ARTIFACTS, scriptPath: SCRIPT_PATH, cssPath: CSS_PATH } = createSmokePaths(path.join(import.meta.dirname, '..'));
 const REQUEST_BRIDGE_NAME = '__yomuDictionaryOrderRequest';
@@ -83,7 +84,18 @@ export async function proveDictionaryOrder(browser) {
         const beforeReorder = await lookUpOnOrdinaryPage(browser, server.origin, study.gmAfterImport, [ALPHA, BETA], 'after-import');
         const afterReorder = await lookUpOnOrdinaryPage(browser, server.origin, study.gmAfterAppend, [ALPHA, BETA, GAMMA], 'after-reorder');
         assertOrdinaryLookups(study, beforeReorder, afterReorder);
-        return { study: study.evidence, kanji, ordinary: { beforeReorder, afterReorder } };
+        const asynchronous = await proveAsynchronousDefinitionOrder(browser, {
+            origin: server.origin,
+            pagePath: PAGE_PATH,
+            term: LIBRARY,
+            dictionaries: [ALPHA, BETA, GAMMA],
+            gmValues: study.gmForAsync,
+            disabledGmValues: study.gmWithJitenDisabled,
+            gmStoragePrefix: GM_STORAGE_PREFIX,
+            requestBridgeName: REQUEST_BRIDGE_NAME,
+            externalResponse,
+        });
+        return { study: study.evidence, kanji, ordinary: { beforeReorder, afterReorder }, asynchronous };
     } finally {
         await closeServer(server.server);
     }
@@ -158,10 +170,25 @@ async function proveOrderOnStudy(browser) {
 
         assert(sameList(importedLookup, [JITEN.id, ALPHA.title, BETA.title]), 'Study lookup did not follow the imported order', { importedLookup });
         assert(sameList(reorderedLookup, [BETA.title, JITEN.id, ALPHA.title]), 'Study lookup did not follow the chosen order', { reorderedLookup });
+
+        // Keep a local source first, but put JPDB ahead of Jiten too. The async
+        // popup proof uses this actual Save, not hand-written priority values.
+        await moveRow(page, '__jpdb__', 'up', rows => rows[1] === '__jpdb__');
+        const remoteChosen = await sourceRows(page);
+        await saveSettings(page);
+        await page.reload({ waitUntil: 'domcontentloaded' });
+        const remoteReloaded = await openSettingsFromStudyMenu(page);
+        assert(sameList(remoteReloaded, remoteChosen), 'JPDB-before-Jiten order did not survive Save and reload', { remoteChosen, remoteReloaded });
+        const gmForAsync = await readPrefixedGmValues(page, GM_STORAGE_PREFIX);
+        await page.locator(`${SOURCES_EDITOR} [data-source-id="${JITEN.id}"] [data-source-enable-toggle]`).uncheck();
+        await saveSettings(page);
+        const gmWithJitenDisabled = await readPrefixedGmValues(page, GM_STORAGE_PREFIX);
         return {
             builtIns,
             gmAfterImport,
             gmAfterAppend,
+            gmForAsync,
+            gmWithJitenDisabled,
             evidence: {
                 imported,
                 chosen,
@@ -172,6 +199,7 @@ async function proveOrderOnStudy(browser) {
                 firstSaveAfterImport: { byteIdenticalApartFromCommitId: true, commitIds: [importedRecord.commit, firstSave.commit] },
                 untouchedSave: { byteIdenticalApartFromCommitId: true, commitIds: [saved.commit, untouched.commit] },
                 studyLookup: { imported: importedLookup, reordered: reorderedLookup },
+                remoteOrder: { chosen: remoteChosen, reloaded: remoteReloaded },
             },
         };
     } finally {

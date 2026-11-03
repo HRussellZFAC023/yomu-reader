@@ -6,12 +6,10 @@ const HOST_CLASS = 'jpdb-subtitle-layer-host';
 const youtubeCaptionLayerAdapter = {
     host: (video: HTMLVideoElement) => video.closest<HTMLElement>('#movie_player, .html5-video-player, ytm-player, ytd-player'),
     chromeTier: (host: HTMLElement) => Math.max(0, ...Array.from(host.querySelectorAll('.ytp-chrome-top, .ytp-chrome-bottom'),
-        element => Number.parseInt(getComputedStyle(element).zIndex) || 0)) + 1,
+        element => Number.parseInt(getComputedStyle(element).zIndex) || 0)),
 };
 
 function captionLayerTier(host: HTMLElement | undefined, player: HTMLElement | undefined, video: HTMLVideoElement | undefined): number {
-    // The YouTube Adapter follows native chrome, below its menus.
-    if (host && isYouTubePage()) return youtubeCaptionLayerAdapter.chromeTier(host);
     // Inside a generic player, follow the video's outermost local tier.
     // A dragged caption instead shares the player's outer page tier.
     let tier = 0;
@@ -20,6 +18,9 @@ function captionLayerTier(host: HTMLElement | undefined, player: HTMLElement | u
         const value = Number.parseInt(getComputedStyle(ancestor).zIndex);
         if (Number.isFinite(value)) tier = value;
     }
+    // Mobile YouTube can omit desktop chrome while its video container still
+    // owns a positive layer. Follow both surfaces, below the native menus.
+    if (host && isYouTubePage()) return Math.max(tier, youtubeCaptionLayerAdapter.chromeTier(host)) + 1;
     return host ? Math.max(0, tier) + 1 : tier;
 }
 

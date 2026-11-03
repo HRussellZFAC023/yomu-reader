@@ -152,9 +152,8 @@ function normalizeLanguageProfile(
 }
 
 /**
- * Yomu reads Japanese with English definitions (ADR-0024), and nothing reads
- * these two fields at runtime. What an earlier Yomu stored is kept verbatim, so
- * Saving settings never rewrites what the learner once chose.
+ * Japanese lookup and English definitions remain fixed (ADR-0024). Stored
+ * targets are preserved; outputLanguage now selects automatic translations.
  */
 function storedTargetLanguage(value: unknown): LanguageTag {
     return canonicalLanguageTag(value) ?? 'ja';

@@ -19,6 +19,17 @@ import { ensureManagedWebStorageCurrentSync, managedLocalStorage } from '../../s
 
 const SITE_PREFERENCE_CACHE_KEY = 'yomu:prefer-japanese-site-language';
 
+function installNavigableLocation(href: string) {
+    const url = new URL(href);
+    const siteLocation = {
+        href, hostname: url.hostname, protocol: url.protocol,
+        replace: vi.fn((next: string) => { siteLocation.href = next; }),
+    };
+    vi.stubGlobal('unsafeWindow', window);
+    vi.stubGlobal('location', siteLocation);
+    return siteLocation;
+}
+
 function installCurrentPreference(preferJapaneseSiteLanguage: boolean, dedicated: Record<string, unknown> = {}): void {
     const stored: Record<string, unknown> = {
         ...serializeSettingsPersistencePair({
@@ -738,14 +749,7 @@ describe('preferred Japanese site language', () => {
     it('restores the exact pre-redirect locale markers on an active opt-out', () => {
         const originalHref = 'https://www.youtube.com/watch?v=abc123&hl=en&gl=GB';
         const japaneseHref = 'https://www.youtube.com/watch?v=abc123&hl=ja&gl=JP';
-        const siteLocation = {
-            href: originalHref,
-            hostname: 'www.youtube.com',
-            protocol: 'https:',
-            replace: vi.fn((href: string) => { siteLocation.href = href; }),
-        };
-        vi.stubGlobal('unsafeWindow', window);
-        vi.stubGlobal('location', siteLocation);
+        const siteLocation = installNavigableLocation(originalHref);
 
         applyPreferredJapaneseSiteLanguage(true);
         expect(siteLocation.href).toBe(japaneseHref);
@@ -783,6 +787,24 @@ describe('preferred Japanese site language', () => {
         expect(document.cookie).not.toContain('hl=ja');
         expect(document.cookie).not.toContain('gl=JP');
         expect(replace).toHaveBeenCalledWith('https://www.google.com/search?q=nihongo');
+    });
+
+    it('holds active opt-out navigation until persistence and retains the exact original URL', () => {
+        const originalHref = 'https://www.reddit.com/r/LearnJapanese/?locale=en-GB';
+        const japaneseHref = 'https://www.reddit.com/r/LearnJapanese/?locale=ja-JP';
+        const siteLocation = installNavigableLocation(originalHref);
+        applyPreferredJapaneseSiteLanguage(true);
+        expect(siteLocation.href).toBe(japaneseHref);
+        siteLocation.replace.mockClear();
+
+        applyPreferredJapaneseSiteLanguage(false, false, true);
+
+        expect(siteLocation.replace).not.toHaveBeenCalled();
+        expect(siteLocation.href).toBe(japaneseHref);
+        expect(managedLocalStorage.getItem(SITE_PREFERENCE_CACHE_KEY)).toBe('false');
+        applyPreferredJapaneseSiteLanguage(false, true);
+        expect(siteLocation.replace).toHaveBeenCalledTimes(1);
+        expect(siteLocation.replace).toHaveBeenCalledWith(originalHref);
     });
 
     it('drops a Japanese path locale segment rather than guessing an English one', () => {

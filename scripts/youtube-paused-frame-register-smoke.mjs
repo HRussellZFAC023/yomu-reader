@@ -24,6 +24,8 @@
 // the frame (control — never displaced, so a pass proves the fixture measures register
 // rather than luck), and a line whose ink runs into the last rows of the picture (the
 // frame edge must still clamp it inside).
+// Completed captures must also leave native chrome painted: pointer-events:none alone
+// allows clicks through an opaque snapshot that still hides the controls and captions.
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -41,6 +43,8 @@ const FRAME_HEIGHT = 540;
 const FRAME_LEFT = 160;
 const FRAME_TOP = 40;
 const FONT_PX = 34;
+const NATIVE_CONTROL_RGB = [18, 102, 55];
+const NATIVE_CAPTION_RGB = [98, 36, 140];
 // Baseline of the painted line, in frame pixels. 'subtitle' is where a burned-in caption
 // sits (inside the old 64px inset), 'middle' is the untouched control, 'flush' runs the
 // ink into the last rows of the picture.
@@ -99,11 +103,12 @@ function fixtureHtml(baseline) {
 html, body { margin: 0; background: #0f0f0f; overflow: hidden; }
 #movie_player { position: fixed; left: ${FRAME_LEFT}px; top: ${FRAME_TOP}px; width: ${FRAME_WIDTH}px; height: ${FRAME_HEIGHT}px; }
 #movie_player video { width: ${FRAME_WIDTH}px; height: ${FRAME_HEIGHT}px; background: #1b2430; }
-/* The player's own control strip, drawn where YouTube draws it. The overlay paints above
-   it, which is why yielding the band cost register without buying visibility. */
-.ytp-chrome-bottom { position: absolute; left: 12px; right: 12px; bottom: 12px; height: 40px; background: rgba(0,0,0,0.5); }
+/* A distinctive fixture colour makes real browser pixels, rather than hit testing,
+   prove that the completed snapshot does not paint over the native controls. */
+.ytp-chrome-bottom { position: absolute; left: 12px; right: 12px; bottom: 12px; height: 40px; background: rgb(${NATIVE_CONTROL_RGB.join(',')}); }
+.ytp-caption-window-container { position: absolute; left: 12px; top: 12px; width: 130px; height: 24px; background: rgb(${NATIVE_CAPTION_RGB.join(',')}); }
 </style></head><body>
-<div id="movie_player" class="html5-video-player"><video id="player-video" preload="none"></video><div class="ytp-chrome-bottom"></div></div>
+<div id="movie_player" class="html5-video-player"><video id="player-video" preload="none"></video><div class="ytp-chrome-bottom"></div><div class="ytp-caption-window-container"></div></div>
 <script>${bundle}</script>
 <script>
 window.__register = (async () => {
@@ -131,6 +136,9 @@ window.__register = (async () => {
     const frameDataUrl = canvas.toDataURL('image/jpeg', 0.92);
 
     const video = document.getElementById('player-video');
+    // The paused video already presents these pixels; the OCR raster only needs
+    // to retain them for recognition and overlay geometry.
+    video.poster = frameDataUrl;
     // A src-less <video> is already paused; the intrinsic size is what the content box
     // (and therefore the overlay's fractional geometry) is computed from.
     Object.defineProperty(video, 'videoWidth', { configurable: true, value: ${FRAME_WIDTH} });
@@ -226,8 +234,30 @@ async function measureCell(cell) {
         // An OCR line is transparent at rest (the words under it are the visible text), so
         // outline the measured box purely so the saved artifact shows what was measured.
         await page.addStyleTag({ content: '.jpdb-ocr-line { outline: 2px solid #ff3b6b !important; }' });
-        await page.screenshot({ path: path.join(ARTIFACT_DIR, `${cell}.png`) });
-        return measurement;
+        const screenshot = await page.screenshot({ path: path.join(ARTIFACT_DIR, `${cell}.png`) });
+        const [controlPixel, captionPixel] = await page.evaluate(async ({ base64, points }) => {
+            const image = new Image();
+            image.src = `data:image/png;base64,${base64}`;
+            await image.decode();
+            const canvas = document.createElement('canvas');
+            canvas.width = image.naturalWidth;
+            canvas.height = image.naturalHeight;
+            const context = canvas.getContext('2d');
+            context.drawImage(image, 0, 0);
+            return points.map(({ x, y }) => [...context.getImageData(x, y, 1, 1).data].slice(0, 3));
+        }, { base64: screenshot.toString('base64'), points: [
+            { x: FRAME_LEFT + FRAME_WIDTH - 20, y: FRAME_TOP + FRAME_HEIGHT - 24 },
+            { x: FRAME_LEFT + 20, y: FRAME_TOP + 20 },
+        ] });
+        await page.evaluate(() => {
+            window.__lookupClick = false;
+            document.addEventListener('click', event => {
+                if (event.target.closest?.('.jpdb-ocr-line .jpdb-reader-word')) window.__lookupClick = event.isTrusted;
+            }, true);
+        });
+        await page.locator('.jpdb-ocr-line .jpdb-reader-word').first().click();
+        const lookupClick = await page.evaluate(() => window.__lookupClick);
+        return { ...measurement, controlPixel, captionPixel, lookupClick };
     } finally {
         await context.close();
         await browser.close();
@@ -245,6 +275,13 @@ for (const cell of Object.keys(BASELINES)) {
         if (m.verticalOverlap < MIN_VERTICAL_OVERLAP) reasons.push(`covers only ${(m.verticalOverlap * 100).toFixed(0)}% of the line height`);
         if (m.centerOffset > MAX_CENTER_OFFSET_PX) reasons.push(`off-centre by ${m.centerOffset.toFixed(1)}px`);
         if (!m.insideFrame) reasons.push('escaped the picture');
+        if (m.controlPixel.some((value, index) => Math.abs(value - NATIVE_CONTROL_RGB[index]) > 2)) {
+            reasons.push(`completed OCR snapshot painted over native controls (${m.controlPixel.join(',')})`);
+        }
+        if (m.captionPixel.some((value, index) => Math.abs(value - NATIVE_CAPTION_RGB[index]) > 2)) {
+            reasons.push(`completed OCR snapshot painted over native captions (${m.captionPixel.join(',')})`);
+        }
+        if (!m.lookupClick) reasons.push('OCR text did not receive a trusted lookup click');
         const ok = reasons.length === 0;
         console.log(`${ok ? 'PASS' : 'FAIL'}: ${cell} — lift ${m.lift.toFixed(1)}px, overlap ${(m.verticalOverlap * 100).toFixed(0)}%, centre ${m.centerOffset.toFixed(1)}px${ok ? '' : ` — ${reasons.join('; ')}`}`);
         if (!ok) failures.push(`${cell}: ${reasons.join('; ')}`);
@@ -256,9 +293,9 @@ for (const cell of Object.keys(BASELINES)) {
 }
 
 console.log('\n================ SUMMARY ================');
-for (const row of rows) console.log(`${row.cell.padEnd(10)} ${row.ok ? 'in register' : 'OUT OF REGISTER'} (lift ${row.lift.toFixed(1)}px)`);
+for (const row of rows) console.log(`${row.cell.padEnd(10)} ${row.ok ? 'PASS' : 'FAIL'} (lift ${row.lift.toFixed(1)}px)`);
 console.log(`screenshots: ${path.relative(ROOT, ARTIFACT_DIR)}`);
 console.log(failures.length
     ? `\nFAILURES (${failures.length}): ${failures.join(' | ')}`
-    : '\nALL PASS — paused-frame OCR sits on the text it was read from, bottom subtitles included');
+    : '\nALL PASS — paused-frame OCR stays in register, native controls stay painted and text receives lookup clicks');
 process.exit(failures.length ? 1 : 0);

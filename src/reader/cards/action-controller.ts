@@ -4,6 +4,7 @@ import { copyText } from '../ui/browser';
 import { PreparedBatchActions } from './prepared-batch-actions';
 import { findWordsOnService } from './grading-service-word';
 import { retireGradeKeyHints } from './grade-key-hints';
+import { clearCollectionSaveFailure, recordCollectionSaveFailure } from './collection-save-failure';
 import { Logger } from '../app/logger';
 import type { CardActionControl } from './action-operation';
 import { normalizeCardStates } from './state';
@@ -274,7 +275,7 @@ export class CardActionController {
 
     private miningActionHandler(command: CardCommandCapability, button: HTMLButtonElement | null, card: JPDBCard, sentence: string | undefined, context: CardActionContext): MiningActionHandler | undefined {
         const handlers: Record<string, MiningActionHandler | undefined> = {
-            add: () => this.collect(context, collectContext => this.addToSelectedDeck(command, card, sentence, collectContext)),
+            add: () => this.collect(command, card, context, collectContext => this.addToSelectedDeck(command, card, sentence, collectContext)),
             anki: () => this.addToAnki(card, sentence, undefined, context),
             'anki-edit': () => this.openAnkiNote(command),
             'anki-merge': button ? () => this.mergeExistingAnkiCard(command, button, card, sentence, context) : undefined,
@@ -447,13 +448,18 @@ export class CardActionController {
 
     // An ordinary page renders this save and can read what it reports (ADR-0020):
     // a confirmation or failure there names no service, deck or Anki state.
-    private async collect(context: CardActionContext, save: (context: CardActionContext) => Promise<void>): Promise<void> {
-        if (this.accountDataSurfaceTrusted()) return save(context);
+    private async collect(command: CardCommandCapability, card: JPDBCard, context: CardActionContext, save: (context: CardActionContext) => Promise<void>): Promise<void> {
+        const trusted = this.accountDataSurfaceTrusted();
+        const target = { spelling: card.spelling, reading: card.reading, destination: selectedDeckChoice(command, this.options.getSettings()).source };
         try {
-            await save({ ...context, privately: true });
+            await save(trusted ? context : { ...context, privately: true });
         } catch (error) {
-            throw privateCollectionFailure(error);
+            let recorded = true;
+            await recordCollectionSaveFailure(target, error).catch(() => { recorded = false; });
+            if (trusted) throw error;
+            throw recorded ? privateCollectionFailure(error) : userFacingError('collectDetailsUnavailable', { cause: error });
         }
+        await clearCollectionSaveFailure(target).catch(error => log.warn('Clearing the saved word failure notice failed', error));
     }
 
     private accountDataSurfaceTrusted(): boolean {

@@ -6,6 +6,10 @@
 // source that could never render (user-reported: settings listed six sources,
 // the popover showed none of them).
 //
+// First reopen generated pre-update libraries without importing again. Both a
+// pre-marker database after a past Factory Reset and the old full-row derived
+// indexes must retain the dated Jitendex title, enabled preference and lookup.
+//
 // Since 1.9.1 an ordinary page never shows the settings form or its dictionary
 // import; sensitive setup opens on Study. So the import runs where a learner
 // runs it: hosted Study (dist/newtab, served at its real https://yomureader.com
@@ -52,6 +56,7 @@ import {
     writePrefixedGmValues,
 } from './lib/hosted-study-harness.mjs';
 import { proveDictionaryOrder } from './lib/dictionary-order-proof.mjs';
+import { proveStoredDictionarySurvivesUpdate } from './lib/dictionary-update-proof.mjs';
 
 const { root: ROOT, artifacts: ARTIFACTS, scriptPath: SCRIPT_PATH, cssPath: CSS_PATH, newTabDir: NEWTAB_DIR } = createSmokePaths(import.meta.dirname);
 const PAGE_PATH = '/local-dictionary-upgrade.html';
@@ -110,10 +115,11 @@ const server = await startLoopbackServer((request, response) => {
 const browser = await launchSmokeBrowser(BROWSER_NAME === 'chromium' ? chromium : firefox, BROWSER_NAME, { headless: true });
 
 try {
+    const storedLibraryUpdate = await proveStoredDictionarySurvivesUpdate(browser, { scriptPath: SCRIPT_PATH, cssPath: CSS_PATH, settings });
     const study = await importRevisionsOnStudy();
     const offSite = await verifyOrdinarySiteHasNoCopy(study.gmValues);
     const dictionaryOrder = await proveDictionaryOrder(browser);
-    const report = { ok: true, browser: BROWSER_NAME, preferences: study.preferences, dom: study.dom, screenshot: study.screenshot, offSite, dictionaryOrder };
+    const report = { ok: true, browser: BROWSER_NAME, storedLibraryUpdate, preferences: study.preferences, dom: study.dom, screenshot: study.screenshot, offSite, dictionaryOrder };
     writeFileSync(path.join(ARTIFACTS, `local-dictionary-upgrade-${BROWSER_NAME}.json`), JSON.stringify(report, null, 2));
     console.log(JSON.stringify(report, null, 2));
     console.log('local-dictionary-upgrade smoke passed');

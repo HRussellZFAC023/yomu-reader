@@ -346,15 +346,24 @@ function isRetryablePerformanceFailure(message) {
 
 async function runEngine(engineName, browser) {
     const requests = [];
+    const browserSurface = { width: 760, height: 980 };
     const context = await browser.newContext({
         bypassCSP: true,
         colorScheme: 'dark',
         locale: 'ja-JP',
-        viewport: { width: 760, height: 980 },
+        viewport: browserSurface,
         hasTouch: true,
         isMobile: true,
         userAgent: IPAD_SAFARI_UA,
     });
+    // This fixture models an iPad web view, including its browser surface.
+    // Windows WebKit adds desktop window borders to outerWidth/outerHeight.
+    await context.addInitScript(surface => {
+        Object.defineProperties(window, {
+            outerWidth: { configurable: true, get: () => surface.width },
+            outerHeight: { configurable: true, get: () => surface.height },
+        });
+    }, browserSurface);
     const page = await context.newPage();
     const pageErrors = [];
     page.on('pageerror', error => pageErrors.push(String(error)));
@@ -1030,38 +1039,17 @@ async function snapshotAnchoredPopover(page) {
         const popover = document.querySelector('.jpdb-reader-popover:not(.jpdb-reader-sheet)');
         const anchor = document.querySelector('#popup-anchor .jpdb-reader-word');
         if (!(popover instanceof HTMLElement) || !(anchor instanceof HTMLElement)) return null;
-        const plainRect = rect => ({
-            left: rect.left,
-            top: rect.top,
-            right: rect.right,
-            bottom: rect.bottom,
-            width: rect.width,
-            height: rect.height,
-        });
         const pageScale = outerWidth / innerWidth;
         const anchorLayout = anchor.getBoundingClientRect();
-        const anchorOverlay = {
-            left: anchorLayout.left * pageScale,
-            top: anchorLayout.top * pageScale,
-            right: anchorLayout.right * pageScale,
-            bottom: anchorLayout.bottom * pageScale,
-            width: anchorLayout.width * pageScale,
-            height: anchorLayout.height * pageScale,
-        };
+        const anchorOverlay = scalePlainRect(anchorLayout, pageScale);
         const popoverRect = popover.getBoundingClientRect();
         const compensatedRectScale = measuredCompensatedRectScale(popover, popoverRect, pageScale);
         const title = popover.querySelector('.jpdb-reader-title-row, .jpdb-reader-heading, h2');
-        const walker = title ? document.createTreeWalker(title, NodeFilter.SHOW_TEXT) : null;
-        let textNode = walker?.nextNode() ?? null;
-        while (textNode && !textNode.data.trim()) textNode = walker?.nextNode() ?? null;
-        const range = textNode ? document.createRange() : null;
-        if (range && textNode) range.selectNodeContents(textNode);
-        const textRect = range?.getBoundingClientRect();
         const header = popover.querySelector('.jpdb-reader-header');
         const components = popover.querySelectorAll('.jpdb-reader-pitch-components, .jpdb-reader-pitch-variants');
         return {
             rect: scalePlainRect(popoverRect, compensatedRectScale),
-            anchorLayout: plainRect(anchorLayout),
+            anchorLayout: scalePlainRect(anchorLayout, 1),
             anchorOverlay,
             pageScale,
             compensatedRectScale,
@@ -1072,22 +1060,44 @@ async function snapshotAnchoredPopover(page) {
             adapter: popover.dataset.jpdbReaderScaleAdapter ?? '',
             configuredWidth: popover.style.width,
             computedFontSize: Number.parseFloat(getComputedStyle(popover).fontSize),
-            textHeight: (textRect?.height ?? 0) * compensatedRectScale,
+            ...titleTextMetrics(title, compensatedRectScale),
             componentCount: components.length,
             headerDisplay: header ? getComputedStyle(header).display : '',
         };
 
         function scalePlainRect(rect, scale) {
-            return {
-                left: rect.left * scale,
-                top: rect.top * scale,
-                right: rect.right * scale,
-                bottom: rect.bottom * scale,
-                width: rect.width * scale,
-                height: rect.height * scale,
-            };
+            return Object.fromEntries(['left', 'top', 'right', 'bottom', 'width', 'height']
+                .map(coordinate => [coordinate, rect[coordinate] * scale]));
         }
 
+        function titleTextMetrics(title, scale) {
+            if (!title) return null;
+            const walker = document.createTreeWalker(title, NodeFilter.SHOW_TEXT, {
+                acceptNode: node => node.data.trim() ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP,
+            });
+            const textNode = walker.nextNode();
+            if (!textNode) return null;
+            const style = getComputedStyle(textNode.parentElement);
+            const range = document.createRange();
+            range.selectNodeContents(textNode);
+            // Range bounds include OS font metrics: Windows' Japanese fallback
+            // measures 35px for an authored 26px title. Compare the same glyph
+            // and font outside the popup's page-scale compensation.
+            const reference = document.createElement('span');
+            reference.style.cssText = 'position:fixed;left:-10000px;top:0;visibility:hidden;pointer-events:none';
+            reference.style.font = style.font;
+            reference.textContent = textNode.data;
+            document.documentElement.append(reference);
+            const referenceRange = document.createRange();
+            referenceRange.selectNodeContents(reference);
+            const referenceTextHeight = referenceRange.getBoundingClientRect().height;
+            reference.remove();
+            return {
+                titleFontSize: Number.parseFloat(style.fontSize),
+                textHeight: range.getBoundingClientRect().height * scale,
+                referenceTextHeight,
+            };
+        }
 
         function measuredCompensatedRectScale(element, rect, scale) {
             if (scale <= 1 || !element.offsetWidth) return 1;
@@ -1208,8 +1218,10 @@ function assertCompensatedPopover(engineName, result, expectedAdapter) {
         `${engineName}: anchored popup was not placed against the normalized host anchor`, popup);
     assert(popup.textHeight >= 12,
         `${engineName}: popup title text collapsed below its physical minimum`, popup);
-    assert(popup.textHeight <= 32,
-        `${engineName}: popup title text remained physically enlarged`, popup);
+    assert(Math.abs(popup.titleFontSize - 26) <= 0.01,
+        `${engineName}: popup title lost its authored font size`, popup);
+    assert(Math.abs(popup.textHeight - popup.referenceTextHeight) <= 1,
+        `${engineName}: popup title text differs from its unscaled font metrics`, popup);
     if (popup.componentCount > 0) {
         assert(popup.headerDisplay === 'grid',
             `${engineName}: popup container query did not use the compensated content width`, popup);

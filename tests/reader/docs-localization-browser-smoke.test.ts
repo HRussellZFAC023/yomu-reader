@@ -50,7 +50,8 @@ describe('docs localization browser smoke readiness', () => {
         expect(USERSCRIPT_ENTRY_SOURCE).not.toContain('installDocumentStartTargetPolicy');
         expect(guardedBoot).toContain('installUserscriptHttpBridgeWhenReady()');
         expect(USERSCRIPT_ENTRY_SOURCE.match(/installUserscriptHttpBridgeWhenReady\(\)/g)).toHaveLength(1);
-        expect(guardedBoot).toContain('installUserscriptGmStorageBridgeWhenReady()');
+        expect(guardedBoot).toContain('installUserscriptGmStorageBridgeWhenReady(subscribeToHostedSettingsChanges)');
+        expect(USERSCRIPT_ENTRY_SOURCE.match(/installUserscriptGmStorageBridgeWhenReady\(/g)).toHaveLength(1);
         expect(guardedBoot).not.toContain('promoteStrandedHostedSettingsToGmStorage');
         expect(USERSCRIPT_ENTRY_SOURCE).not.toContain('installPageOpenShadowRootDiscoveryBridge');
         expect(guardedBoot).toContain('bootWhenDocumentIsReady()');

@@ -28,3 +28,7 @@ The bugs that prompted it all came from the target choice:
 - ADR-0008's grammar seam stays for Japanese: the Japanese Adapter owns its JLPT scale, 307-rule inventory and detector. Its multi-target parts (CEFR and Foundation levels, per-target rule inventories) are superseded.
 - The multilingual lookup parity ratchet (`npm run quality:multilingual-parity`) covers the Japanese target only, with the same corpus row and JMdict English pin. It keeps its name for now.
 - Learners of other languages lose Yomu's support for them. Their data stays in storage.
+
+## Automatic translation destinations, 3 November 2026
+
+The Japanese-only learning target and removal of automatic definition translation remain in effect. Settings → Sources offers a separate destination for automatic sentence and provider-example translations. The active profile's stored `outputLanguage` selects that destination. The interface language, dictionary recommendations, and secondary-subtitle defaults retain their existing choices. This restores the translation choice requested by users without restoring other learning targets.

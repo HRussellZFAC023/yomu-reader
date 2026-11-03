@@ -58,6 +58,10 @@ Hold a word in a link or button to look it up. A quick tap keeps the website’s
 
 Words saved without a connected service go to the Default deck in Study.
 
+If a word cannot be saved, open Study to see its last save error. Check the destination in Settings, then try again. Dismiss removes the notice.
+
+Choose **Settings → Sources → Translation language** for automatic sentence translations. This choice is separate from the settings language.
+
 In Study, open Stats to check your review progress. Refresh keeps the current figures visible while loading.
 
 Furigana stays readable without changing the page’s font or spacing. Readings that cannot fit remain available in word lookup.
@@ -72,13 +76,15 @@ Words can still be looked up without a coloured underline. Search and comment fi
 
 OCR text and corner marks on ordinary page images scroll with the image. Decorative blurred copies do not get a second mark.
 
+On paused videos, completed OCR keeps subtitles and playback controls visible.
+
 The よむ button and its menu keep their screen size during pinch zoom. The menu closes when you pan or change the visible viewport.
 
 No account and no setup. [How to learn Japanese with よむ](https://yomureader.com/learn/) is one page.
 
 Readings follow the page’s typeface and scale with its text. Their colour matches the word they annotate. With a study source, known and due words lose their readings; missed words keep them.
 
-On another website, the Settings action opens Study settings directly. If a reading would cover nearby text, open that word’s lookup to see it.
+On another website, the Settings action opens Study settings directly without starting a review. With the extension or userscript installed, an open Study tab receives settings changes saved on another page. If a reading would cover nearby text, open that word’s lookup to see it.
 
 ## Privacy
 

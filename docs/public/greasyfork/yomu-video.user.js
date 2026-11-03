@@ -926,6 +926,7 @@ const MANAGED_STATE_MANIFEST = [
   { owner: "app/managed-web-storage", kind: "session", prefix: "yomu:web-owner:v2:" },
   { owner: "app/storage local provenance", kind: "local", key: "yomu:local-storage-provenance:v1" },
   { owner: "app/card-state-signal", kind: "gm", key: "yomu:card-state-signal" },
+  { owner: "cards/collection-save-failure", kind: "gm", key: "yomu:collection-save-failure:v1" },
   { owner: "app/storage leases", kind: "gm", prefix: "yomu:lease:" },
   { owner: "srs/account-sync", kind: "gm", key: "yomu:private:academy-device:v1" },
   { owner: "srs/account-sync", kind: "gm", key: "yomu:private:academy-device-pending:v1" },
@@ -7294,6 +7295,11 @@ const EN = {
   collectAlreadySaved: "Already in one of your decks. Open Study to edit it.",
   collectHandoffOpened: "Opened your deck app. Finish saving there.",
   collectNotSaved: "This word was not saved. Try again, or open Study for details.",
+  collectDetailsUnavailable: "This word was not saved. Its error details could not be stored. Check your connection and settings, then try again.",
+  collectServiceUnavailable: "The deck service did not confirm this save. Check its connection and settings before trying again.",
+  collectFailureTitle: "Last word not saved: {word}",
+  collectFailureHelp: "Check the destination in Settings, then try saving the word again.",
+  collectFailureDismiss: "Dismiss save error",
   jpdbAddApiKeyRequired: "Add a JPDB API key, or use Add to Anki.",
   addedToJpdb: "Added to JPDB.",
   jitenAddApiKeyRequired: "Add a Jiten API key, or use Add to Anki.",
@@ -7316,6 +7322,11 @@ const JA = {
   collectAlreadySaved: "すでにデッキにあります。編集はStudyで行えます。",
   collectHandoffOpened: "デッキのアプリを開きました。そちらで保存を完了してください。",
   collectNotSaved: "この単語は保存されませんでした。もう一度お試しいただくか、Studyで詳細を確認してください。",
+  collectDetailsUnavailable: "この単語は保存されませんでした。エラーの詳細も保存できませんでした。接続と設定を確認して、もう一度お試しください。",
+  collectServiceUnavailable: "デッキのサービスから保存の確認が取れませんでした。接続と設定を確認してから、もう一度お試しください。",
+  collectFailureTitle: "最後に保存できなかった単語：{word}",
+  collectFailureHelp: "設定で保存先を確認してから、単語をもう一度保存してください。",
+  collectFailureDismiss: "保存エラーを閉じる",
   jpdbAddApiKeyRequired: "JPDB APIキーかAnki追加が必要です。",
   addedToJpdb: "JPDBに追加しました。",
   jitenAddApiKeyRequired: "Jiten APIキーかAnki追加が必要です。",
@@ -7533,6 +7544,8 @@ const COPY = {
   fourGradeShortcutsHelp: "Four-grade reviews use the first four shortcuts: Again, Hard, Good, Easy.",
   twoPoint: "Two point: FAIL / PASS",
   settingsLanguage: "Settings language",
+  translationLanguage: "Translation language",
+  translationLanguageHelp: "Choose the language for automatic sentence and example translations.",
   automatic: "Automatic",
   english: "English",
   japanese: "日本語",
@@ -9073,6 +9086,8 @@ fivePoint	サービスの標準評価
 fourGradeShortcutsHelp	4段階の復習では、最初の4つのショートカットを「もう一度・難しい・良い・簡単」に使います。
 twoPoint	2段階: 失敗 / 合格
 settingsLanguage	設定の表示言語
+translationLanguage	翻訳先の言語
+translationLanguageHelp	文や例文の自動翻訳先の言語を選びます。
 theme	テーマ
 auto	自動
 dark	ダーク
@@ -19612,15 +19627,15 @@ const youtubeCaptionLayerAdapter = {
   chromeTier: (host) => Math.max(0, ...Array.from(
   host.querySelectorAll(".ytp-chrome-top, .ytp-chrome-bottom"),
   (element) => Number.parseInt(getComputedStyle(element).zIndex) || 0
-  )) + 1
+  ))
 };
 function captionLayerTier(host, player, video) {
-  if (host && isYouTubePage$1()) return youtubeCaptionLayerAdapter.chromeTier(host);
   let tier = 0;
   for (let ancestor = host ? video : player; ancestor && ancestor !== (host ?? document.body); ancestor = ancestor.parentElement ?? void 0) {
   const value = Number.parseInt(getComputedStyle(ancestor).zIndex);
   if (Number.isFinite(value)) tier = value;
   }
+  if (host && isYouTubePage$1()) return Math.max(tier, youtubeCaptionLayerAdapter.chromeTier(host)) + 1;
   return host ? Math.max(0, tier) + 1 : tier;
 }
 function mountCaptionLayer(root, parent, host) {
@@ -28852,6 +28867,7 @@ function disablePreferredJapaneseSiteLanguage(shouldRevert, deferCookieResponseR
   const shouldReloadCookieShapedResponse = clearedSiteCookie || deferredCookieResponseReload;
   deferredCookieResponseReload = deferCookieResponseReloadUntilPersisted ? shouldReloadCookieShapedResponse : false;
   cancelPreferredJapaneseSiteRedirectWatcher();
+  if (deferCookieResponseReloadUntilPersisted) return;
   finishDisabledSiteNavigation(shouldRevert, shouldReloadCookieShapedResponse);
 }
 function finishDisabledSiteNavigation(shouldRevert, shouldReloadCookieShapedResponse) {
