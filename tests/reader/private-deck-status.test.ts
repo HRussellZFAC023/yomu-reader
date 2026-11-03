@@ -124,6 +124,45 @@ describe('private deck picker membership', () => {
 });
 
 describe('authoritative provider reads', () => {
+    it.each([
+        { expression: '猫', target: 'ねこ', note: 'ネコ', language: undefined, field: 'Reading', expected: 'saved' },
+        { expression: '猫', target: 'ねこ', note: 'ﾈｺ', language: 'ja', field: 'Reading', expected: 'saved' },
+        { expression: '猫', target: 'ネコ', note: 'ねこ', language: 'ja-JP', field: 'Reading', expected: 'saved' },
+        { expression: '猫', target: 'ﾈｺ', note: 'ネコ', language: 'ja', field: 'Reading', expected: 'saved' },
+        { expression: '学校', target: 'がっこう', note: 'ｶﾞｯｺｳ', language: 'ja', field: 'Reading', expected: 'saved' },
+        { expression: '猫', target: 'ねこ', note: 'ビョウ', language: 'ja', field: 'Reading', expected: 'not-saved' },
+        { expression: '猫', target: 'ねこ', note: 'ネゴ', language: 'ja', field: 'Reading', expected: 'not-saved' },
+        { expression: '猫', target: 'ねこ', note: 'neko', language: 'ja', field: 'Reading', expected: 'unknown' },
+        { expression: '猫', target: 'neko', note: 'ねこ', language: 'ja', field: 'Reading', expected: 'unknown' },
+        { expression: '猫', target: 'neko', note: 'neko', language: 'ja', field: 'Reading', expected: 'unknown' },
+        { expression: '猫', target: 'ねこ', note: 'ネコ!', language: 'ja', field: 'Reading', expected: 'unknown' },
+        { expression: '猫', target: 'ねこ', note: 'ーー', language: 'ja', field: 'Reading', expected: 'unknown' },
+        { expression: '猫', target: 'ねこ', note: 'ネコ / ビョウ', language: 'ja', field: 'Reading', expected: 'unknown' },
+        { expression: '猫', target: 'ねこ', note: 'ネコ ビョウ', language: 'ja', field: 'Reading', expected: 'unknown' },
+        { expression: '猫', target: 'ねこ', note: '', language: 'ja', field: 'Reading', expected: 'unknown' },
+        { expression: '猫', target: 'ねこ', note: 'ネコ', language: 'ja', field: 'Unowned reading', expected: 'unknown' },
+        { expression: '猫', target: 'ねこ', note: 'ネコ', language: 'en', field: 'Reading', expected: 'unknown' },
+        { expression: '猫', target: 'ねこ', note: 'ビョウ', language: 'zh', field: 'Reading', expected: 'unknown' },
+        { expression: 'cat', target: 'cat', note: 'cat', language: 'en', field: 'Reading', expected: 'saved' },
+    ])('compares owned readings without a false absence: $target / $note ($language, $field)', async ({ expression, target, note, language, field, expected }) => {
+        const settings = { ...DEFAULT_SETTINGS, ankiEnabled: true, apiKey: '' };
+        const client = new AnkiConnectClient(() => settings);
+        const controller = testCardActionController({ getSettings: () => settings, anki: client });
+        const replies: Record<string, unknown> = {
+            findNotes: [17],
+            notesInfo: [{ noteId: 17, modelName: 'Imported words', fields: { Expression: { value: expression }, [field]: { value: note } }, cards: [18], tags: [] }],
+            cardsInfo: [{ cardId: 18, deckName: 'Private A' }],
+        };
+        vi.spyOn(client, 'invoke').mockImplementation(async action => replies[action]);
+        const choices: DeckChoice[] = ['Private A', 'Private B'].map(id => ({ source: 'anki', id, label: `Anki: ${id}` }));
+        try {
+            expect(await Promise.all(controller.loadDeckMembership({ ...card, spelling: expression, reading: target, language }, choices))).toEqual([
+                expected === 'unknown' ? { kind: 'unknown', reason: 'unavailable' } : { kind: expected },
+                { kind: 'not-saved' },
+            ]);
+        } finally { client.destroy(); }
+    });
+
     it('never identifies an Anki word from sentence context or an ambiguous model', async () => {
         const settings = { ...DEFAULT_SETTINGS, ankiEnabled: true, apiKey: '' };
         const client = new AnkiConnectClient(() => settings);

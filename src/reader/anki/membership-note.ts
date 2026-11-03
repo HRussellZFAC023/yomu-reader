@@ -4,12 +4,14 @@ import {
     normalizeAnkiFieldName, normalizeFieldValue, stripHtml,
 } from './field-mapping';
 import type { AnkiNoteInfo } from './types';
+import { normalizeJapaneseStudyAnswer } from '../newtab/japanese-input';
 
 export type AnkiMembershipIdentity = 'saved' | 'different' | 'unknown';
 const GENERIC_EXPRESSION_NAMES = new Set(['front', 'japanese', 'kanji', 'katakana', 'expressionreading']);
 const KANJI_READING_NAMES = new Set(['on', 'onreading', 'onyomi', 'kun', 'kunreading', 'kunyomi']);
 const EXPRESSION_NAMES = ANKI_EXPRESSION_FIELD_NAMES.filter(name => !GENERIC_EXPRESSION_NAMES.has(normalizeAnkiFieldName(name)));
 const READING_NAMES = ANKI_READING_FIELD_NAMES.filter(name => !KANJI_READING_NAMES.has(normalizeAnkiFieldName(name)));
+const COMPARABLE_KANA = /^[ぁ-ゖァ-ヶ][ぁ-ゖァ-ヶー]*$/u;
 
 /** Candidate search includes context; membership requires identified lexical fields. */
 export function ankiMembershipIdentity(note: AnkiNoteInfo, card: JPDBCard, settings: ReaderSettings): AnkiMembershipIdentity {
@@ -53,11 +55,20 @@ function readingIdentity(value: string | undefined, card: JPDBCard): AnkiMembers
     const target = identityText(card.reading);
     // A parser's provisional kanji reading cannot prove a lexical identity.
     if (!target || (target === spelling && /[\u3400-\u9fff]/u.test(spelling))) return 'unknown';
-    if (value === undefined) return target === spelling ? 'saved' : 'unknown';
+    if (value === undefined) return target === spelling ? comparableReadingIdentity(target, target, card.language) : 'unknown';
     if (/<ruby\b/iu.test(value)) return 'unknown';
     const reading = normalizeFieldValue(stripHtml(value).replace(/([^\[\]\s]+)\[([\u3040-\u30ffー]+)\]/gu, '$2')).normalize('NFKC');
     if (!reading || /[\[\]<>]/u.test(reading)) return 'unknown';
-    if (!/[\u3400-\u9fff]/u.test(target) && /[\u3400-\u9fff]/u.test(reading)) return 'unknown';
-    if (reading !== target && reading.includes(target)) return 'unknown';
-    return reading === target ? 'saved' : 'different';
+    return comparableReadingIdentity(target, reading, card.language);
+}
+
+function comparableReadingIdentity(target: string, reading: string, language: JPDBCard['language']): AnkiMembershipIdentity {
+    if (language && language.split('-')[0] !== 'ja') return reading === target ? 'saved' : 'unknown';
+    // Validate before the study normalizer: romaji transliteration and punctuation
+    // removal are answer-entry conveniences, not authoritative reading evidence.
+    if (!COMPARABLE_KANA.test(target) || !COMPARABLE_KANA.test(reading)) return 'unknown';
+    const expected = normalizeJapaneseStudyAnswer(target);
+    const actual = normalizeJapaneseStudyAnswer(reading);
+    if (actual !== expected && actual.includes(expected)) return 'unknown';
+    return actual === expected ? 'saved' : 'different';
 }
