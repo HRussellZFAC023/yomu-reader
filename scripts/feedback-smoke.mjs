@@ -998,21 +998,37 @@ async function assertHostedManualPanelCloseRestoresPlayer(page) {
 }
 
 async function assertHostedThemeToggleResponsiveWithLoadedSubtitles(page) {
+    // Exercise both directions while the transcript stays closed. The deadline
+    // lives in Node: a renderer stuck in an observer loop cannot run its own
+    // timeout or finish page.evaluate, including the animation-frame probe.
+    for (let toggle = 0; toggle < 2; toggle += 1) {
+        let deadline;
+        try {
+            await Promise.race([
+                toggleHostedThemeWithLoadedSubtitles(page),
+                new Promise((_, reject) => {
+                    deadline = setTimeout(() => reject(new Error('Hosted theme toggle did not return browser frames and a timer within 6 seconds')), 6000);
+                }),
+            ]);
+        } finally {
+            clearTimeout(deadline);
+        }
+    }
+    await page.screenshot({ path: path.join(ARTIFACTS, 'feedback-video-theme-toggle.png'), fullPage: false });
+}
+
+async function toggleHostedThemeWithLoadedSubtitles(page) {
     const before = await readHostedThemeState(page);
+    const hidden = await page.locator('.jpdb-subtitle-list').evaluate(panel => panel.hidden);
+    assert(hidden, 'Hosted theme-freeze regression requires the subtitle panel to be closed');
     await page.locator('[data-theme-toggle]').click({ timeout: 6000 });
     await page.waitForFunction(previous => {
         const root = document.documentElement;
-        const changed = root.classList.contains('yomu-page-theme-light') !== previous.light
-            || root.classList.contains('yomu-page-theme-dark') !== previous.dark;
-        const line = document.querySelector('.jpdb-subtitle-lines');
-        if (!line) return false;
-        const clone = line.cloneNode(true);
-        clone.querySelectorAll('rt,rp').forEach(node => node.remove());
-        return changed && (clone.textContent ?? '').includes('猫を見る');
+        return root.classList.contains('yomu-page-theme-light') !== previous.light
+            && root.classList.contains('yomu-page-theme-dark') !== previous.dark;
     }, before, { timeout: 2000 });
     const state = await readHostedThemeResponsivenessState(page);
-    assert(hostedThemeToggleResponsive(state), 'Hosted dark-mode toggle became slow or hid subtitles after loading a video/subtitle file', state);
-    await page.screenshot({ path: path.join(ARTIFACTS, 'feedback-video-theme-toggle.png'), fullPage: false });
+    assert(hostedThemeToggleResponsive(state), 'Hosted theme toggle did not settle with responsive video subtitles and saved settings', state);
 }
 
 async function readHostedThemeState(page) {
@@ -1023,19 +1039,24 @@ async function readHostedThemeState(page) {
 }
 
 async function readHostedThemeResponsivenessState(page) {
-    return page.evaluate(async () => {
-        const start = performance.now();
+    return page.evaluate(async settingsKey => {
+        await new Promise(resolve => setTimeout(resolve, 0));
         await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-        const frameDelayMs = performance.now() - start;
         const root = document.documentElement;
         const line = document.querySelector('.jpdb-subtitle-lines');
         const themeToggle = document.querySelector('[data-theme-toggle]');
         const overlay = document.querySelector('.jpdb-subtitle-player');
         const panel = document.querySelector('.jpdb-subtitle-list');
+        const sharedSettings = await globalThis.GM_getValue(settingsKey, {});
         return {
-            frameDelayMs,
+            timerAndFramesReturned: true,
             light: root.classList.contains('yomu-page-theme-light'),
             dark: root.classList.contains('yomu-page-theme-dark'),
+            readerLight: root.classList.contains('jpdb-reader-theme-light'),
+            readerDark: root.classList.contains('jpdb-reader-theme-dark'),
+            sharedTheme: sharedSettings.theme,
+            pageTheme: localStorage.getItem('yomu-page-theme'),
+            toggleDisabled: themeToggle?.disabled ?? true,
             toggleLabel: themeToggle?.getAttribute('aria-label') ?? '',
             subtitleOverlay: readHostedSubtitleVisibilityInPage(overlay, line, panel),
         };
@@ -1066,12 +1087,18 @@ async function readHostedThemeResponsivenessState(page) {
                 lineRect: rect(lineElement),
             };
         }
-    });
+    }, SETTINGS_KEY);
 }
 
 function hostedThemeToggleResponsive(state) {
-    return state.frameDelayMs < 1000
+    const expectedTheme = state.light ? 'light' : 'dark';
+    return state.timerAndFramesReturned
         && state.light !== state.dark
+        && state.readerLight === state.light
+        && state.readerDark === state.dark
+        && state.sharedTheme === expectedTheme
+        && state.pageTheme === expectedTheme
+        && state.toggleDisabled === false
         && includesText(state.toggleLabel, state.light ? 'Switch to dark theme' : 'Switch to light theme')
         && hostedSubtitleOverlayVisible(state.subtitleOverlay);
 }
