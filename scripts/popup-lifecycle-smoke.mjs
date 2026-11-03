@@ -3,7 +3,7 @@
 // reader back to the top, must not close itself under a parked cursor, and must
 // close when tapped away from on touch.
 //
-// These four scenarios live here rather than in jsdom because every one of them
+// These scenarios live here rather than in jsdom because every one of them
 // turns on geometry jsdom does not have. tests/reader/hover-lookup.test.ts stubs
 // document.elementFromPoint to always hit, which is precisely the hit-test whose
 // sampling error kills a hover popover in a real browser; and jsdom has no layout,
@@ -11,6 +11,7 @@
 // offset being clamped by a body that is briefly shorter than the one it replaced.
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
+import { chromium, webkit } from 'playwright';
 import {
     addGmStorageBridgeInitScript,
     arrayParam,
@@ -85,6 +86,8 @@ const WATCHDOG_PERIOD_MS = 90;
 const WATCHDOG_PERIODS_TO_OUTLAST = 5;
 const HOVER_ENDURANCE_MS = Number(process.env.YOMU_POPUP_HOVER_ENDURANCE_MS || 20_000);
 const HOVER_ENDURANCE_WHEEL_INTERVAL_MS = 250;
+const engine = process.env.YOMU_POPUP_ENGINE || 'chromium';
+assert(engine === 'chromium' || engine === 'webkit', 'Unsupported popup lifecycle engine', { engine });
 // Well clear of WATCHDOG_PERIOD_MS in both directions, because what these scenarios
 // measure is whether the CONFIGURED delay is the thing that decides when the panel
 // goes away. It used not to be: the close timer was cleared and re-armed on every
@@ -220,6 +223,7 @@ const server = await startLoopbackServer((request, response) => {
 
 const SCENARIOS = [
     ['scrollAcrossLateProvider', runScrollAcrossLateProvider],
+    ['hoverScrollAcrossAnchorRemount', runHoverScrollAcrossAnchorRemount],
     ['hoverSurvivesContentShrink', runHoverSurvivesContentShrink],
     ['hoverSurvivesSustainedWheel', runHoverSurvivesSustainedWheel],
     ['hoverClosesAfterLeavingWord', runHoverClosesAfterLeavingWord],
@@ -232,8 +236,8 @@ const requested = (process.env.YOMU_POPUP_SCENARIOS || '').split(',').map(name =
 const selected = requested.length ? SCENARIOS.filter(([name]) => requested.includes(name)) : SCENARIOS;
 assert(selected.length > 0, 'YOMU_POPUP_SCENARIOS matched no scenario', { requested, known: SCENARIOS.map(([name]) => name) });
 
-const report = { ok: false, scenarios: {} };
-const browser = await launchSmokeBrowser();
+const report = { ok: false, engine, scenarios: {} };
+const browser = await launchSmokeBrowser(engine === 'webkit' ? webkit : chromium, engine);
 
 try {
     for (const [name, run] of selected) report.scenarios[name] = await run(browser, server);
@@ -293,6 +297,74 @@ async function runScrollAcrossLateProvider(browser, server) {
     }
 }
 
+// Mechanism fixture: a host remounts the opening word while the learner is
+// scrolling its hover card. The detached anchor must not take ownership away
+// from the panel, and the next real provider rebuild must retain its scroll.
+async function runHoverScrollAcrossAnchorRemount(browser, server) {
+    const gate = createGate();
+    const { context, page, requests } = await openReaderPage(browser, server, {
+        settings: desktopSettings,
+        viewport: DESKTOP_VIEWPORT,
+        ankiDetailGate: gate,
+    });
+    try {
+        await page.evaluate(() => {
+            const host = document.querySelector('main');
+            host.style.cssText = 'height:100vh;box-sizing:border-box;overflow:auto';
+            host.scrollTop = 32;
+        });
+        // Let the host's scroll event finish before starting a new hover lookup.
+        await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+        await page.locator(WORD_SELECTOR).first().hover();
+        await page.waitForSelector(POPOVER_BODY_SELECTOR, { timeout: 15_000 });
+        await waitForScrollableBody(page);
+        const bodyBox = await page.locator(POPOVER_BODY_SELECTOR).evaluate(body => body.getBoundingClientRect().toJSON());
+        assert(bodyBox.height > 0 && bodyBox.width > 0, 'Hover popup has no scroll body', { bodyBox });
+        await page.mouse.move(bodyBox.x + bodyBox.width / 2, bodyBox.y + bodyBox.height / 2);
+        await installPopoverRebuildRecorder(page);
+        await page.mouse.wheel(0, SCROLL_TARGET_PX);
+        await page.waitForFunction(selector => document.querySelector(selector)?.scrollTop >= 120, POPOVER_BODY_SELECTOR);
+        const before = await popoverScrollState(page);
+        const remount = await page.evaluate(selector => {
+            const anchor = document.querySelector(selector);
+            const host = document.querySelector('main');
+            const openingAnchor = window.__yomuRealApp.activePopoverAnchor;
+            anchor.replaceWith(anchor.cloneNode(true));
+            const origin = window.__yomuRealApp.lastPointerPosition;
+            window.__yomuPopupRemountPointer = { events: 0, moves: 0 };
+            document.addEventListener('pointermove', event => {
+                const probe = window.__yomuPopupRemountPointer;
+                probe.events += 1;
+                if (Math.abs(event.clientX - origin.x) >= 0.01 || Math.abs(event.clientY - origin.y) >= 0.01) probe.moves += 1;
+            }, { passive: true });
+            return { openingAnchorConnected: openingAnchor?.isConnected, hostScrollTop: host.scrollTop };
+        }, WORD_SELECTOR);
+        assert(remount.openingAnchorConnected === false, 'The host remount left the actual opening anchor attached', remount);
+        assert(remount.hostScrollTop === 32, 'Popup wheel input scrolled the host container', remount);
+        assert(requests.some(request => request.kind === 'anki-gated'), 'No actual provider request reached the gate', { requests });
+        assert(!requests.some(request => request.kind === 'anki' && request.action === ANKI_DETAIL_ACTION), 'Provider gate timed out before the anchor-remount probe', { requests });
+        gate.open();
+        const rebuilt = await waitForPopoverRebuild(page);
+        await page.waitForTimeout(WATCHDOG_PERIOD_MS * WATCHDOG_PERIODS_TO_OUTLAST);
+        const after = await popoverScrollState(page);
+        const interaction = await page.evaluate(() => ({
+            pointer: window.__yomuPopupRemountPointer,
+            hostScrollTop: document.querySelector('main').scrollTop,
+            hoverMode: window.__yomuRealApp.activePopoverMode,
+        }));
+        assert(rebuilt.rebuilds >= 1, 'No provider rebuilt the hover card after the anchor remount', { rebuilt, requests });
+        assert(after.connected, 'Hover card closed after its opening anchor was remounted', { before, after, remount, interaction });
+        assert(Math.abs(after.scrollTop - before.scrollTop) <= 2, 'Provider rebuild reset the scrolled hover card', { before, after, rebuilt });
+        assert(rebuilt.minScrollTopSeen >= before.scrollTop - 2, 'Provider rebuild briefly reset the scrolled hover card', { before, rebuilt });
+        assert(interaction.pointer.moves === 0, 'The anchor-remount probe moved the pointer', interaction);
+        assert(interaction.hoverMode === 'hover', 'The hover probe accidentally pinned the popup', interaction);
+        assert(interaction.hostScrollTop === remount.hostScrollTop, 'Provider rebuild scrolled the host container', interaction);
+        return { before, after, remount, rebuilt, interaction };
+    } finally {
+        await context.close();
+    }
+}
+
 /**
  * (b) The cursor is parked in the panel's upper third and the content shrinks.
  * A hover popover placed above the cursor is bottom-pinned, so before the fix its
@@ -328,7 +400,7 @@ async function runHoverSurvivesContentShrink(browser, server) {
 
 /**
  * (c) The reported gesture: scroll up and down inside the hover popup for ~20s,
- * with a provider landing midway. That is roughly 220 watchdog samples, each an
+ * with a provider landing during it. That is roughly 220 watchdog samples, each an
  * independent chance to mis-resolve the element under the cursor.
  *
  * Honest status: this is an ENDURANCE guard, not a discriminating regression test.
@@ -341,7 +413,7 @@ async function runHoverSurvivesContentShrink(browser, server) {
  */
 async function runHoverSurvivesSustainedWheel(browser, server) {
     const gate = createGate();
-    const { context, page } = await openReaderPage(browser, server, {
+    const { context, page, requests } = await openReaderPage(browser, server, {
         settings: hoverSettings,
         viewport: HOVER_VIEWPORT,
         ankiDetailGate: gate,
@@ -351,7 +423,7 @@ async function runHoverSurvivesSustainedWheel(browser, server) {
         await installPopoverRebuildRecorder(page);
 
         const deadline = Date.now() + HOVER_ENDURANCE_MS;
-        const releaseAt = Date.now() + Math.floor(HOVER_ENDURANCE_MS / 2);
+        const releaseAt = Date.now() + Math.min(1_000, Math.floor(HOVER_ENDURANCE_MS / 2));
         let released = false;
         let wheels = 0;
         let closedAfterMs = null;
@@ -377,6 +449,7 @@ async function runHoverSurvivesSustainedWheel(browser, server) {
             `Hover popover closed itself during ${HOVER_ENDURANCE_MS}ms of scrolling inside it`,
             { closedAfterMs, wheels, rebuilds, pointer: hovered.pointer },
         );
+        assert(rebuilds.rebuilds >= 1, 'No late provider rebuilt the panel during sustained scrolling', { rebuilds, requests });
         return { durationMs: HOVER_ENDURANCE_MS, wheels, rebuilds: rebuilds.rebuilds, after };
     } finally {
         await context.close();
