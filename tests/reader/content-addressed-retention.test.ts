@@ -125,6 +125,8 @@ describe('content-addressed artifact retention', () => {
     it('refuses retention planning when Git cannot read the repository', () => {
         const root = mkdtempSync(join(tmpdir(), 'yomu-retention-unavailable-'));
         repositories.push(root);
+        // Coverage temp directories can be inside this checkout; block parent Git discovery.
+        write(root, '.git', 'gitdir: missing-retention-repository\n');
         expect(() => isShallowRepository(root)).toThrow('refusing to prune assets');
         expect(() => contentAddressedRetentionReport(root)).toThrow('refusing to prune assets');
     });
