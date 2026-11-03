@@ -785,6 +785,31 @@ describe('preferred Japanese site language', () => {
         expect(replace).toHaveBeenCalledWith('https://www.google.com/search?q=nihongo');
     });
 
+    it('holds active opt-out navigation until persistence and retains the exact original URL', () => {
+        const originalHref = 'https://www.reddit.com/r/LearnJapanese/?locale=en-GB';
+        const japaneseHref = 'https://www.reddit.com/r/LearnJapanese/?locale=ja-JP';
+        const siteLocation = {
+            href: originalHref,
+            hostname: 'www.reddit.com',
+            protocol: 'https:',
+            replace: vi.fn((href: string) => { siteLocation.href = href; }),
+        };
+        vi.stubGlobal('unsafeWindow', window);
+        vi.stubGlobal('location', siteLocation);
+        applyPreferredJapaneseSiteLanguage(true);
+        expect(siteLocation.href).toBe(japaneseHref);
+        siteLocation.replace.mockClear();
+
+        applyPreferredJapaneseSiteLanguage(false, false, true);
+
+        expect(siteLocation.replace).not.toHaveBeenCalled();
+        expect(siteLocation.href).toBe(japaneseHref);
+        expect(managedLocalStorage.getItem(SITE_PREFERENCE_CACHE_KEY)).toBe('false');
+        applyPreferredJapaneseSiteLanguage(false, true);
+        expect(siteLocation.replace).toHaveBeenCalledTimes(1);
+        expect(siteLocation.replace).toHaveBeenCalledWith(originalHref);
+    });
+
     it('drops a Japanese path locale segment rather than guessing an English one', () => {
         const replace = vi.fn();
         vi.stubGlobal('unsafeWindow', window);
