@@ -36,8 +36,8 @@ it.each([false, true])('forwards native changes without values and detaches (pos
         await vi.waitFor(() => expect(native.size).toBe(afterReset ? 6 : 3));
         hints.length = 0;
         await saveSettings({ ...DEFAULT_SETTINGS, theme: 'dark' }, { explicitUserChoiceKeys: ['theme'] });
-        for (const item of native.values()) {
-            if (item.key === watchedSettingsKey) item.listener(item.key, null, { apiKey: 'private-fixture' }, true);
+        for (const item of [...native.values()].filter(item => item.key === watchedSettingsKey)) {
+            item.listener(item.key, null, { apiKey: 'private-fixture' }, true);
         }
         await vi.waitFor(() => expect(hints).toEqual([null]));
         uninstallUserscriptGmStorageBridge();

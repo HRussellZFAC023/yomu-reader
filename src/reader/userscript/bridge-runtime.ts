@@ -21,6 +21,7 @@ import {
     type BridgeDatasetKeys, type BridgeOwner,
 } from './bridge-authority';
 import { installedStorageResponderReady } from './storage-bridge';
+import { scheduleBridgeRetry } from './bridge-retry';
 
 type DatasetEventTarget = EventTarget & { dataset?: DOMStringMap };
 type UserscriptBridgeResolve = (response: UserscriptHttpResponse) => void;
@@ -138,7 +139,7 @@ export function installUserscriptHttpBridgeWhenReady(): void {
     if (typeof window === 'undefined' || typeof document === 'undefined') return;
     if (!shouldInstallUserscriptHttpBridge()) return;
     if (hasInstalledUserscriptHttpBridge()) return;
-    scheduleUserscriptHttpBridgeRetry();
+    scheduleBridgeRetry({ installed: hasInstalledUserscriptHttpBridge, install: installUserscriptHttpBridge });
 }
 
 export function uninstallUserscriptHttpBridge(): void {
@@ -159,23 +160,6 @@ function shouldInstallUserscriptHttpBridge(): boolean {
         return typeof location !== 'undefined' && isYomuPrivilegedHostedAppUrl(location.href);
     } catch {
         return false;
-    }
-}
-
-function scheduleUserscriptHttpBridgeRetry(): void {
-    const retry = () => {
-        if (hasInstalledUserscriptHttpBridge()) return;
-        installUserscriptHttpBridge();
-    };
-    if (typeof queueMicrotask === 'function') {
-        queueMicrotask(retry);
-    } else {
-        void Promise.resolve().then(retry);
-    }
-    window.setTimeout(retry, 0);
-    window.setTimeout(retry, 250);
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', retry, { once: true });
     }
 }
 

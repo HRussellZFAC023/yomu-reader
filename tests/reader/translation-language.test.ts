@@ -47,7 +47,7 @@ describe('Japanese translation language restoration (Discord 1564939563665854530
         const select = form.querySelector<HTMLSelectElement>('[name="translationLanguage"]');
         expect(select, 'Sources must offer a translation language choice').not.toBeNull();
         expect(select!.closest('[hidden]')).toBeNull();
-        expect(select!.closest('label')?.textContent).toContain('Translation language');
+        expect(select!.closest('label')).toHaveProperty('textContent', expect.stringContaining('Translation language'));
         expect(select!.value).toBe('ko');
         expect(Array.from(select!.options).map(option => option.value)).toContain('es');
         expect(Array.from(select!.options).map(option => option.value)).not.toContain('grc');
@@ -100,7 +100,10 @@ describe('Japanese translation language restoration (Discord 1564939563665854530
         expect(root.querySelector<HTMLElement>('[data-study-translation-result]')?.lang).toBe('ko');
     });
 
-    it.each(['ko-KR', 'grc'])('keeps the saved %s profile on an untouched Save', saved => {
+    it.each([
+        { saved: 'ko-KR', output: 'ko-KR', label: 'ko-KR' },
+        { saved: 'grc', output: 'en', label: 'grc · Unavailable' },
+    ])('keeps the saved $saved profile on an untouched Save', ({ saved, output, label }) => {
         const base = koreanSettings();
         const current = normalizeReaderSettings({
             ...base,
@@ -113,8 +116,8 @@ describe('Japanese translation language restoration (Discord 1564939563665854530
         const changed = readFormSettings(new FormData(form), current);
         expect(changed.languageProfiles[0]?.outputLanguage).toBe(saved);
         expect(changed.languageProfiles[1]).toEqual(current.languageProfiles[1]);
-        expect(translationOutputLanguage(changed)).toBe(saved === 'grc' ? 'en' : saved);
-        if (saved === 'grc') expect(form.querySelector('option[value="grc"]')?.textContent).toContain('Unavailable');
+        expect(translationOutputLanguage(changed)).toBe(output);
+        expect(form.querySelector(`option[value="${saved}"]`)).toHaveProperty('textContent', label);
     });
 
     it('translates provider examples into the chosen destination even when the provider supplies English', async () => {

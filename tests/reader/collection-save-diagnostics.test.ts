@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { BunproClient } from '../../src/reader/bunpro/bunpro';
+import { BunproClient, type BunproClientOptions } from '../../src/reader/bunpro/bunpro';
 import { createBunproSrsAdapter } from '../../src/reader/srs/bunpro';
 import { runCardActionOperation } from '../../src/reader/cards/action-operation';
 import { DEFAULT_SETTINGS, testCardActionController } from './jpdb/fixtures';
@@ -12,6 +12,14 @@ const settings = { ...DEFAULT_SETTINGS, interfaceLanguage: 'en' as const, apiKey
     jpdbMiningEnabled: false, ankiEnabled: false, newTabSource: 'dictionary' as const, newTabParsingEnabled: false,
     newTabAnkiEnabled: false, newTabEnabled: true, onboardingSeen: true, learningTargetChosen: true,
     immersionKitEnabled: false, audioEnabled: false };
+
+function bunproController(request: NonNullable<BunproClientOptions['requestImpl']>) {
+    return testCardActionController({ getSettings: () => settings,
+        accountDataSurfaceTrusted: () => false,
+        srsAdapters: { bunpro: createBunproSrsAdapter(new BunproClient({
+            getFrontendToken: () => settings.bunproFrontendApiToken, requestImpl: request,
+        })) } });
+}
 
 async function save(controller: ReturnType<typeof testCardActionController>, word = WORD) {
     const toast = vi.fn();
@@ -29,6 +37,12 @@ async function openStudy(language: 'en' | 'ja' = 'en') {
     return controller;
 }
 
+async function studyAfterFailedBunproSave(request: NonNullable<BunproClientOptions['requestImpl']>) {
+    const controller = bunproController(request);
+    expect(await save(controller)).toHaveBeenCalledWith('This word was not saved. Try again, or open Study for details.');
+    return { controller, study: await openStudy() };
+}
+
 afterEach(() => { vi.unstubAllGlobals(); document.body.replaceChildren(); localStorage.clear(); });
 
 describe('failed collection save followed by opening Study', () => {
@@ -42,13 +56,8 @@ describe('failed collection save followed by opening Study', () => {
             ] } };
             throw new Error('Fixture provider rejected the add request.');
         });
-        const controller = testCardActionController({ getSettings: () => settings,
-            accountDataSurfaceTrusted: () => false,
-            srsAdapters: { bunpro: createBunproSrsAdapter(new BunproClient({ getFrontendToken: () => settings.bunproFrontendApiToken, requestImpl: request })) } });
-        expect(await save(controller)).toHaveBeenCalledWith('This word was not saved. Try again, or open Study for details.');
+        const { study } = await studyAfterFailedBunproSave(request);
         expect(request.mock.calls.some(([url]) => url.endsWith('/reviews/update_via_action_type'))).toBe(true);
-
-        const study = await openStudy();
         const notice = document.querySelector<HTMLElement>('[data-collection-failure]');
         expect(notice?.textContent).toContain('食べる');
         expect(notice?.textContent).toContain('The deck service did not confirm this save.');
@@ -60,9 +69,7 @@ describe('failed collection save followed by opening Study', () => {
         // Deterministic provider-response fixture: Bunpro has no vocabulary match.
         // The real client and adapter reject the save before any add request.
         const request = vi.fn(async () => ({ vocabs: { data: [] } }));
-        const controller = testCardActionController({ getSettings: () => settings,
-            accountDataSurfaceTrusted: () => false,
-            srsAdapters: { bunpro: createBunproSrsAdapter(new BunproClient({ getFrontendToken: () => settings.bunproFrontendApiToken, requestImpl: request })) } });
+        const controller = bunproController(request);
         const toast = await save(controller);
         expect(toast).toHaveBeenCalledWith('This word was not saved. Try again, or open Study for details.');
         expect(request).toHaveBeenCalledTimes(1);
@@ -98,12 +105,8 @@ describe('failed collection save followed by opening Study', () => {
             if (rejected) throw new Error(`Provider rejected token=${settings.bunproFrontendApiToken} secret response body`);
             return { ok: true };
         });
-        const controller = testCardActionController({ getSettings: () => settings,
-            accountDataSurfaceTrusted: () => false,
-            srsAdapters: { bunpro: createBunproSrsAdapter(new BunproClient({ getFrontendToken: () => settings.bunproFrontendApiToken, requestImpl: request })) } });
-        expect(await save(controller)).toHaveBeenCalledWith('This word was not saved. Try again, or open Study for details.');
+        const { controller, study } = await studyAfterFailedBunproSave(request);
         expect(request.mock.calls.some(([url]) => url.endsWith('/reviews/update_via_action_type'))).toBe(true);
-        const study = await openStudy();
         expect(document.querySelector('[data-collection-failure]')?.textContent).toContain('The deck service did not confirm this save.');
         const persisted = JSON.stringify([...profile.values]);
         expect(persisted).not.toContain(settings.bunproFrontendApiToken);
@@ -127,10 +130,7 @@ describe('failed collection save followed by opening Study', () => {
         installGmStorageFixture(new Map(), { beforeSet: key => {
             if (key === 'yomu:collection-save-failure:v1') throw new Error('fixture quota exceeded');
         } });
-        const controller = testCardActionController({ getSettings: () => settings,
-            accountDataSurfaceTrusted: () => false,
-            srsAdapters: { bunpro: createBunproSrsAdapter(new BunproClient({ getFrontendToken: () => settings.bunproFrontendApiToken,
-                requestImpl: async () => ({ vocabs: { data: [] } }) })) } });
+        const controller = bunproController(async () => ({ vocabs: { data: [] } }));
         expect(await save(controller)).toHaveBeenCalledWith('This word was not saved. Its error details could not be stored. Check your connection and settings, then try again.');
     });
 });

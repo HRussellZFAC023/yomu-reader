@@ -8,6 +8,7 @@ import {
 import { isBridgeManagedStorageKey, isPrivateManagedStorageKey } from '../app/managed-storage-keys';
 import { bridgeEventDetail, normalizedBridgeEventDetail } from './bridge-detail';
 import { userscriptGmApi } from './gm-api';
+import { scheduleBridgeRetry } from './bridge-retry';
 import { addWindowEventListener, createWindowCustomEvent, dispatchWindowEvent, removeWindowEventListener } from '../platform/window-events';
 import {
     clearLegacyExtensionManagedStorage,
@@ -209,7 +210,8 @@ export function installUserscriptGmStorageBridgeWhenReady(subscribeToSettingsCha
     if (typeof window === 'undefined' || typeof document === 'undefined') return;
     if (!shouldInstallUserscriptStorageBridge()) return;
     if (hasInstalledUserscriptStorageBridge()) return;
-    scheduleUserscriptStorageBridgeRetry(subscribeToSettingsChanges);
+    scheduleBridgeRetry({ installed: hasInstalledUserscriptStorageBridge,
+        install: () => installUserscriptGmStorageBridge(subscribeToSettingsChanges) });
 }
 
 export function uninstallUserscriptGmStorageBridge(): void {
@@ -442,23 +444,6 @@ function shouldInstallUserscriptStorageBridge(): boolean {
         return typeof location !== 'undefined' && isYomuStorageBridgeHostedUrl(location.href);
     } catch {
         return false;
-    }
-}
-
-function scheduleUserscriptStorageBridgeRetry(subscribeToSettingsChanges?: SubscribeToSettingsChanges): void {
-    const retry = () => {
-        if (hasInstalledUserscriptStorageBridge()) return;
-        installUserscriptGmStorageBridge(subscribeToSettingsChanges);
-    };
-    if (typeof queueMicrotask === 'function') {
-        queueMicrotask(retry);
-    } else {
-        void Promise.resolve().then(retry);
-    }
-    window.setTimeout(retry, 0);
-    window.setTimeout(retry, 250);
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', retry, { once: true });
     }
 }
 
