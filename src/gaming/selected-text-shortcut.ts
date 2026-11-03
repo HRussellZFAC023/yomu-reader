@@ -21,8 +21,16 @@ export function parseTextLookupShortcutSettings(value: unknown, platform: string
 }
 
 export function sameNativeShortcut(first: string, second: string, platform: string): boolean {
-    const native = (shortcut: string) => shortcut.replace('CommandOrControl', platform === 'darwin' ? 'Command' : 'Control');
-    return native(first) === native(second);
+    return nativeShortcutKey(first, platform) === nativeShortcutKey(second, platform);
+}
+
+export function nativeShortcutKey(shortcut: string, platform: string): string {
+    const parts = shortcut.split('+').map(part => {
+        if (part === 'CommandOrControl') return platform === 'darwin' ? 'Command' : 'Control';
+        if (part === 'Super' && platform === 'darwin') return 'Command';
+        return part === 'Enter' ? 'Return' : part;
+    });
+    return [...new Set(parts)].sort().join('+');
 }
 
 export function textLookupShortcutStatus(settings: TextLookupShortcutSettings, registered: boolean, error?: YomuGamingTextLookupShortcut['error']): YomuGamingTextLookupShortcut {

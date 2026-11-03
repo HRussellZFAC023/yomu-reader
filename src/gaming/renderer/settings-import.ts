@@ -1,7 +1,9 @@
 import type { ReaderSettings } from '../../reader/app/types';
 import { normalizeReaderSettings } from '../../reader/settings';
 import { parseReaderSettingsBackup, READER_SETTINGS_BACKUP_FORMAT, READER_SETTINGS_BACKUP_VERSION } from '../../reader/settings/file-io';
-import { parseTextLookupShortcutSettings, type TextLookupShortcutSettings } from '../selected-text-shortcut';
+import type { TextLookupShortcutSettings } from '../selected-text-shortcut';
+import { parseDesktopShortcutPatch } from '../desktop-shortcuts';
+import type { YomuGamingBridge, YomuGamingEnvironment, YomuGamingShortcutPatch } from '../ipc';
 
 // Yomu Gaming keeps its own copy of the reader settings, so a choice made in the browser —
 // Pass/Fail grading, the Jiten key, colours — never reached the popup over a game: the
@@ -54,21 +56,30 @@ export function desktopSettingsExport(settings: ReaderSettings, captureShortcut?
         desktop: { ...(captureShortcut ? { captureShortcut } : {}), ...(textLookupShortcut ? { textLookupShortcut } : {}) } }, null, 2);
 }
 
-export function desktopTextLookupShortcutFromExport(text: string, platform: string): TextLookupShortcutSettings | null {
+export function desktopShortcutsFromExport(text: string, platform: string):
+    { kind: 'absent' } | { kind: 'invalid' } | { kind: 'update'; shortcuts: YomuGamingShortcutPatch } {
     const value = parsedJson(text);
-    if (!parseReaderSettingsBackup(value) || !value || typeof value !== 'object' || !('desktop' in value)) return null;
+    if (!parseReaderSettingsBackup(value)) return { kind: 'invalid' };
+    if (!value || typeof value !== 'object' || !('desktop' in value)) return { kind: 'absent' };
     const metadata = value.desktop;
-    return metadata && typeof metadata === 'object' && 'textLookupShortcut' in metadata
-        ? parseTextLookupShortcutSettings(metadata.textLookupShortcut, platform) : null;
+    if (!metadata || typeof metadata !== 'object' || !Object.keys(metadata).length) return { kind: 'absent' };
+    const shortcuts = parseDesktopShortcutPatch(metadata, platform);
+    return shortcuts ? { kind: 'update', shortcuts } : { kind: 'invalid' };
 }
 
-/** Browser exports and older desktop files never change the native capture shortcut. */
-export function desktopCaptureShortcutFromExport(text: string): string | null {
-    const value = parsedJson(text);
-    if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
-    const record = value as Record<string, unknown>;
-    const metadata = parseReaderSettingsBackup(value) ? record.desktop : null;
-    if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) return null;
-    const shortcut = (metadata as Record<string, unknown>).captureShortcut;
-    return typeof shortcut === 'string' && shortcut.trim() ? shortcut.trim() : null;
+type GamingSettingsImport = { kind: 'imported'; settings: ReaderSettings; environment: YomuGamingEnvironment | null }
+    | { kind: 'unsupported-format' | 'invalid' | 'taken' | 'save-failed' };
+
+/** Reader settings are committed by the caller only after native preferences commit. */
+export async function importGamingSettingsBackup(text: string, current: ReaderSettings, platform: string,
+    bridge: Pick<YomuGamingBridge, 'updateDesktopShortcuts'>): Promise<GamingSettingsImport> {
+    const settings = gamingSettingsFromBrowserExport(text, current);
+    if (!settings) return { kind: 'unsupported-format' };
+    const native = desktopShortcutsFromExport(text, platform);
+    if (native.kind === 'invalid') return { kind: 'invalid' };
+    if (native.kind === 'absent') return { kind: 'imported', settings, environment: null };
+    try {
+        const result = await bridge.updateDesktopShortcuts(native.shortcuts);
+        return result.kind === 'saved' ? { kind: 'imported', settings, environment: result.environment } : { kind: result.kind };
+    } catch { return { kind: 'save-failed' }; }
 }

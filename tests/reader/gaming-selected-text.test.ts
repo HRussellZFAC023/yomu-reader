@@ -107,5 +107,10 @@ describe('selected-text shortcut migration', () => {
             .toEqual({ enabled: false, shortcut: 'Control+Alt+L', language: 'ja' });
         expect(parseTextLookupShortcutSettings({}, 'win32')).toBeNull();
         expect(parseTextLookupShortcutSettings({ enabled: 'yes', shortcut: 'Ctrl+L' }, 'win32')).toBeNull();
+        expect(parseTextLookupShortcutSettings({ enabled: true, shortcut: 'Command+L' }, 'win32')).toBeNull();
+        expect(parseTextLookupShortcutSettings({ enabled: true, shortcut: 'Ctrl+Bogus' }, 'win32')).toBeNull();
+        expect(parseTextLookupShortcutSettings({ enabled: true, shortcut: 'Ctrl+A+B' }, 'win32')).toBeNull();
+        expect(sameNativeShortcut('Command+L', 'Super+L', 'darwin')).toBe(true);
+        expect(sameNativeShortcut('Control+CommandOrControl+Shift+Y', 'Control+Shift+Y', 'win32')).toBe(true);
     });
 });

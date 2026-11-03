@@ -14,9 +14,10 @@ import {
 import { normalizeOcrRequest, requestGamingOcr } from './ocr';
 import { captureShortcutLabel, DEFAULT_CAPTURE_SHORTCUT, normalizeCaptureShortcut } from './capture-shortcut';
 import { settingsFileWriter } from './settings-file';
+import { parseDesktopShortcutPatch } from './desktop-shortcuts';
 import { readSelectedText, runSelectionCommand, SelectedTextSession } from './selected-text';
 import { SELECTED_TEXT_COPY } from './selected-text-copy';
-import { DEFAULT_TEXT_LOOKUP_SETTINGS, parseTextLookupShortcutSettings, sameNativeShortcut, textLookupShortcutStatus, type TextLookupShortcutSettings } from './selected-text-shortcut';
+import { DEFAULT_TEXT_LOOKUP_SETTINGS, nativeShortcutKey, parseTextLookupShortcutSettings, sameNativeShortcut, textLookupShortcutStatus, type TextLookupShortcutSettings } from './selected-text-shortcut';
 import {
     createGamingTray,
     overlayDocumentUrl,
@@ -33,6 +34,7 @@ import {
     type YomuGamingCaptureSource,
     type YomuGamingEnvironment,
     type YomuGamingScreenAccess,
+    type YomuGamingShortcutUpdate,
 } from './ipc';
 
 const APP_NAME = 'よむ Desktop';
@@ -80,6 +82,8 @@ let hotkeyRegistered = false;
 let hotkey = DEFAULT_CAPTURE_SHORTCUT;
 let hotkeyError = '';
 let registeredHotkey: string | null = null;
+const ownedShortcutKeys = new Map<string, string>();
+let shortcutUpdateQueue: Promise<void> = Promise.resolve();
 // Freeze-frame: the screen is grabbed once while none of our windows are visible,
 // then the overlay reads/crops from this frozen frame. This is what keeps the
 // overlay's own selection chrome out of the OCR'd image.
@@ -528,21 +532,38 @@ function registerIpcHandlers(): void {
         mainWindow?.hide();
     });
     ipcMain.handle(YOMU_GAMING_CHANNELS.openExternal, (_event, url: string) => openAllowedExternalUrl(url));
-    ipcMain.handle(YOMU_GAMING_CHANNELS.updateCaptureShortcut, (_event, shortcut: string) => updateCaptureShortcut(shortcut));
-    ipcMain.handle(YOMU_GAMING_CHANNELS.updateTextLookupShortcut, (event, settings: unknown) =>
-        event.sender.id === mainWindow?.webContents.id ? updateTextLookupShortcut(settings) : environmentStatus());
+    ipcMain.handle(YOMU_GAMING_CHANNELS.updateCaptureShortcut, (event, shortcut: unknown) => {
+        requireSettingsFrame(event);
+        return updateCaptureShortcut(shortcut);
+    });
+    ipcMain.handle(YOMU_GAMING_CHANNELS.updateTextLookupShortcut, (event, settings: unknown) => {
+        requireSettingsFrame(event);
+        return updateTextLookupShortcut(settings);
+    });
+    ipcMain.handle(YOMU_GAMING_CHANNELS.updateDesktopShortcuts, (event, shortcuts: unknown) => {
+        requireSettingsFrame(event);
+        return updateDesktopShortcuts(shortcuts);
+    });
     ipcMain.handle(YOMU_GAMING_CHANNELS.getSelectedText, (event, session: unknown) => {
-        if (event.sender.id !== textLookupWindow?.webContents.id) return { kind: 'expired' };
+        if (!fromMainFrame(event, textLookupWindow)) return { kind: 'expired' };
         const url = new URL(event.sender.getURL());
         if (Number(url.searchParams.get('textSession')) !== session) return { kind: 'expired' };
         return selectedTextSession.take(session);
     });
     ipcMain.handle(YOMU_GAMING_CHANNELS.closeTextLookup, event => {
-        if (event.sender.id === textLookupWindow?.webContents.id) closeTextLookup();
+        if (fromMainFrame(event, textLookupWindow)) closeTextLookup();
     });
     ipcMain.handle(YOMU_GAMING_CHANNELS.retryTextLookup, event => {
-        if (event.sender.id === textLookupWindow?.webContents.id) scheduleTextLookup();
+        if (fromMainFrame(event, textLookupWindow)) scheduleTextLookup();
     });
+}
+
+function fromMainFrame(event: Electron.IpcMainInvokeEvent, window: BrowserWindow | null): boolean {
+    return Boolean(window && event.sender === window.webContents && event.senderFrame && event.senderFrame === window.webContents.mainFrame);
+}
+
+function requireSettingsFrame(event: Electron.IpcMainInvokeEvent): void {
+    if (!fromMainFrame(event, mainWindow)) throw new Error('Desktop shortcut updates require the Settings window.');
 }
 
 function captureForOverlay(
@@ -719,52 +740,30 @@ async function openAllowedExternalUrl(value: string): Promise<void> {
 }
 
 async function loadCaptureShortcut(): Promise<void> {
-    let raw = '';
-    try {
-        raw = await readFile(captureShortcutPath(), 'utf8');
-    } catch (error) {
-        if (isNodeErrorCode(error, 'ENOENT')) return;
-        throw error;
+    let parsed: unknown;
+    try { parsed = JSON.parse(await readFile(captureShortcutPath(), 'utf8')); }
+    catch (error) {
+        if (!isNodeErrorCode(error, 'ENOENT')) throw error;
+        await loadLegacyTextLookupShortcut();
+        return;
     }
-    const parsed = JSON.parse(raw) as unknown;
-    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return;
-    const shortcut = (parsed as Record<string, unknown>).shortcut;
-    const normalized = normalizeCaptureShortcut(shortcut, process.platform);
+    if (!parsed || typeof parsed !== 'object' || !('shortcut' in parsed)) return;
+    const normalized = normalizeCaptureShortcut(parsed.shortcut, process.platform);
     if (normalized.ok) hotkey = normalized.shortcut;
+    if ('textLookupShortcut' in parsed) {
+        textLookupSettings = parseTextLookupShortcutSettings(parsed.textLookupShortcut, process.platform) ?? { ...DEFAULT_TEXT_LOOKUP_SETTINGS };
+    } else await loadLegacyTextLookupShortcut();
 }
 
-async function updateCaptureShortcut(value: string): Promise<YomuGamingEnvironment> {
-    const previousHotkey = hotkey;
-    const normalized = normalizeCaptureShortcut(value, process.platform);
-    if (!normalized.ok) {
-        hotkeyError = normalized.error;
-        return environmentStatus();
-    }
-    if (textLookupSettings.enabled && sameNativeShortcut(normalized.shortcut, textLookupSettings.shortcut, process.platform)) {
-        hotkeyError = `${normalized.shortcut} is taken here. Try another key.`;
-        return environmentStatus();
-    }
-    hotkey = normalized.shortcut;
-    registerGlobalShortcuts();
-    if (!hotkeyRegistered) {
-        hotkey = previousHotkey;
-        registerGlobalShortcuts();
-        // The renderer shows this verbatim, so it is written as advice, not as a report:
-        // the previous shortcut is already back in place by the time it is read.
-        hotkeyError = `${normalized.shortcut} is taken here. Try another key.`;
-        return environmentStatus();
-    }
-    hotkeyError = '';
-    await persistCaptureShortcut(hotkey);
+async function updateCaptureShortcut(value: unknown): Promise<YomuGamingEnvironment> {
+    const result = await updateDesktopShortcuts({ captureShortcut: value });
+    if (result.kind === 'save-failed') throw new Error('Desktop shortcuts could not be saved.');
+    if (result.kind !== 'saved') hotkeyError = result.kind === 'invalid'
+        ? 'Use a shortcut with a modifier and a letter or function key.' : 'That shortcut is taken here. Try another key.';
     return environmentStatus();
 }
 
-// One shortcut edit can save twice (its change, then its blur): the saves must not overlap.
 const saveSettingsFile = settingsFileWriter();
-
-async function persistCaptureShortcut(shortcut: string): Promise<void> {
-    await saveSettingsFile(captureShortcutPath(), `${JSON.stringify({ version: 1, shortcut }, null, 2)}\n`);
-}
 
 function captureShortcutPath(): string {
     return process.env.YOMU_GAMING_CAPTURE_SHORTCUT_PATH
@@ -773,17 +772,101 @@ function captureShortcutPath(): string {
 }
 
 function isNodeErrorCode(error: unknown, code: string): boolean {
-    return error instanceof Error && 'code' in error && (error as NodeJS.ErrnoException).code === code;
+    return error instanceof Error && 'code' in error && error.code === code;
+}
+
+interface DesktopShortcutPair { captureShortcut: string; textLookupShortcut: TextLookupShortcutSettings }
+function currentShortcutPair(): DesktopShortcutPair {
+    return { captureShortcut: hotkey, textLookupShortcut: { ...textLookupSettings } };
+}
+
+function dispatchNativeShortcut(key: string): Promise<void> | undefined {
+    if (hotkeyRegistered && key === nativeShortcutKey(hotkey, process.platform)) return pressCaptureShortcut();
+    if (registeredTextLookupShortcut && key === nativeShortcutKey(textLookupSettings.shortcut, process.platform)) return pressTextLookupShortcut();
+    return undefined;
+}
+
+function reserveNativeShortcut(shortcut: string): 'registered' | 'taken' | 'invalid' {
+    const key = nativeShortcutKey(shortcut, process.platform);
+    if (ownedShortcutKeys.has(key)) return 'registered';
+    try {
+        if (process.env.YOMU_GAMING_TEST_MODE !== '1' && !globalShortcut.register(shortcut, () => dispatchNativeShortcut(key))) return 'taken';
+        ownedShortcutKeys.set(key, shortcut);
+        return 'registered';
+    } catch { return 'invalid'; }
+}
+
+function pairShortcuts(pair: DesktopShortcutPair): string[] {
+    return pair.textLookupShortcut.enabled ? [pair.captureShortcut, pair.textLookupShortcut.shortcut] : [pair.captureShortcut];
+}
+
+function releaseShortcutKeys(keys: Iterable<string>): void {
+    for (const key of keys) {
+        const shortcut = ownedShortcutKeys.get(key);
+        if (!shortcut) continue;
+        globalShortcut.unregister(shortcut);
+        ownedShortcutKeys.delete(key);
+    }
+}
+
+function adoptShortcutPair(pair: DesktopShortcutPair): void {
+    hotkey = pair.captureShortcut;
+    textLookupSettings = pair.textLookupShortcut;
+    hotkeyRegistered = ownedShortcutKeys.has(nativeShortcutKey(hotkey, process.platform));
+    registeredHotkey = hotkeyRegistered ? hotkey : null;
+    const textRegistered = textLookupSettings.enabled && !sameNativeShortcut(hotkey, textLookupSettings.shortcut, process.platform)
+        && ownedShortcutKeys.has(nativeShortcutKey(textLookupSettings.shortcut, process.platform));
+    registeredTextLookupShortcut = textRegistered ? textLookupSettings.shortcut : null;
+}
+
+// Editors and import share one transaction. A reservation dispatches through the
+// committed pair, so new keys stay inactive and swaps keep their old roles until commit.
+function updateDesktopShortcuts(value: unknown): Promise<YomuGamingShortcutUpdate> {
+    const operation = shortcutUpdateQueue.then(() => commitDesktopShortcuts(value));
+    shortcutUpdateQueue = operation.then(() => undefined, () => undefined);
+    return operation;
+}
+
+async function commitDesktopShortcuts(value: unknown): Promise<YomuGamingShortcutUpdate> {
+    const patch = parseDesktopShortcutPatch(value, process.platform);
+    if (!patch) return { kind: 'invalid', environment: environmentStatus() };
+    const next = { ...currentShortcutPair(), ...patch };
+    if (next.textLookupShortcut.enabled && sameNativeShortcut(next.captureShortcut, next.textLookupShortcut.shortcut, process.platform)) {
+        return { kind: 'taken', environment: environmentStatus() };
+    }
+    const previousKeys = new Set(ownedShortcutKeys.keys());
+    const failure = reserveShortcutPair(next);
+    if (failure) return abandonShortcutReservations(previousKeys, failure);
+    try {
+        await saveSettingsFile(captureShortcutPath(), `${JSON.stringify({ version: 1, shortcut: next.captureShortcut, textLookupShortcut: next.textLookupShortcut }, null, 2)}\n`);
+    } catch { return abandonShortcutReservations(previousKeys, 'save-failed'); }
+    adoptShortcutPair(next);
+    const desiredKeys = new Set(pairShortcuts(next).map(shortcut => nativeShortcutKey(shortcut, process.platform)));
+    releaseShortcutKeys([...ownedShortcutKeys.keys()].filter(key => !desiredKeys.has(key)));
+    hotkeyError = '';
+    textLookupShortcutError = undefined;
+    refreshTray();
+    return { kind: 'saved', environment: environmentStatus() };
+}
+
+function reserveShortcutPair(pair: DesktopShortcutPair): 'invalid' | 'taken' | null {
+    for (const shortcut of pairShortcuts(pair)) {
+        const result = reserveNativeShortcut(shortcut);
+        if (result !== 'registered') return result;
+    }
+    return null;
+}
+
+function abandonShortcutReservations(previousKeys: ReadonlySet<string>, kind: 'invalid' | 'taken' | 'save-failed'): YomuGamingShortcutUpdate {
+    releaseShortcutKeys([...ownedShortcutKeys.keys()].filter(key => !previousKeys.has(key)));
+    return { kind, environment: environmentStatus() };
 }
 
 function registerGlobalShortcuts(): void {
-    if (registeredHotkey) {
-        globalShortcut.unregister(registeredHotkey);
-        registeredHotkey = null;
-    }
-    hotkeyRegistered = process.env.YOMU_GAMING_TEST_MODE === '1' || globalShortcut.register(hotkey, pressCaptureShortcut);
-    if (hotkeyRegistered) registeredHotkey = hotkey;
-    // Single place the shortcut changes, so it is the single place the tray relabels.
+    reserveNativeShortcut(hotkey);
+    if (textLookupSettings.enabled && !sameNativeShortcut(hotkey, textLookupSettings.shortcut, process.platform)) reserveNativeShortcut(textLookupSettings.shortcut);
+    adoptShortcutPair(currentShortcutPair());
+    if (textLookupSettings.enabled && !registeredTextLookupShortcut) textLookupShortcutError = 'taken';
     refreshTray();
 }
 
@@ -862,7 +945,7 @@ function textLookupShortcutPath(): string {
     return path.join(app.getPath('userData'), 'selected-text-shortcut-v1.json');
 }
 
-async function loadTextLookupShortcut(): Promise<void> {
+async function loadLegacyTextLookupShortcut(): Promise<void> {
     try {
         const parsed: unknown = JSON.parse(await readFile(textLookupShortcutPath(), 'utf8'));
         textLookupSettings = parseTextLookupShortcutSettings(parsed, process.platform) ?? textLookupSettings;
@@ -871,34 +954,10 @@ async function loadTextLookupShortcut(): Promise<void> {
     }
 }
 
-function registerTextLookupShortcut(): void {
-    if (registeredTextLookupShortcut) globalShortcut.unregister(registeredTextLookupShortcut);
-    registeredTextLookupShortcut = null;
-    textLookupShortcutError = undefined;
-    if (textLookupSettings.enabled) {
-        const available = !sameNativeShortcut(textLookupSettings.shortcut, hotkey, process.platform);
-        const registered = available && (process.env.YOMU_GAMING_TEST_MODE === '1'
-            || globalShortcut.register(textLookupSettings.shortcut, pressTextLookupShortcut));
-        if (registered) registeredTextLookupShortcut = textLookupSettings.shortcut;
-        else textLookupShortcutError = 'taken';
-    }
-    refreshTray();
-}
-
 async function updateTextLookupShortcut(value: unknown): Promise<YomuGamingEnvironment> {
-    const next = parseTextLookupShortcutSettings(value, process.platform);
-    if (!next) { textLookupShortcutError = 'invalid'; return environmentStatus(); }
-    const previous = textLookupSettings;
-    textLookupSettings = next;
-    registerTextLookupShortcut();
-    if (next.enabled && !registeredTextLookupShortcut) {
-        textLookupSettings = previous;
-        registerTextLookupShortcut();
-        textLookupShortcutError = 'taken';
-    } else {
-        await saveSettingsFile(textLookupShortcutPath(), `${JSON.stringify({ version: 1, ...textLookupSettings }, null, 2)}\n`);
-    }
-    refreshTray();
+    const result = await updateDesktopShortcuts({ textLookupShortcut: value });
+    if (result.kind === 'save-failed') throw new Error('Desktop shortcuts could not be saved.');
+    if (result.kind !== 'saved') textLookupShortcutError = result.kind;
     return environmentStatus();
 }
 
@@ -915,9 +974,7 @@ app.whenReady().then(async () => {
     applyAppIcon();
     registerIpcHandlers();
     await loadCaptureShortcut();
-    await loadTextLookupShortcut();
     registerGlobalShortcuts();
-    registerTextLookupShortcut();
     createTray();
     await createMainWindow();
 });
@@ -939,6 +996,7 @@ app.on('before-quit', () => {
     closeTextLookup();
     layerShortcuts.clear();
     globalShortcut.unregisterAll();
+    ownedShortcutKeys.clear();
     registeredHotkey = null;
     tray?.destroy();
     tray = null;

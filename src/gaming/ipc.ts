@@ -17,6 +17,7 @@ export const YOMU_GAMING_CHANNELS = {
     closeTextLookup: 'yomu-gaming:close-text-lookup',
     retryTextLookup: 'yomu-gaming:retry-text-lookup',
     updateTextLookupShortcut: 'yomu-gaming:update-text-lookup-shortcut',
+    updateDesktopShortcuts: 'yomu-gaming:update-desktop-shortcuts',
 } as const;
 
 export type YomuGamingScreenAccess = 'granted' | 'denied' | 'restricted' | 'not-determined' | 'unknown' | 'unsupported';
@@ -47,6 +48,16 @@ export interface YomuGamingTextLookupShortcut {
     language: 'en' | 'ja';
     registered: boolean;
     error?: 'invalid' | 'taken';
+}
+
+export interface YomuGamingShortcutPatch {
+    captureShortcut?: string;
+    textLookupShortcut?: Pick<YomuGamingTextLookupShortcut, 'enabled' | 'shortcut' | 'language'>;
+}
+
+export interface YomuGamingShortcutUpdate {
+    kind: 'saved' | 'invalid' | 'taken' | 'save-failed';
+    environment: YomuGamingEnvironment;
 }
 
 export interface YomuGamingImageSize {
@@ -110,4 +121,5 @@ export interface YomuGamingBridge {
     closeTextLookup(): Promise<void>;
     retryTextLookup(): Promise<void>;
     updateTextLookupShortcut(settings: unknown): Promise<YomuGamingEnvironment>;
+    updateDesktopShortcuts(shortcuts: YomuGamingShortcutPatch): Promise<YomuGamingShortcutUpdate>;
 }

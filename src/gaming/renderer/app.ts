@@ -49,7 +49,7 @@ import { removeLegacyGamingReaderSettingsCopy } from './legacy-reader-settings-c
 import { installGamingHttpTransport } from './http-transport';
 import { mountSelectedTextLookup } from './selected-text';
 import { installSelectedTextShortcutControls } from './selected-text-shortcut';
-import { gamingSettingsFromBrowserExport, desktopSettingsExport, desktopCaptureShortcutFromExport, desktopTextLookupShortcutFromExport } from './settings-import';
+import { desktopSettingsExport, importGamingSettingsBackup } from './settings-import';
 import {
     layoutOverlayOcrLines,
     suppressDesktopLinePaint,
@@ -682,28 +682,20 @@ async function importBrowserSettings(form: HTMLFormElement, button: HTMLButtonEl
     button?.setAttribute('disabled', 'true');
     try {
         const serialized = await file.text();
-        const imported = gamingSettingsFromBrowserExport(serialized, shellState.settings);
-        if (!imported) {
-            setShellStatus(uiText(shellState.settings.interfaceLanguage, 'settingsImportUnsupportedFormat'), 'error');
+        const result = await importGamingSettingsBackup(serialized, shellState.settings, shellState.environment?.platform ?? '', bridge);
+        if (result.kind !== 'imported') {
+            const key = { 'unsupported-format': 'settingsImportUnsupportedFormat', invalid: 'desktopShortcutImportInvalid',
+                taken: 'desktopShortcutImportTaken', 'save-failed': 'desktopShortcutImportSaveFailed' } as const;
+            setShellStatus(uiText(shellState.settings.interfaceLanguage, key[result.kind]), 'error');
             return;
         }
-        const captureShortcut = desktopCaptureShortcutFromExport(serialized);
-        const textLookupShortcut = desktopTextLookupShortcutFromExport(serialized, shellState.environment?.platform ?? '');
-        if (textLookupShortcut) shellState.environment = await bridge.updateTextLookupShortcut(textLookupShortcut);
-        if (captureShortcut) {
-            const environment = await bridge.updateCaptureShortcut(captureShortcut);
-            if (!environment.hotkeyRegistered || environment.hotkeyError) {
-                setShellStatus(environment.hotkeyError || 'Could not restore the capture shortcut.', 'error');
-                return;
-            }
-            shellState.environment = environment;
-        }
-        shellState.settings = imported;
-        persistGamingSettings(imported);
-        setShellStatus(uiText(imported.interfaceLanguage, 'settingsImported'), 'success');
+        persistGamingSettings(result.settings);
+        shellState.settings = result.settings;
+        if (result.environment) shellState.environment = result.environment;
+        setShellStatus(uiText(result.settings.interfaceLanguage, 'settingsImported'), 'success');
         renderShell();
     } catch {
-        setShellStatus(uiText(shellState.settings.interfaceLanguage, 'settingsImportUnsupportedFormat'), 'error');
+        setShellStatus(uiText(shellState.settings.interfaceLanguage, 'desktopShortcutImportSaveFailed'), 'error');
     } finally {
         if (button?.isConnected) button.removeAttribute('disabled');
     }
@@ -1353,5 +1345,6 @@ function browserFallbackBridge(): YomuGamingBridge {
         closeTextLookup: async () => undefined,
         retryTextLookup: async () => undefined,
         updateTextLookupShortcut: async () => bridge.getEnvironment(),
+        updateDesktopShortcuts: async () => ({ kind: 'save-failed', environment: await bridge.getEnvironment() }),
     };
 }

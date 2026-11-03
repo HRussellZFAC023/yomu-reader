@@ -1,5 +1,8 @@
 export const SELECTED_TEXT_COPY = {
     en: {
+        desktopShortcutImportInvalid: 'This backup contains an invalid desktop shortcut. No settings were imported.',
+        desktopShortcutImportTaken: 'A desktop shortcut is unavailable. No settings were imported. Choose another shortcut and try again.',
+        desktopShortcutImportSaveFailed: 'Settings could not be imported. Check storage access and try again.',
         desktopSelectedText: 'Selected text',
         desktopSelectedTextHelp: 'Select Japanese text in Word, a PDF, or another app, then press the shortcut. No screenshot or OCR is used. Your clipboard stays unchanged.',
         desktopSelectedTextShortcut: 'Selected-text shortcut',
@@ -26,6 +29,9 @@ export const SELECTED_TEXT_COPY = {
         desktopSelectedTextClose: 'Close',
     },
     ja: {
+        desktopShortcutImportInvalid: 'このバックアップには無効なデスクトップ用ショートカットがあります。設定はインポートされていません。',
+        desktopShortcutImportTaken: 'デスクトップ用ショートカットを利用できません。設定はインポートされていません。別のキーを選んで再試行してください。',
+        desktopShortcutImportSaveFailed: '設定をインポートできませんでした。保存先へのアクセスを確認して再試行してください。',
         desktopSelectedText: '選択テキスト',
         desktopSelectedTextHelp: 'Word、PDF、ほかのアプリで日本語を選択してショートカットを押すと調べられます。スクリーンショットやOCRは使わず、クリップボードも変更しません。',
         desktopSelectedTextShortcut: '選択テキストのショートカット',

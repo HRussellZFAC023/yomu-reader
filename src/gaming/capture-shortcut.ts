@@ -47,16 +47,26 @@ const SHORTCUT_PART_ALIASES = new Map<string, string>([
 ]);
 
 const MODIFIER_ORDER = ['CommandOrControl', 'Control', 'Command', 'Alt', 'Shift', 'Super'];
+// Electron 38's documented named accelerator keys. Unknown names must not be
+// silently converted into a different shortcut or reach a native registration.
+const NAMED_SHORTCUT_KEYS = new Map([
+    'Plus', 'Space', 'Tab', 'Capslock', 'Numlock', 'Scrolllock', 'Backspace', 'Delete', 'Insert', 'Return', 'Enter',
+    'Up', 'Down', 'Left', 'Right', 'Home', 'End', 'PageUp', 'PageDown', 'Escape', 'VolumeUp', 'VolumeDown', 'VolumeMute',
+    'MediaNextTrack', 'MediaPreviousTrack', 'MediaStop', 'MediaPlayPause', 'PrintScreen',
+    'num0', 'num1', 'num2', 'num3', 'num4', 'num5', 'num6', 'num7', 'num8', 'num9', 'numdec', 'numadd', 'numsub', 'nummult', 'numdiv',
+].map(key => [key.toLowerCase(), key]));
 
 export type CaptureShortcutResult = { ok: true; shortcut: string } | { ok: false; error: string };
 
 export function normalizeCaptureShortcut(value: unknown, platform: string): CaptureShortcutResult {
     if (typeof value !== 'string') return { ok: false, error: 'Capture shortcut must be text.' };
-    const parts = value.split('+').map(part => normalizeShortcutPart(part, platform)).filter(Boolean);
+    const parts = value.split('+').map(part => normalizeShortcutPart(part, platform));
+    if (parts.some(part => !part)) return { ok: false, error: 'Use a supported shortcut key.' };
+    if (platform !== 'darwin' && parts.includes('Command')) return { ok: false, error: 'Use Ctrl or CommandOrControl on this platform.' };
     const deduped = parts.filter((part, index) => parts.indexOf(part) === index);
     const key = captureShortcutKey(deduped);
     const hasModifier = deduped.some(part => CAPTURE_SHORTCUT_MODIFIERS.has(part));
-    if (!key) return { ok: false, error: 'Press a shortcut with a letter, number, function key, or named key.' };
+    if (!key || deduped.filter(part => !CAPTURE_SHORTCUT_MODIFIERS.has(part)).length !== 1) return { ok: false, error: 'Press a shortcut with one letter, number, function key, or named key.' };
     if (!hasModifier) return { ok: false, error: 'Use at least one modifier, such as Ctrl, Alt, Shift, or Command.' };
     return { ok: true, shortcut: orderShortcutParts(deduped).join('+') };
 }
@@ -88,8 +98,7 @@ function normalizeShortcutPart(part: string, platform: string): string {
     if (alias) return alias;
     if (/^f([1-9]|1\d|2[0-4])$/i.test(value)) return value.toUpperCase();
     if (/^[a-z0-9]$/i.test(value)) return value.toUpperCase();
-    if (/^[a-z][a-z0-9]*$/i.test(value)) return value[0].toUpperCase() + value.slice(1);
-    return '';
+    return NAMED_SHORTCUT_KEYS.get(lower) ?? '';
 }
 
 function captureShortcutKey(parts: string[]): string {
