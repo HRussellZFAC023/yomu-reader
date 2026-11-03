@@ -150,13 +150,15 @@ GitHub Actions cover CI, userscript bundling, docs deployment, extension builds,
 - `Deploy Docs` builds the VitePress docs and publishes GitHub Pages.
 - `Release` publishes the compiled userscript and browser-extension artifacts when a `v*` tag is pushed or the workflow is run manually.
 
-GreasyFork does not provide a general write API for unattended publishing. After the first logged-in publish, configure GreasyFork to sync updates from:
+GreasyFork does not provide a general write API for unattended publishing. After the first logged-in publish, open the listing's **Admin → Source Syncing** form. Set the code URL to the deployed artifact below and select **Automatic**:
 
 ```text
-https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.user.js
+https://yomureader.com/yomu.user.js
 ```
 
-That sync updates the userscript and its metadata header, but not the listing's **Additional info** prose. When a feature release changes product scope or positioning, update that field in the signed-in GreasyFork editor and verify both the public `.meta.js` and `.user.js` after the main-branch sync.
+Deploy Docs publishes that artifact with its pinned runtime and CSS. A raw GitHub `main` URL can update before those files are live. Follow the [Greasy Fork publication checks](docs/operations/production-health-monitoring.md#greasy-fork-updates) before an immediate sync.
+
+That code sync updates the userscript and its metadata header. The listing's **Additional info** prose has separate sync settings. When a feature release changes product scope or positioning, update that field in the signed-in GreasyFork editor. Verify both the public `.meta.js` and `.user.js` after syncing from the hosted source.
 
 </details>
 

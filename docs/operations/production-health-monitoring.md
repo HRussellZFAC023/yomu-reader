@@ -75,6 +75,33 @@ So run `node scripts/production-health-check.mjs` before pushing `main`. If a
 2. Push the tag first. Push `main` once Release Yomu Gaming has finished and the
    check passes.
 
+## Greasy Fork updates
+
+In the listing's author **Admin → Source Syncing** form, set the code URL to
+`https://yomureader.com/yomu.user.js` and select **Automatic**. This follows the
+deployed Pages artifact instead of a raw `main` file that can change before
+its pinned runtime and CSS are available. Keep **Manual** only if you intend
+to trigger every update yourself.
+
+If the saved mode is **Webhook**, switch it to **Automatic** or **Manual**.
+[Greasy Fork matches GitHub webhook events to repository URLs](https://github.com/greasyfork-org/greasyfork/blob/94dbbdd89aba1263064b3dc8380b7156476d15d4/app/controllers/concerns/webhooks.rb#L130-L147).
+A hosted source URL does not match those events, and a push does not wait for
+Deploy Docs.
+
+Before saving with **Update and sync now** or triggering a manual update:
+
+1. Wait for **Deploy Docs** to succeed for the intended commit.
+2. Fetch `https://yomureader.com/yomu.user.js` and confirm its `@version`.
+3. Fetch every `@require` and `@resource` URL in that header without its hash
+   fragment. Require HTTP 200 and verify each response's full SHA-256 digest
+   against its `#sha256=` value. Stop if any URL or digest fails.
+4. After syncing, verify the public Greasy Fork `.meta.js` and `.user.js`
+   report the intended version. Check the runtime URL in both responses and
+   the CSS URL in `.user.js` against the hosted header.
+
+Reopen the author form to confirm the saved URL and mode. Public script
+responses do not prove those settings.
+
 ## What fails the run, and what only gets reported
 
 Fails: a non-200, a 200 whose body is not JSON, or a payload whose
