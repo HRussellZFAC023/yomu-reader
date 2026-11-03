@@ -17,6 +17,7 @@ export async function assertGamingJitenActions({ app, page, overlay, importSetti
         const word = await findWord(overlay, '冒険');
         const popup = overlay.locator('.jpdb-reader-popover').first();
         await word.hover();
+        await waitForFixtureHeadword(popup, '冒険');
         const grade = popup.locator('[data-action="grade"][data-grade="pass"]').first();
         await grade.waitFor({ state: 'visible', timeout: 15_000 });
         await grade.click();
@@ -37,6 +38,21 @@ export async function assertGamingJitenActions({ app, page, overlay, importSetti
     } finally {
         await app.context().unroute(/^https?:\/\//, route);
     }
+}
+
+async function waitForFixtureHeadword(popup, expected) {
+    const deadline = Date.now() + 15_000;
+    let actual;
+    while (Date.now() < deadline) {
+        actual = await popup.evaluateAll(roots => {
+            const spelling = roots[0]?.querySelector('[data-yomu-headword]')?.cloneNode(true);
+            spelling?.querySelectorAll('rt, rp').forEach(node => node.remove());
+            return (spelling?.textContent ?? '').replace(/\s+/gu, '');
+        });
+        if (actual === expected) return;
+        await new Promise(resolve => setTimeout(resolve, 50));
+    }
+    throw new Error(`Gaming Jiten popup expected ${expected}, showed ${actual}.`);
 }
 
 async function waitForWrite(read, label) {

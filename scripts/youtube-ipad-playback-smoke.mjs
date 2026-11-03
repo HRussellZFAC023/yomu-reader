@@ -133,6 +133,13 @@ async function checkMobileVideoLayer(browser, engineName) {
         });
         assert(await page.evaluate(({x,y})=>document.elementFromPoint(x,y)?.id==='mobile-native-dialog',popup),`${engineName}: toolbar covers the native mobile dialog`);
         await page.locator('#mobile-native-dialog').evaluate(dialog=>dialog.remove());
+        // Popup clipping and the caption layer update after the removal observer/frame.
+        await page.waitForFunction(() => {
+            const button = document.querySelector('.jpdb-subtitle-rail button[data-action="visibility"]');
+            if (!button) return false;
+            const rect = button.getBoundingClientRect();
+            return button.contains(document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2));
+        }, undefined, { timeout: 2000 });
         assert(await visibility.evaluate(button=>{const r=button.getBoundingClientRect();return button.contains(document.elementFromPoint(r.left+r.width/2,r.top+r.height/2));}),`${engineName}: toolbar did not return after dialog closed`);
         assert.deepEqual(errors,[],`${engineName}: mobile fixture browser errors`);
         console.log(`${engineName}: mobile toolbar clears video context and stays below native dialogs`);
