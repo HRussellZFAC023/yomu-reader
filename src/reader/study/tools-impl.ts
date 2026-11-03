@@ -153,7 +153,7 @@ function targetSentenceEvidence(
 
 /**
  * `outputLanguage` is the OUTPUT axis — where the sentence lands — never the
- * interface locale. Callers resolve it with `outputLanguageOf(settings)`.
+ * interface locale. Callers resolve it with `translationOutputLanguage(settings)`.
  */
 export async function translateTargetSentence(
     sentence: string,

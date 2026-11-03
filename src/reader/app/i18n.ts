@@ -111,6 +111,8 @@ const COPY = {
         fourGradeShortcutsHelp: 'Four-grade reviews use the first four shortcuts: Again, Hard, Good, Easy.',
         twoPoint: 'Two point: FAIL / PASS',
         settingsLanguage: 'Settings language',
+        translationLanguage: 'Translation language',
+        translationLanguageHelp: 'Choose the language for automatic sentence and example translations.',
         automatic: 'Automatic',
         english: 'English',
         japanese: '日本語',
@@ -1654,6 +1656,8 @@ fivePoint	サービスの標準評価
 fourGradeShortcutsHelp	4段階の復習では、最初の4つのショートカットを「もう一度・難しい・良い・簡単」に使います。
 twoPoint	2段階: 失敗 / 合格
 settingsLanguage	設定の表示言語
+translationLanguage	翻訳先の言語
+translationLanguageHelp	文や例文の自動翻訳先の言語を選びます。
 theme	テーマ
 auto	自動
 dark	ダーク

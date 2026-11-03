@@ -13,6 +13,7 @@ import {
 import { activeLanguageProfile } from '../languages/profiles';
 import { languageProfileDictionariesFromPreferences } from './language-profile-dictionaries';
 import { credentialValueFromReader } from './credential-form';
+import { isSupportedTranslationLanguage } from '../translation/languages';
 
 
 /** What may be stored as Yomu's own interface language. */
@@ -185,11 +186,14 @@ function readLanguageProfileFormSettings(
         current.parserProvider,
     );
     const dictionaries = languageProfileDictionariesFromPreferences(dictionaryPreferences);
-    // The stored target, definition language and translation choices are kept
-    // exactly as an earlier Yomu wrote them (ADR-0024): nothing reads them.
+    const requestedTranslationLanguage = String(data.get('translationLanguage') ?? '');
+    const outputLanguage = isSupportedTranslationLanguage(requestedTranslationLanguage)
+        ? requestedTranslationLanguage
+        : active.outputLanguage;
+    // Only sentence/example output changes; preserve target and dictionary choices.
     return {
         languageProfiles: current.languageProfiles.map(profile => profile.id === active.id
-            ? { ...profile, uiLocale: interfaceLanguage, parserProvider, dictionaries }
+            ? { ...profile, outputLanguage, learnerLanguage: outputLanguage, uiLocale: interfaceLanguage, parserProvider, dictionaries }
             : profile),
         activeLanguageProfileId: active.id,
     };

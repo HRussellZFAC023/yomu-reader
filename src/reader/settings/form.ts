@@ -48,6 +48,7 @@ import { localizeCatalogRecommendationSeed, renderRecommendedDictionaries } from
 import { recommendedDictionaryActionKey } from './recommended-dictionary-card';
 import { localizeAppearanceQuickRow, renderAppearanceQuickRow } from './appearance-quick-row';
 import { localizeReviewServices, renderReviewServicesPanel, reviewServiceControlLabels } from './review-services-panel';
+import { renderTranslationLanguageControl } from './translation-language-control';
 
 export { readDictionaryLookupLinks, readFormSettings } from './form-read';
 export { syncSubtitlePreview } from './subtitle-preview';
@@ -931,6 +932,7 @@ function renderDictionariesSettingsPanel(
             <fieldset id="jpdb-reader-settings-panel-dictionaries" role="tabpanel" data-settings-panel="dictionaries" data-legend-key="sources" hidden>
                 <legend>${escapedUiText(language, 'sources')}</legend>
                 <div data-target-dictionary-content>
+                ${renderTranslationLanguageControl(settings)}
                 ${renderSettingsDisclosure(uiText(language, 'popupOrderTitle'), `
                     <div class="jpdb-reader-dictionary-priorities" data-source-editor data-definition-source-editor>
                         ${renderDictionarySourceRows(settings)}
@@ -1789,6 +1791,7 @@ const DIRECT_SETTINGS_CONTROL_LABEL_KEYS = [
 ] as const satisfies readonly SettingsTextKey[];
 
 const SETTINGS_CONTROL_LABEL_ALIASES = [
+    ['translationLanguage', 'translationLanguage'],
     ['twoButtonReviews', 'reviewRatingScale'],
     ['interfaceLanguage', 'settingsLanguage'],
     ['ocrCloudVisionApiKey', 'cloudVisionApiKey'],

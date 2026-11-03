@@ -151,7 +151,7 @@ import {
     syncFixedPopoverHeight,
 } from '../runtime/popover-body-stabilizer';
 import { StudySourceController } from '../study/sources';
-import { OUTPUT_LANGUAGE } from '../languages/selection';
+import { translationOutputLanguage } from '../translation/languages';
 import { translateJapaneseSentence } from '../study/tools';
 import type { JPDBCard, JPDBGrade, JPDBToken, ReaderSettings } from '../app/types';
 import { addWindowEventListener } from '../platform/window-events';
@@ -2208,7 +2208,7 @@ export class NewTabRuntime {
         if (!this.parser.canParse()) return;
         installProviderExampleBehaviors(root, {
             interfaceLanguage: this.settings.interfaceLanguage,
-            outputLanguage: OUTPUT_LANGUAGE,
+            outputLanguage: translationOutputLanguage(this.settings),
             blurTranslations: this.settings.immersionKitRevealTranslationOnClick,
             translate: translateJapaneseSentence,
             isCurrentRoot: candidate => candidate.isConnected,

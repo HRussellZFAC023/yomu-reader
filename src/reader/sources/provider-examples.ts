@@ -4,6 +4,7 @@ import { escapeHtml } from '../dom';
 import { speakerIcon } from '../ui/icons';
 import { privateCommandAttributes, type CardCommandAction, type CardCommandCapability } from '../dom/private-command-capabilities';
 import { renderExampleListWithMore } from './more-disclosure';
+import { localeDirection } from '../languages/locale';
 
 export type ProviderCollection<T> =
     | { availability: 'loaded'; items: T[] }
@@ -119,7 +120,7 @@ function renderProviderExample(example: ProviderExampleView, language: Interface
                 ${example.audio ? renderProviderExampleAudio(example.audio) : ''}
                 <div class="${classes('jpdb-reader-jpdb-example-text', example.textClassName)}">
                     <div class="${classes('jpdb-reader-example-sentence jpdb-reader-parseable', example.sentenceClassName)}" data-provider-example-sentence data-yomu-furigana-mode="all">${example.sentenceHtml}</div>
-                    <div class="jpdb-reader-example-translation" data-provider-example-translation data-provider-translation-blurred="true"${translationPending ? ` data-provider-translation-pending="true" data-provider-translation-sentence="${escapeHtml(example.sentence)}" hidden` : ''} role="button" tabindex="0" aria-label="${escapeHtml(uiText(language, 'revealTranslation'))}">${escapeHtml(translation)}</div>
+                    <div class="jpdb-reader-example-translation" data-provider-example-translation data-provider-translation-blurred="true" data-provider-translation-sentence="${escapeHtml(example.sentence)}"${translationPending ? ' data-provider-translation-pending="true" hidden' : ' lang="en"'} role="button" tabindex="0" aria-label="${escapeHtml(uiText(language, 'revealTranslation'))}">${escapeHtml(translation)}</div>
                 </div>
             </div>
         </li>
@@ -130,7 +131,8 @@ export function installProviderExampleBehaviors(root: HTMLElement, options: Prov
     installProviderTranslationReveal(root);
     const translations = Array.from(root.querySelectorAll<HTMLElement>('[data-provider-example-translation]'));
     if (!options.blurTranslations) translations.forEach(revealProviderTranslation);
-    translations.filter(translation => translation.dataset.providerTranslationPending === 'true')
+    translations.filter(translation => translation.dataset.providerTranslationPending === 'true'
+        || Boolean(translation.lang && translation.lang !== options.outputLanguage))
         .forEach(translation => hydrateProviderTranslation(root, translation, options));
 }
 
@@ -168,9 +170,9 @@ function hydrateProviderTranslation(root: HTMLElement, translation: HTMLElement,
         // is in the TARGET language, so it has to say so or a screen reader and
         // a bidi run both get it wrong.
         translation.lang = options.outputLanguage;
+        translation.dir = localeDirection(options.outputLanguage);
         translation.hidden = false;
         delete translation.dataset.providerTranslationPending;
-        delete translation.dataset.providerTranslationSentence;
     }).catch(() => undefined).finally(() => {
         delete translation.dataset.providerTranslationLoading;
     });
