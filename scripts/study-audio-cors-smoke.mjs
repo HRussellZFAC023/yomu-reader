@@ -122,10 +122,8 @@ async function checkCorsAndCodec() {
 
 async function checkStudy(name, audioSettings, installed = false) {
     const context = await browser.newContext({ serviceWorkers: 'block', viewport: { width: 1100, height: 760 } });
-    // Chromium separately asks a hosted page for local-network permission.
-    // This guard tests CORS after that user-controlled prerequisite is granted.
-    await context.grantPermissions(['local-network-access'], { origin: studyOrigin });
     const page = await context.newPage();
+    const permissionGrant = await grantLoopbackPermission(context, page);
     const requests = [];
     const bridgeRequests = [];
     const pageErrors = [];
@@ -217,12 +215,31 @@ async function checkStudy(name, audioSettings, installed = false) {
         assert(pageErrors.length === 0, 'Study raised an uncaught exception.', { pageErrors });
         scenarioAssertions[name]({ requests, completed, audio, bridgeRequests, expectedCorsErrors });
         await page.screenshot({ path: path.join(artifactDir, `${name}.png`) });
-        result = { name, status: 'pass', installed, prompt: prompt.trim(), completed, requests, bridgeRequests, audio, expectedCorsErrors };
+        result = { name, status: 'pass', installed, permission: permissionGrant.name, prompt: prompt.trim(), completed, requests, bridgeRequests, audio, expectedCorsErrors };
     } catch (error) {
         result = { name, status: 'fail', installed, error: error.message, requests, bridgeRequests, pageErrors, expectedCorsErrors, audio: await page.evaluate(() => window.__studyAudio).catch(() => null) };
         await page.screenshot({ path: path.join(artifactDir, `${name}-failure.png`) }).catch(() => undefined);
     } finally { await context.close(); }
     return result;
+}
+
+async function grantLoopbackPermission(context, page) {
+    const session = await context.newCDPSession(page);
+    const { targetInfo } = await session.send('Target.getTargetInfo');
+    assert(targetInfo.browserContextId, 'Loopback permission requires a disposable browser context.');
+    try {
+        await session.send('Browser.setPermission', {
+            permission: { name: 'loopback-network' }, setting: 'granted',
+            origin: studyOrigin, browserContextId: targetInfo.browserContextId,
+        });
+    } catch (error) {
+        if (!String(error).includes('Invalid PermissionDescriptor name: loopback-network')) throw error;
+        await context.grantPermissions(['local-network-access'], { origin: studyOrigin });
+        return { name: 'local-network-access', session };
+    }
+    // Current Chrome separates loopback from LAN permission. Keep the owning
+    // CDP session alive: detaching it resets the permission override.
+    return { name: 'loopback-network', session };
 }
 
 async function revealStudyCard(page) {
