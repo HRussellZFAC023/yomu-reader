@@ -74,10 +74,11 @@ function mountDeckSelect(host: HTMLElement, choices: readonly DeckChoice[], card
     const choose = (): void => {
         const choice = choices[select.selectedIndex - 1];
         select.selectedIndex = 0;
-        if (choice) void addToChosenDeck(host, select, async () => {
-            await performAction(select, card, sentence, { kind: 'card-action', action: 'add', deckSource: choice.source, deckId: choice.id });
-            if (select.isConnected) refreshMembership?.();
-        });
+        if (choice) void addToChosenDeck(
+            host, select,
+            () => performAction(select, card, sentence, { kind: 'card-action', action: 'add', deckSource: choice.source, deckId: choice.id }),
+            refreshMembership,
+        );
     };
     // A closed dropdown moves to the deck a typed letter or an arrow reaches and reports
     // each move as a change, so a save there would go to whichever deck the first letter
@@ -103,11 +104,14 @@ function mountDeckSelect(host: HTMLElement, choices: readonly DeckChoice[], card
     select.addEventListener('blur', letGo);
 }
 
-async function addToChosenDeck(host: HTMLElement, select: HTMLSelectElement, add: () => Promise<void> | void): Promise<void> {
+async function addToChosenDeck(host: HTMLElement, select: HTMLSelectElement, add: () => Promise<void> | void, refreshMembership?: () => void): Promise<void> {
     // The popup may live in a shadow root (Desktop's OCR layer), so focus is read there.
     const scope = host.getRootNode() as Document | ShadowRoot;
     const focused = scope.activeElement === host;
     await add();
+    // Refresh in this completion turn: another awaited wrapper delays restoring
+    // focus until after the learner can leave, trapping a waiting render again.
+    if (select.isConnected) refreshMembership?.();
     // The save disables the dropdown, which drops focus, and its refresh may replace
     // it: a keyboard learner keeps their place, unless they moved on meanwhile.
     const active = scope.activeElement;
