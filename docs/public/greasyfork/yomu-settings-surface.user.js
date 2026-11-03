@@ -5795,7 +5795,13 @@ const EN = {
   yomuLocalSrsSaveInterrupted: `Your ${YOMU_DECK_LABEL} was not saved because saving was interrupted. Try again.`,
   addedToYomuLocal: `Added to your ${YOMU_DECK_LABEL}.`,
   // A よむ deck word kept without a schedule (Library, Stats and the popups).
-  savedWord: "Saved"
+  savedWord: "Saved",
+  deckPickerSaved: "Saved in this deck",
+  deckPickerNotSaved: "Not saved in this deck",
+  deckPickerChecking: "Checking…",
+  deckPickerUnsupported: "Status unknown: this destination cannot check saved words",
+  deckPickerUnavailable: "Status unknown: could not check this deck",
+  deckPickerStatusHelp: "Checked when opened. Saved decks remain selectable; sentence updates depend on the destination."
 };
 const JA = {
   collectNoDestination: "この単語を追加できるデッキがありません。設定でデッキを有効にしてください。",
@@ -5820,7 +5826,13 @@ const JA = {
   yomuLocalSrsStorageFailed: "よむデッキを保存できませんでした。ブラウザーの保存容量が不足している可能性があります。サイトの保存容量を空けてから、もう一度お試しください。",
   yomuLocalSrsSaveInterrupted: "保存が中断されたため、よむデッキに保存されませんでした。もう一度お試しください。",
   addedToYomuLocal: "よむデッキに追加しました。",
-  savedWord: "保存済み"
+  savedWord: "保存済み",
+  deckPickerSaved: "このデッキに保存済み",
+  deckPickerNotSaved: "このデッキには未保存",
+  deckPickerChecking: "確認中…",
+  deckPickerUnsupported: "保存状況不明：この保存先では保存済みの単語を確認できません",
+  deckPickerUnavailable: "保存状況不明：このデッキを確認できませんでした",
+  deckPickerStatusHelp: "開くたびに確認します。保存済みのデッキも選択できます。例文の更新は保存先の対応によります。"
 };
 const COLLECTION_COPY = { en: EN, ja: JA };
 const EN_OCR_STATUS_COPY = {
@@ -5925,8 +5937,79 @@ const REVIEW_SERVICES_COPY = {
   en: EN_REVIEW_SERVICES_COPY,
   ja: JA_REVIEW_SERVICES_COPY
 };
+const SELECTED_TEXT_COPY = {
+  en: {
+  desktopShortcutImportInvalid: "This backup contains an invalid desktop shortcut. No settings were imported.",
+  desktopShortcutImportTaken: "A desktop shortcut is unavailable. No settings were imported. Choose another shortcut and try again.",
+  desktopShortcutImportSaveFailed: "Settings could not be imported. Check storage access and try again.",
+  desktopShortcutImportPartial: "Reader settings could not be saved. Desktop shortcuts could not be restored and may have changed. Check the shortcuts below before trying again.",
+  desktopShortcutImportUnconfirmed: "Reader settings could not be saved. Desktop shortcuts may have changed, but their current state is unavailable. Refresh shortcuts before editing them.",
+  desktopShortcutsUnavailable: "Current shortcuts unavailable",
+  desktopShortcutsRefresh: "Refresh shortcuts",
+  desktopShortcutsRefreshed: "Current shortcuts refreshed.",
+  desktopSelectedText: "Selected text",
+  desktopSelectedTextHelp: "Select Japanese text in Word, a PDF, or another app, then press the shortcut. No screenshot or OCR is used. Your clipboard stays unchanged.",
+  desktopSelectedTextShortcut: "Selected-text shortcut",
+  desktopSelectedTextEnabled: "Enable selected-text shortcut",
+  desktopSelectedTextShortcutHelp: "Focus the field and press a shortcut. Keep it different from Screen capture.",
+  desktopSelectedTextReady: "Shortcut ready",
+  desktopSelectedTextDisabled: "Shortcut disabled. The tray action remains available.",
+  desktopSelectedTextTaken: "That shortcut is unavailable. Choose another key combination.",
+  desktopSelectedTextInvalid: "Use a letter or function key with Ctrl, Alt, Shift, or Command.",
+  desktopSelectedTextUnavailable: "This app does not expose its selection. Copy the text yourself, then paste it below, or use Read screen for OCR.",
+  desktopSelectedTextEmpty: "No selected text was found. Select text in your source app and try again, or paste text below.",
+  desktopSelectedTextPermission: "Selection access was denied. On macOS, allow Accessibility and System Events automation for よむ Desktop in System Settings, then try again. You can also paste text below.",
+  desktopSelectedTextUnsupported: "Direct selection is available on Windows, macOS, and Linux X11. On Wayland, copy the text yourself and paste it below, or use Read screen.",
+  desktopSelectedTextTooLong: "Select at most 20,000 characters, or paste a shorter passage below.",
+  desktopSelectedTextExpired: "This selection has expired. Return to your source app and use the shortcut again.",
+  desktopSelectedTextRetry: "Try again in 3 seconds",
+  desktopSelectedTextRetryHelp: "After clicking, return to your source app and select the text within 3 seconds.",
+  desktopSelectedTextPaste: "Paste text",
+  desktopSelectedTextLookUp: "Look up text",
+  desktopSelectedTextLookingUp: "Looking up text…",
+  desktopSelectedTextReaderFailed: "The dictionary could not start. Try again or open Settings.",
+  desktopSelectedTextNoJapanese: "Select Japanese text to look it up.",
+  desktopSelectedTextTray: "Look up selected text (in 3 seconds)",
+  desktopSelectedTextClose: "Close"
+  },
+  ja: {
+  desktopShortcutImportInvalid: "このバックアップには無効なデスクトップ用ショートカットがあります。設定はインポートされていません。",
+  desktopShortcutImportTaken: "デスクトップ用ショートカットを利用できません。設定はインポートされていません。別のキーを選んで再試行してください。",
+  desktopShortcutImportSaveFailed: "設定をインポートできませんでした。保存先へのアクセスを確認して再試行してください。",
+  desktopShortcutImportPartial: "Readerの設定を保存できませんでした。デスクトップ用ショートカットを元に戻せず、変更が残っている可能性があります。下のショートカットを確認してから再試行してください。",
+  desktopShortcutImportUnconfirmed: "Readerの設定を保存できませんでした。デスクトップ用ショートカットが変更された可能性がありますが、現在の状態を確認できません。編集する前にショートカットの状態を更新してください。",
+  desktopShortcutsUnavailable: "現在のショートカットを確認できません",
+  desktopShortcutsRefresh: "ショートカットの状態を更新",
+  desktopShortcutsRefreshed: "現在のショートカットを確認しました。",
+  desktopSelectedText: "選択テキスト",
+  desktopSelectedTextHelp: "Word、PDF、ほかのアプリで日本語を選択してショートカットを押すと調べられます。スクリーンショットやOCRは使わず、クリップボードも変更しません。",
+  desktopSelectedTextShortcut: "選択テキストのショートカット",
+  desktopSelectedTextEnabled: "選択テキストのショートカットを有効にする",
+  desktopSelectedTextShortcutHelp: "入力欄でキーを押して設定します。画面読み取りとは別のキーにしてください。",
+  desktopSelectedTextReady: "ショートカットを利用できます",
+  desktopSelectedTextDisabled: "ショートカットは無効です。トレイからは引き続き使えます。",
+  desktopSelectedTextTaken: "このショートカットは使えません。別のキーに変更してください。",
+  desktopSelectedTextInvalid: "文字キーまたはファンクションキーとCtrl、Alt、Shift、Commandを組み合わせてください。",
+  desktopSelectedTextUnavailable: "このアプリから選択テキストを取得できません。自分でコピーして下に貼り付けるか、画面読み取りのOCRをお使いください。",
+  desktopSelectedTextEmpty: "選択テキストが見つかりません。元のアプリで選択して再試行するか、下に貼り付けてください。",
+  desktopSelectedTextPermission: "選択テキストへのアクセスが許可されていません。macOSではシステム設定でよむDesktopのアクセシビリティとSystem Eventsの操作を許可して再試行してください。下に貼り付けることもできます。",
+  desktopSelectedTextUnsupported: "直接取得はWindows、macOS、Linux X11に対応しています。Waylandでは自分でコピーして下に貼り付けるか、画面読み取りをお使いください。",
+  desktopSelectedTextTooLong: "2万文字以内を選択するか、短い文章を下に貼り付けてください。",
+  desktopSelectedTextExpired: "選択テキストの有効期限が切れました。元のアプリに戻り、ショートカットを押してください。",
+  desktopSelectedTextRetry: "3秒後に再試行",
+  desktopSelectedTextRetryHelp: "押したら元のアプリに戻り、3秒以内にテキストを選択してください。",
+  desktopSelectedTextPaste: "テキストを貼り付ける",
+  desktopSelectedTextLookUp: "テキストを調べる",
+  desktopSelectedTextLookingUp: "検索中…",
+  desktopSelectedTextReaderFailed: "辞書を起動できませんでした。再試行するか設定を開いてください。",
+  desktopSelectedTextNoJapanese: "調べたい日本語を選択してください。",
+  desktopSelectedTextTray: "選択テキストを調べる（3秒後）",
+  desktopSelectedTextClose: "閉じる"
+  }
+};
 const COPY = {
   en: {
+  ...SELECTED_TEXT_COPY.en,
   ...PRACTICE_SESSION_COPY.en,
   ...COLLECTION_COPY.en,
   ...SITE_INTERACTION_COPY.en,
@@ -6026,7 +6109,11 @@ const COPY = {
   twoPoint: "Two point: FAIL / PASS",
   settingsLanguage: "Settings language",
   translationLanguage: "Translation language",
-  translationLanguageHelp: "Choose the language for automatic sentence and example translations.",
+  translationLanguageHelp: "Choose the language for automatic sentence, example and opted-in dictionary translations.",
+  definitionTranslationTitle: "Translate dictionary definitions",
+  definitionTranslationHelp: "Optional Google machine translation into your translation language. Only definitions and part-of-speech text from selected sources are sent. Imported dictionary text may contain personal content. Originals stay available; sources already in that language are unchanged.",
+  definitionTranslationCredit: "Google machine translation",
+  definitionTranslationOriginal: "Show original definition",
   automatic: "Automatic",
   english: "English",
   japanese: "日本語",
@@ -7036,6 +7123,7 @@ function parseUiCopyTable(rows) {
   return copy;
 }
 const JA_COPY = {
+  ...SELECTED_TEXT_COPY.ja,
   ...SITE_INTERACTION_COPY.ja,
   ...parseUiCopyTable(String.raw`
 settingsTitle	{APP_NAME} 設定
@@ -7568,7 +7656,11 @@ fourGradeShortcutsHelp	4段階の復習では、最初の4つのショートカ�
 twoPoint	2段階: 失敗 / 合格
 settingsLanguage	設定の表示言語
 translationLanguage	翻訳先の言語
-translationLanguageHelp	文や例文の自動翻訳先の言語を選びます。
+translationLanguageHelp	文・例文や、選択した辞書の自動翻訳先の言語を選びます。
+definitionTranslationTitle	辞書の語義を翻訳
+definitionTranslationHelp	選択したソースの語義と品詞を、翻訳先の言語へGoogleで機械翻訳します（任意）。インポートした辞書には個人的な内容が含まれる場合があります。原文も表示でき、同じ言語の語義はそのまま表示します。
+definitionTranslationCredit	Googleによる機械翻訳
+definitionTranslationOriginal	語義の原文を表示
 theme	テーマ
 auto	自動
 dark	ダーク
@@ -14526,7 +14618,7 @@ const NEW_TAB_CACHE_KEY = "jpdb-reader-newtab-card-cache";
 function clearNewTabOfflineCache() {
   return gmStorageDelete(NEW_TAB_CACHE_KEY);
 }
-const CURRENT_YOMU_VERSION = "2.2.2".trim() ? "2.2.2".trim() : "dev";
+const CURRENT_YOMU_VERSION = "2.3.0".trim() ? "2.3.0".trim() : "dev";
 function latestYomuVersionFromVersionJson(value) {
   if (!value || typeof value !== "object") return null;
   const record2 = value;
@@ -15271,8 +15363,9 @@ function readLanguageProfileFormSettings(data, current, interfaceLanguage, dicti
   const dictionaries2 = languageProfileDictionariesFromPreferences(dictionaryPreferences);
   const requestedTranslationLanguage = String(data.get("translationLanguage") ?? "");
   const outputLanguage = isSupportedTranslationLanguage(requestedTranslationLanguage) ? requestedTranslationLanguage : active.outputLanguage;
+  const definitionTranslationProviderIds = data.has("definitionTranslationControlsPresent") ? [...new Set(data.getAll("definitionTranslationProviderIds").filter((value) => typeof value === "string" && Boolean(value.trim())))] : [...active.definitionTranslationProviderIds];
   return {
-  languageProfiles: current.languageProfiles.map((profile) => profile.id === active.id ? { ...profile, outputLanguage, learnerLanguage: outputLanguage, uiLocale: interfaceLanguage, parserProvider, dictionaries: dictionaries2 } : profile),
+  languageProfiles: current.languageProfiles.map((profile) => profile.id === active.id ? { ...profile, outputLanguage, learnerLanguage: outputLanguage, definitionTranslationProviderIds, uiLocale: interfaceLanguage, parserProvider, dictionaries: dictionaries2 } : profile),
   activeLanguageProfileId: active.id
   };
 }
@@ -22815,11 +22908,17 @@ const BACKUP_FIELDS = /* @__PURE__ */ new Set(["formatName", "formatVersion", "e
 function parseReaderSettingsBackup(value) {
   if (!isRecord$3(value) || value.formatName !== READER_SETTINGS_BACKUP_FORMAT || value.formatVersion !== READER_SETTINGS_BACKUP_VERSION || !isRecord$3(value.settings)) return null;
   if (Object.keys(value).some((key) => !BACKUP_FIELDS.has(key))) return null;
-  if (value.desktop !== void 0 && (!isRecord$3(value.desktop) || Object.keys(value.desktop).some((key) => key !== "captureShortcut") || value.desktop.captureShortcut !== void 0 && (typeof value.desktop.captureShortcut !== "string" || value.desktop.captureShortcut.length > 128))) return null;
+  if (value.desktop !== void 0 && !isDesktopBackupMetadata(value.desktop)) return null;
   const storage = value.storage;
   if (storage !== void 0 && !isRecord$3(storage)) return null;
   if (value.dictionaries !== void 0 && !isReaderDictionaryExport$1(value.dictionaries)) return null;
   return { settings: value.settings, storage, dictionaries: value.dictionaries };
+}
+function isDesktopBackupMetadata(value) {
+  if (!isRecord$3(value) || Object.keys(value).some((key) => key !== "captureShortcut" && key !== "textLookupShortcut")) return false;
+  if (value.captureShortcut !== void 0 && (typeof value.captureShortcut !== "string" || value.captureShortcut.length > 128)) return false;
+  const selection = value.textLookupShortcut;
+  return selection === void 0 || isRecord$3(selection) && Object.keys(selection).every((key) => ["enabled", "shortcut", "language"].includes(key)) && typeof selection.enabled === "boolean" && typeof selection.shortcut === "string" && selection.shortcut.length <= 128 && (selection.language === "en" || selection.language === "ja");
 }
 function readerDictionaryExportHasData(value) {
   if (!isReaderDictionaryExport$1(value)) return false;
@@ -24192,6 +24291,21 @@ function renderTranslationLanguageControl(settings2) {
   return `<div class="grid">${select("translationLanguage", uiText(settings2.interfaceLanguage, "translationLanguage"), saved, options)}</div>
         <div class="jpdb-reader-help" data-help-key="translationLanguageHelp">${uiText(settings2.interfaceLanguage, "translationLanguageHelp")}</div>`;
 }
+const PUBLIC_PROVIDERS = /* @__PURE__ */ new Set([JPDB_DEFINITION_SOURCE_ID, JITEN_DEFINITION_SOURCE_ID, BUNPRO_DEFINITION_SOURCE_ID, WANIKANI_DEFINITION_SOURCE_ID]);
+function renderDefinitionTranslationControls(settings2) {
+  const enabled = new Set(activeLanguageProfile(settings2.languageProfiles, settings2.activeLanguageProfileId)?.definitionTranslationProviderIds ?? []);
+  const sources = definitionSourceRows(settings2).filter((row) => PUBLIC_PROVIDERS.has(row.id) || row.removable && row.dictionaryType !== "frequency");
+  const visible = new Set(sources.map((source) => source.id));
+  return `<details class="jpdb-reader-settings-subsection" data-definition-translation-controls>
+        <summary data-help-key="definitionTranslationTitle">${escapeHtml$1(uiText(settings2.interfaceLanguage, "definitionTranslationTitle"))}</summary>
+        <div class="jpdb-reader-help" data-help-key="definitionTranslationHelp">${escapeHtml$1(uiText(settings2.interfaceLanguage, "definitionTranslationHelp"))}</div>
+        <input type="hidden" name="definitionTranslationControlsPresent" value="1">
+        ${[...enabled].filter((id) => !visible.has(id)).map((id) => `<input type="hidden" name="definitionTranslationProviderIds" value="${escapeHtml$1(id)}">`).join("")}
+        <div class="jpdb-reader-definition-translation-list">
+            ${sources.map((source) => `<label class="inline"><input type="checkbox" name="definitionTranslationProviderIds" value="${escapeHtml$1(source.id)}" ${enabled.has(source.id) ? "checked" : ""}><span>${escapeHtml$1(source.alias || source.name)}</span></label>`).join("")}
+        </div>
+    </details>`;
+}
 const COLOR_SOURCE_CLASS_VALUES = ["status", "jpdb", "anki", "pitch"];
 function syncSubtitlePreview(form) {
   const preview = form.querySelector("[data-subtitle-preview]");
@@ -24985,6 +25099,7 @@ function renderDictionariesSettingsPanel(settings2, includeCatalogBrowse, expand
                 <legend>${escapedUiText(language2, "sources")}</legend>
                 <div data-target-dictionary-content>
                 ${renderTranslationLanguageControl(settings2)}
+                ${renderDefinitionTranslationControls(settings2)}
                 ${renderSettingsDisclosure(uiText(language2, "popupOrderTitle"), `
                     <div class="jpdb-reader-dictionary-priorities" data-source-editor data-definition-source-editor>
                         ${renderDictionarySourceRows(settings2)}
