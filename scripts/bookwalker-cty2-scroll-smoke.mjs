@@ -12,16 +12,13 @@
 //   E) page turns retire the previous page's text AND interactive hit targets
 //   F) a previous page's delayed OCR answer cannot paint a later page
 // This is a deterministic viewer-mechanics fixture, not a live BookWalker book.
-import { chromium, webkit, firefox } from 'playwright';
 import path from 'node:path';
-import { mkdirSync, writeFileSync } from 'node:fs';
-import { createSmokePaths, addGmStorageBridgeInitScript, makePng, YOMU_SETTINGS_KEY } from './lib/smoke-harness.mjs';
-import { addScriptTagWithCspFallback, installUserscriptCssResource } from './lib/smoke-test-helpers.mjs';
+import { writeFileSync } from 'node:fs';
+import { addGmStorageBridgeInitScript, makePng, YOMU_SETTINGS_KEY } from './lib/smoke-harness.mjs';
+import { bookwalkerSmokePaths, openBookwalkerSmoke, bootBookwalkerSmoke, routeBookwalkerFixture } from './lib/bookwalker-smoke.mjs';
 
-const { scriptPath: SCRIPT_PATH, cssPath: CSS_PATH, dist: DIST, artifacts: ARTIFACTS } = createSmokePaths(import.meta.dirname);
-const ARTIFACT_DIR = path.join(ARTIFACTS, 'bookwalker-page-turn');
-mkdirSync(ARTIFACT_DIR, { recursive: true });
-const COMPANIONS = ['yomu-anki', 'yomu-kanji-study', 'yomu-settings-surface', 'yomu-video', 'yomu-ocr-manga'].map(n => path.join(DIST, 'greasyfork', `${n}.user.js`));
+const PATHS = bookwalkerSmokePaths(import.meta.dirname, 'bookwalker-page-turn');
+const ARTIFACT_DIR = PATHS.artifactDir;
 const BRIDGE = '__yomuCty2Req';
 const IMG_URL = 'https://c.bookwalker.jp/scrambled/cty2-p1.png';
 const IMG_URL_2 = 'https://c.bookwalker.jp/scrambled/cty2-p2.png';
@@ -77,47 +74,11 @@ window.__state = () => ({
 async function run(engineName, autoScan, readerMode) {
   const caseName = `${readerMode}-${autoScan ? 'auto' : 'manual'}`;
   const label = `${engineName}/${caseName}`;
-  const engine = engineName==='webkit'?webkit:engineName==='firefox'?firefox:chromium;
-  const browser = await engine.launch({ headless:true });
-  const context = await browser.newContext({ viewport:{width:1000,height:900}, locale:'ja-JP', bypassCSP:true });
-  const page = await context.newPage();
-  let ocrHits = 0;
-  let currentPage = 1;
-  let releaseOldAnswer;
-  const oldAnswer = new Promise(resolve => { releaseOldAnswer = resolve; });
-  const requests = [];
-  await page.exposeFunction(BRIDGE, async req => {
-    const u = req.url||'';
-    if (u===IMG_URL) return { status:200, bytes:[...PAGE_PNG], contentType:'image/png', responseText:'' };
-    if (u===IMG_URL_2) return { status:200, bytes:[...PAGE_PNG_2], contentType:'image/png', responseText:'' };
-    if (u===IMG_URL_3) return { status:200, bytes:[...PAGE_PNG_3], contentType:'image/png', responseText:'' };
-    if (/7331|\/ocr(\?|$)/.test(u)) {
-      ocrHits++;
-      const requestedPage = currentPage;
-      requests.push({ page: requestedPage, phase: 'requested' });
-      if (requestedPage === 2) await oldAnswer;
-      requests.push({ page: requestedPage, phase: 'answered' });
-      return { status:200, responseText:JSON.stringify({ ...MOCK_OCR, lines: [{ ...MOCK_OCR.lines[0], text: PAGE_TEXT[requestedPage-1] }] }) };
-    }
-    return { status:503, responseText:'' };
-  });
-  await addGmStorageBridgeInitScript(page, { key:YOMU_SETTINGS_KEY, value:{ ...SETTINGS, ocrAutoScanImages: autoScan }, requestBridgeName:BRIDGE });
-  await context.route('**/*', route => {
-    const r = route.request().url();
-    if (r.startsWith('blob:')||r.startsWith('data:')) return route.continue();
-    const u = new URL(r);
-    if (u.href===IMG_URL) return route.fulfill({status:200,contentType:'image/png',body:PAGE_PNG});
-    if (u.href===IMG_URL_2) return route.fulfill({status:200,contentType:'image/png',body:PAGE_PNG_2});
-    if (u.href===IMG_URL_3) return route.fulfill({status:200,contentType:'image/png',body:PAGE_PNG_3});
-    if (u.hostname==='viewer.bookwalker.jp') return route.fulfill({status:200,contentType:'text/html; charset=utf-8',body:fixtureHtml()});
-    return route.fulfill({status:404,body:''});
-  });
+  const { browser, context, page } = await openBookwalkerSmoke(engineName, { viewport: { width: 1000, height: 900 } });
+  const { fixture, releaseOldAnswer } = await installPageTurnFixture(page, context, autoScan);
 
   await page.goto(`https://viewer.bookwalker.jp/03/30/viewer.html?cid=test&cty=${readerMode === 'cty2' ? 2 : 1}`, { waitUntil:'domcontentloaded', timeout:30000 });
-  await installUserscriptCssResource(page, CSS_PATH).catch(()=>page.addStyleTag({path:CSS_PATH}));
-  for (const c of COMPANIONS) await addScriptTagWithCspFallback(page, c).catch(()=>{});
-  await addScriptTagWithCspFallback(page, SCRIPT_PATH);
-  await page.waitForTimeout(900);
+  await bootBookwalkerSmoke(page, PATHS);
   await page.evaluate(()=>window.__draw(1));
 
   const st = () => page.evaluate(()=>window.__state());
@@ -127,7 +88,7 @@ async function run(engineName, autoScan, readerMode) {
 
   const aMs = await waitFor(async()=>(await st()).texts.includes(PAGE_TEXT[0]));
   const afterPage1 = await st();
-  const hitsAfterPage1 = ocrHits;
+  const hitsAfterPage1 = fixture.ocrHits;
   const wordsOk = afterPage1.hitTargets >= 1;
 
   // within-page scroll — overlay must survive (no teardown, no re-OCR)  [S1/S3]
@@ -135,17 +96,61 @@ async function run(engineName, autoScan, readerMode) {
   await page.evaluate(()=>window.scrollBy(0,80));
   await page.waitForTimeout(2200);
   const afterScroll = await st();
-  const scrollReOcr = ocrHits - hitsAfterPage1;
+  const scrollReOcr = fixture.ocrHits - hitsAfterPage1;
   const overlaySurvived = afterScroll.lines>=1;
   const noReOcr = scrollReOcr===0;
   const noTeardown = afterScroll.removals===0;
-  const sceneB = overlaySurvived && noReOcr && noTeardown;
+  const sceneB = [overlaySurvived, noReOcr, noTeardown].every(Boolean);
 
+  const { beforeSecondTap, waitingForPage2, targetsRetired, manualWaitsForTap,
+    turnMs, beforeLateAnswer, afterLateAnswer, latePaints, lateAnswerIgnored,
+  } = await assertPageTurnTargetsRetire({ page, fixture, releaseOldAnswer, autoScan, waitFor, tapCenter, st });
+  const turnOk = [targetsRetired, manualWaitsForTap, lateAnswerIgnored].every(Boolean);
+
+  await page.screenshot({ path: path.join(ARTIFACT_DIR, `${engineName}-${caseName}.png`) });
+  writeFileSync(path.join(ARTIFACT_DIR, `${engineName}-${caseName}.json`), JSON.stringify({
+    fixture: true, label, requests: fixture.requests, afterPage1, afterScroll, beforeSecondTap, waitingForPage2,
+    beforeLateAnswer, afterLateAnswer, latePaints, targetsRetired, manualWaitsForTap, lateAnswerIgnored,
+  }, null, 2));
+
+  await context.close(); await browser.close();
+
+  reportPageTurnCase({ label, aMs, afterPage1, wordsOk, sceneB, afterScroll, scrollReOcr,
+    turnOk, targetsRetired, manualWaitsForTap, lateAnswerIgnored, turnMs });
+  return { engineName: label, page1Ok:aMs>=0, wordsOk, scrollSurvive:sceneB, turnOk };
+}
+
+const PAGE_IMAGES = new Map([[IMG_URL, PAGE_PNG], [IMG_URL_2, PAGE_PNG_2], [IMG_URL_3, PAGE_PNG_3]]);
+
+async function installPageTurnFixture(page, context, autoScan) {
+  const fixture = { ocrHits: 0, currentPage: 1, requests: [] };
+  let releaseOldAnswer;
+  const oldAnswer = new Promise(resolve => { releaseOldAnswer = resolve; });
+  await page.exposeFunction(BRIDGE, async req => {
+    const u = req.url||'';
+    const image = PAGE_IMAGES.get(u);
+    if (image) return { status:200, bytes:[...image], contentType:'image/png', responseText:'' };
+    if (/7331|\/ocr(\?|$)/.test(u)) {
+      fixture.ocrHits++;
+      const requestedPage = fixture.currentPage;
+      fixture.requests.push({ page: requestedPage, phase: 'requested' });
+      if (requestedPage === 2) await oldAnswer;
+      fixture.requests.push({ page: requestedPage, phase: 'answered' });
+      return { status:200, responseText:JSON.stringify({ ...MOCK_OCR, lines: [{ ...MOCK_OCR.lines[0], text: PAGE_TEXT[requestedPage-1] }] }) };
+    }
+    return { status:503, responseText:'' };
+  });
+  await addGmStorageBridgeInitScript(page, { key:YOMU_SETTINGS_KEY, value:{ ...SETTINGS, ocrAutoScanImages: autoScan }, requestBridgeName:BRIDGE });
+  await routeBookwalkerFixture(context, PAGE_IMAGES, fixtureHtml());
+  return { fixture, releaseOldAnswer };
+}
+
+async function assertPageTurnTargetsRetire({ page, fixture, releaseOldAnswer, autoScan, waitFor, tapCenter, st }) {
   // Retain the actual old hit targets: a new overlay alone is not proof they retired.
   await page.evaluate(() => { window.__oldTargets = [...document.querySelectorAll('.jpdb-ocr-line, .jpdb-ocr-line .jpdb-reader-word')]; });
   // Delay page 2's provider answer, then turn again while it is still in flight.
-  const hitsBeforeTurn = ocrHits;
-  currentPage = 2;
+  const hitsBeforeTurn = fixture.ocrHits;
+  fixture.currentPage = 2;
   await page.evaluate(()=>{ const c=document.querySelector('#pageSliderCounter'); if(c) c.textContent='6 / 200'; });
   await page.evaluate(()=>window.scrollTo(0,0));
   await page.evaluate(()=>window.__draw(2));
@@ -154,16 +159,21 @@ async function run(engineName, autoScan, readerMode) {
     return !state.oldTargetsConnected && !state.texts.includes(PAGE_TEXT[0]) && (autoScan || state.frames === 0);
   });
   const beforeSecondTap = await st();
-  const manualWaitsForTap = autoScan || (ocrHits === hitsBeforeTurn && beforeSecondTap.lines === 0 && beforeSecondTap.frames === 0);
+  const manualWaitsForTap = autoScan || [fixture.ocrHits === hitsBeforeTurn, beforeSecondTap.lines === 0, beforeSecondTap.frames === 0].every(Boolean);
   await tapCenter();
-  const secondRequestMs = await waitFor(async()=> ocrHits>hitsBeforeTurn);
+  const secondRequestMs = await waitFor(async()=> fixture.ocrHits>hitsBeforeTurn);
   const waitingForPage2 = await st();
-  const targetsRetired = retiredMs >= 0 && beforeSecondTap.oldTargetWasPresent
-    && !waitingForPage2.oldTargetsConnected && waitingForPage2.lines === 0;
+  const targetsRetired = [retiredMs >= 0, beforeSecondTap.oldTargetWasPresent,
+    !waitingForPage2.oldTargetsConnected, waitingForPage2.lines === 0].every(Boolean);
 
+  const late = await assertLatePageAnswerIgnored({ page, fixture, releaseOldAnswer, autoScan, waitFor, tapCenter, st, secondRequestMs });
+  return { beforeSecondTap, waitingForPage2, targetsRetired, manualWaitsForTap, ...late };
+}
+
+async function assertLatePageAnswerIgnored({ page, fixture, releaseOldAnswer, autoScan, waitFor, tapCenter, st, secondRequestMs }) {
   // Keep the counter unchanged: recycled-canvas content owns identity even when
   // the viewer's counter lags behind its next composite.
-  currentPage = 3;
+  fixture.currentPage = 3;
   await page.evaluate(()=>window.__draw(3));
   // In manual mode, let the page-turn detection retire the loading page-2 frame
   // before requesting page 3. The provider answer remains pending throughout.
@@ -182,25 +192,23 @@ async function run(engineName, autoScan, readerMode) {
   await page.waitForTimeout(1600);
   const afterLateAnswer = await st();
   const latePaints = await page.evaluate(() => { window.__latePaintObserver.disconnect(); return window.__latePaints; });
-  const lateAnswerIgnored = turnMs >= 0 && secondRequestMs >= 0
-    && afterLateAnswer.texts.length === 1 && afterLateAnswer.texts[0] === PAGE_TEXT[2]
-    && !latePaints.some(text => text === PAGE_TEXT[0] || text === PAGE_TEXT[1])
-    && !afterLateAnswer.oldTargetsConnected;
-  const turnOk = targetsRetired && manualWaitsForTap && lateAnswerIgnored;
+  const lateAnswerIgnored = [turnMs >= 0, secondRequestMs >= 0,
+    afterLateAnswer.texts.length === 1, afterLateAnswer.texts[0] === PAGE_TEXT[2],
+    !latePaints.some(text => text === PAGE_TEXT[0] || text === PAGE_TEXT[1]),
+    !afterLateAnswer.oldTargetsConnected].every(Boolean);
+  return { turnMs, beforeLateAnswer, afterLateAnswer, latePaints, lateAnswerIgnored };
+}
 
-  await page.screenshot({ path: path.join(ARTIFACT_DIR, `${engineName}-${caseName}.png`) });
-  writeFileSync(path.join(ARTIFACT_DIR, `${engineName}-${caseName}.json`), JSON.stringify({
-    fixture: true, label, requests, afterPage1, afterScroll, beforeSecondTap, waitingForPage2,
-    beforeLateAnswer, afterLateAnswer, latePaints, targetsRetired, manualWaitsForTap, lateAnswerIgnored,
-  }, null, 2));
+function passLabel(passed) {
+  return passed ? 'PASS' : 'FAIL';
+}
 
-  await context.close(); await browser.close();
-
+function reportPageTurnCase({ label, aMs, afterPage1, wordsOk, sceneB, afterScroll, scrollReOcr,
+  turnOk, targetsRetired, manualWaitsForTap, lateAnswerIgnored, turnMs }) {
   console.log(`[${label}] A page1-OCR: ${aMs>=0?aMs+'ms':'NO OVERLAY'} (lines=${afterPage1.lines})`);
-  console.log(`[${label}] C lookup targets: ${wordsOk?'OK':'NONE'} (targets=${afterPage1.hitTargets}, providerIds=${afterPage1.words})`);
-  console.log(`[${label}] B scroll-survive(S1/S3): ${sceneB?'PASS':'FAIL'} (lines ${afterPage1.lines}->${afterScroll.lines}, reOCR=${scrollReOcr}, teardowns=${afterScroll.removals})`);
-  console.log(`[${label}] D/E/F page turns: ${turnOk?'PASS':'FAIL'} (retired=${targetsRetired}, waitsForTap=${manualWaitsForTap}, lateAnswerIgnored=${lateAnswerIgnored}, newPage=${turnMs}ms)`);
-  return { engineName: label, page1Ok:aMs>=0, wordsOk, scrollSurvive:sceneB, turnOk };
+  console.log(`[${label}] C lookup targets: ${wordsOk ? 'OK' : 'NONE'} (targets=${afterPage1.hitTargets}, providerIds=${afterPage1.words})`);
+  console.log(`[${label}] B scroll-survive(S1/S3): ${passLabel(sceneB)} (lines ${afterPage1.lines}->${afterScroll.lines}, reOCR=${scrollReOcr}, teardowns=${afterScroll.removals})`);
+  console.log(`[${label}] D/E/F page turns: ${passLabel(turnOk)} (retired=${targetsRetired}, waitsForTap=${manualWaitsForTap}, lateAnswerIgnored=${lateAnswerIgnored}, newPage=${turnMs}ms)`);
 }
 
 const engines = (process.env.ENGINES||'chromium,firefox,webkit').split(',').filter(Boolean);
