@@ -1369,7 +1369,7 @@ function rejectUntrustworthySpanShapes(
         }
         if (endsStrictlyInsideSegment(segments, candidate.end)
             && !context.hasConfirmedSpanAt(candidate.end)
-            && !KANA_CASE_PARTICLE_CONTINUATIONS.some(particle => text.startsWith(particle, candidate.end))) {
+            && !startsGrammarParticleContinuation(text, candidate.end)) {
             return false;
         }
         return true;
@@ -1472,8 +1472,12 @@ export function pickAuthoritativeTokenAt(
 function endsInsideKanaRun(text: string, end: number): boolean {
     if (end <= 0 || end >= text.length) return false;
     if (!KANA_RUN_CHARACTER_RE.test(text[end - 1]) || !KANA_RUN_CHARACTER_RE.test(text[end])) return false;
-    if (KANA_CASE_PARTICLE_CONTINUATIONS.some(particle => text.startsWith(particle, end))) return false;
-    let cursor = end;
+    return !startsGrammarParticleContinuation(text, end);
+}
+
+function startsGrammarParticleContinuation(text: string, start: number): boolean {
+    if (KANA_CASE_PARTICLE_CONTINUATIONS.some(particle => text.startsWith(particle, start))) return true;
+    let cursor = start;
     let consumedFinal = true;
     while (consumedFinal && cursor < text.length) {
         consumedFinal = false;
@@ -1484,8 +1488,7 @@ function endsInsideKanaRun(text: string, end: number): boolean {
             break;
         }
     }
-    if (cursor > end && (cursor >= text.length || !KANA_RUN_CHARACTER_RE.test(text[cursor]))) return false;
-    return true;
+    return cursor > start && (cursor >= text.length || !KANA_RUN_CHARACTER_RE.test(text[cursor]));
 }
 
 function authoritativeCardsFromParsedTerms(
