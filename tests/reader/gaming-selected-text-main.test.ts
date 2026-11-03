@@ -2,14 +2,14 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { YOMU_GAMING_CHANNELS as channels, type YomuGamingSelectedText, type YomuGamingShortcutUpdate } from '../../src/gaming/ipc';
+import { YOMU_GAMING_CHANNELS as channels, type YomuGamingEnvironment, type YomuGamingSelectedText, type YomuGamingShortcutPatch, type YomuGamingShortcutUpdate } from '../../src/gaming/ipc';
 import { desktopSettingsExport, importGamingSettingsBackup } from '../../src/gaming/renderer/settings-import';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
 
 interface Frame { url: string; parent: Frame | null }
 interface Sender { id: number; getURL(): string; mainFrame: Frame }
 interface WindowFixture { webContents: Sender; url: string; visible: boolean; destroyed: boolean; focus: ReturnType<typeof vi.fn>; destroy(): void }
-type Handler = (event: { sender: Sender; senderFrame?: Frame | null }, argument?: unknown) => unknown;
+type Handler = (event: { sender: Sender; senderFrame?: Frame | null }, argument?: unknown, expectedRevision?: unknown) => unknown;
 const native = vi.hoisted(() => {
     const barrier: { value: Promise<void> | null } = { value: null };
     const writes: string[] = [];
@@ -98,14 +98,19 @@ afterEach(() => {
     vi.unstubAllGlobals(); vi.unstubAllEnvs();
 });
 
-async function invoke(channel: typeof channels.updateDesktopShortcuts, argument?: unknown, sender?: Sender, frame?: Frame | null): Promise<YomuGamingShortcutUpdate>;
+async function invoke(channel: typeof channels.getEnvironment): Promise<YomuGamingEnvironment>;
+async function invoke(channel: typeof channels.updateDesktopShortcuts, argument?: unknown, sender?: Sender, frame?: Frame | null, expectedRevision?: unknown): Promise<YomuGamingShortcutUpdate>;
 async function invoke(channel: string, argument?: unknown, sender?: Sender, frame?: Frame | null): Promise<unknown>;
-async function invoke(channel: string, argument?: unknown, sender: Sender = native.windows[0].webContents, frame: Frame | null = sender.mainFrame): Promise<unknown> {
+async function invoke(channel: string, argument?: unknown, sender: Sender = native.windows[0].webContents, frame: Frame | null = sender.mainFrame, expectedRevision?: unknown): Promise<unknown> {
     const handler = native.handlers.get(channel);
     if (!handler) throw new Error(`Missing IPC handler ${channel}`);
-    return handler({ sender, senderFrame: frame }, argument);
+    return handler({ sender, senderFrame: frame }, argument, expectedRevision);
 }
 const environment = () => invoke(channels.getEnvironment);
+const importBridge = {
+    updateDesktopShortcuts: (shortcuts: YomuGamingShortcutPatch, revision?: number) => invoke(channels.updateDesktopShortcuts, shortcuts, undefined, undefined, revision),
+    getEnvironment: environment,
+};
 async function restartMain(): Promise<void> {
     native.events.get('before-quit')?.();
     native.windows.length = 0; native.shortcuts.clear(); native.handlers.clear();
@@ -129,9 +134,7 @@ describe('main-process selection ingress (native API fixture, real IPC handlers)
 
     it('imports a valid capture/text shortcut pair without the old capture key blocking the new text key', async () => {
         const imported = await importGamingSettingsBackup(desktopSettingsExport(DEFAULT_SETTINGS, 'Ctrl+Alt+K',
-            { enabled: true, shortcut: 'Ctrl+Shift+Y', language: 'en' }), DEFAULT_SETTINGS, 'win32', {
-            updateDesktopShortcuts: shortcuts => invoke(channels.updateDesktopShortcuts, shortcuts),
-        });
+            { enabled: true, shortcut: 'Ctrl+Shift+Y', language: 'en' }), DEFAULT_SETTINGS, 'win32', importBridge, () => undefined);
         expect(imported.kind).toBe('imported');
         const observed = { environment: await environment(), registered: [...native.shortcuts.keys()] };
         mkdirSync('artifacts', { recursive: true });
@@ -150,6 +153,47 @@ describe('main-process selection ingress (native API fixture, real IPC handlers)
         expect(native.screenshot).not.toHaveBeenCalled();
         await restartMain();
         expect(await environment()).toMatchObject({ hotkey: 'Control+Alt+L', textLookupShortcut: { shortcut: 'Control+Shift+Y', language: 'ja', registered: true } });
+    });
+
+    it('undoes a native import through the real serialized seam when Reader persistence rejects', async () => {
+        const previous = await environment();
+        const persist = vi.fn(() => { throw new DOMException('Fixture quota exceeded', 'QuotaExceededError'); });
+        const result = await importGamingSettingsBackup(desktopSettingsExport(DEFAULT_SETTINGS, 'Ctrl+Alt+K'), DEFAULT_SETTINGS, 'win32', importBridge, persist);
+        expect(persist).toHaveBeenCalledOnce();
+        expect(result).toMatchObject({ kind: 'save-failed', environment: previous });
+        expect(await environment()).toEqual(previous);
+        expect([...native.shortcuts.keys()]).toEqual(['CommandOrControl+Shift+Y']);
+        expect(JSON.parse(readFileSync(path.join(native.profile, 'capture-shortcut-v1.json'), 'utf8')))
+            .toMatchObject({ shortcut: previous.hotkey });
+    });
+
+    it.each(['taken', 'save-failed'] as const)('keeps the committed import and reports the actual environment when undo is %s', async kind => {
+        const committed = await invoke(channels.updateDesktopShortcuts, { captureShortcut: 'Ctrl+Alt+K' });
+        if (committed.kind !== 'saved') throw new Error('Fixture import did not commit');
+        if (kind === 'taken') native.blockedKeys.add('CommandOrControl+Shift+Y');
+        else mkdirSync(path.join(native.profile, 'capture-shortcut-v1.json.saving'));
+        const restored = await invoke(channels.updateDesktopShortcuts, committed.undo.shortcuts, undefined, undefined, committed.undo.revision);
+        expect(restored).toMatchObject({ kind, environment: committed.environment });
+        expect(await environment()).toEqual(committed.environment);
+        expect([...native.shortcuts.keys()]).toEqual(['Control+Alt+K']);
+        expect(JSON.parse(readFileSync(path.join(native.profile, 'capture-shortcut-v1.json'), 'utf8')).shortcut).toBe('Control+Alt+K');
+    });
+
+    it('refuses stale undo receipts without overwriting an intervening shortcut edit', async () => {
+        const committed = await invoke(channels.updateDesktopShortcuts, { captureShortcut: 'Ctrl+Alt+K' });
+        if (committed.kind !== 'saved') throw new Error('Fixture import did not commit');
+        await invoke(channels.updateCaptureShortcut, 'Ctrl+Alt+U');
+        const writes = native.writes.length;
+        const restored = await invoke(channels.updateDesktopShortcuts, committed.undo.shortcuts, undefined, undefined, committed.undo.revision);
+        expect(restored).toMatchObject({ kind: 'changed', environment: { hotkey: 'Control+Alt+U' } });
+        expect(native.writes).toHaveLength(writes);
+        expect([...native.shortcuts.keys()]).toEqual(['Control+Alt+U']);
+        for (const invalid of [-1, 0.5, '2', null]) {
+            expect(await invoke(channels.updateDesktopShortcuts, committed.undo.shortcuts, undefined, undefined, invalid)).toMatchObject({ kind: 'invalid' });
+        }
+        expect(native.writes).toHaveLength(writes);
+        expect(JSON.parse(readFileSync(path.join(native.profile, 'capture-shortcut-v1.json'), 'utf8')))
+            .toEqual({ version: 1, shortcut: 'Control+Alt+U', textLookupShortcut: { enabled: false, shortcut: 'CommandOrControl+Shift+L', language: 'en' } });
     });
 
     it('restores a prior enabled key, committed JSON and tray after a failed pair save', async () => {
@@ -203,9 +247,7 @@ describe('main-process selection ingress (native API fixture, real IPC handlers)
 
     it('imports old capture-only backups without resetting the current selected-text preference', async () => {
         await invoke(channels.updateTextLookupShortcut, { enabled: true, shortcut: 'Ctrl+Alt+L', language: 'ja' });
-        const imported = await importGamingSettingsBackup(desktopSettingsExport(DEFAULT_SETTINGS, 'Ctrl+Alt+K'), DEFAULT_SETTINGS, 'win32', {
-            updateDesktopShortcuts: shortcuts => invoke(channels.updateDesktopShortcuts, shortcuts),
-        });
+        const imported = await importGamingSettingsBackup(desktopSettingsExport(DEFAULT_SETTINGS, 'Ctrl+Alt+K'), DEFAULT_SETTINGS, 'win32', importBridge, () => undefined);
         expect(imported.kind).toBe('imported');
         expect(await environment()).toMatchObject({ hotkey: 'Control+Alt+K', textLookupShortcut: { enabled: true, shortcut: 'Control+Alt+L', language: 'ja' } });
     });

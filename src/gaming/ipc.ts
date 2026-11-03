@@ -55,10 +55,10 @@ export interface YomuGamingShortcutPatch {
     textLookupShortcut?: Pick<YomuGamingTextLookupShortcut, 'enabled' | 'shortcut' | 'language'>;
 }
 
-export interface YomuGamingShortcutUpdate {
-    kind: 'saved' | 'invalid' | 'taken' | 'save-failed';
-    environment: YomuGamingEnvironment;
-}
+export type YomuGamingShortcutPair = Required<YomuGamingShortcutPatch>;
+export type YomuGamingShortcutUpdate =
+    { kind: 'saved'; environment: YomuGamingEnvironment; undo: { shortcuts: YomuGamingShortcutPair; revision: number } }
+    | { kind: 'invalid' | 'taken' | 'save-failed' | 'changed'; environment: YomuGamingEnvironment };
 
 export interface YomuGamingImageSize {
     width: number;
@@ -121,5 +121,5 @@ export interface YomuGamingBridge {
     closeTextLookup(): Promise<void>;
     retryTextLookup(): Promise<void>;
     updateTextLookupShortcut(settings: unknown): Promise<YomuGamingEnvironment>;
-    updateDesktopShortcuts(shortcuts: YomuGamingShortcutPatch): Promise<YomuGamingShortcutUpdate>;
+    updateDesktopShortcuts(shortcuts: YomuGamingShortcutPatch, expectedRevision?: number): Promise<YomuGamingShortcutUpdate>;
 }

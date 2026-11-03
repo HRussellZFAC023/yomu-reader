@@ -682,16 +682,17 @@ async function importBrowserSettings(form: HTMLFormElement, button: HTMLButtonEl
     button?.setAttribute('disabled', 'true');
     try {
         const serialized = await file.text();
-        const result = await importGamingSettingsBackup(serialized, shellState.settings, shellState.environment?.platform ?? '', bridge);
+        const result = await importGamingSettingsBackup(serialized, shellState.settings, shellState.environment?.platform ?? '', bridge, persistGamingSettings);
+        if (result.environment) shellState.environment = result.environment;
         if (result.kind !== 'imported') {
             const key = { 'unsupported-format': 'settingsImportUnsupportedFormat', invalid: 'desktopShortcutImportInvalid',
-                taken: 'desktopShortcutImportTaken', 'save-failed': 'desktopShortcutImportSaveFailed' } as const;
+                taken: 'desktopShortcutImportTaken', 'save-failed': 'desktopShortcutImportSaveFailed', partial: 'desktopShortcutImportPartial' } as const;
+            if (result.kind === 'partial') shellState.settingsPanel = 'shortcuts';
+            renderShell();
             setShellStatus(uiText(shellState.settings.interfaceLanguage, key[result.kind]), 'error');
             return;
         }
-        persistGamingSettings(result.settings);
         shellState.settings = result.settings;
-        if (result.environment) shellState.environment = result.environment;
         setShellStatus(uiText(result.settings.interfaceLanguage, 'settingsImported'), 'success');
         renderShell();
     } catch {
@@ -832,11 +833,11 @@ function parseStoredSettings(): Partial<ReaderSettings> | null {
 }
 
 function persistGamingSettings(settings: ReaderSettings): void {
-    localStorage.setItem(GAMING_SETTINGS_STORAGE_KEY, JSON.stringify(settings));
     if (settings.ocrProvider === 'local-service' && settings.ocrEndpointUrl.trim()) {
         localStorage.setItem(PREVIOUS_OCR_ENDPOINT_STORAGE_KEY, settings.ocrEndpointUrl);
         localStorage.setItem(PREVIOUS_OCR_ENGINE_STORAGE_KEY, settings.ocrEngine);
     }
+    localStorage.setItem(GAMING_SETTINGS_STORAGE_KEY, JSON.stringify(settings));
 }
 
 

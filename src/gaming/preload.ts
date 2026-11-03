@@ -24,7 +24,7 @@ const bridge: YomuGamingBridge = {
     closeTextLookup: () => ipcRenderer.invoke(YOMU_GAMING_CHANNELS.closeTextLookup),
     retryTextLookup: () => ipcRenderer.invoke(YOMU_GAMING_CHANNELS.retryTextLookup),
     updateTextLookupShortcut: settings => ipcRenderer.invoke(YOMU_GAMING_CHANNELS.updateTextLookupShortcut, settings),
-    updateDesktopShortcuts: shortcuts => ipcRenderer.invoke(YOMU_GAMING_CHANNELS.updateDesktopShortcuts, shortcuts),
+    updateDesktopShortcuts: (shortcuts, expectedRevision) => ipcRenderer.invoke(YOMU_GAMING_CHANNELS.updateDesktopShortcuts, shortcuts, expectedRevision),
 };
 
 contextBridge.exposeInMainWorld('yomuGaming', bridge);
