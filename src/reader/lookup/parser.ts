@@ -1368,9 +1368,10 @@ function rejectUntrustworthySpanShapes(
             return false;
         }
         if (endsStrictlyInsideSegment(segments, candidate.end)
-            && !context.hasConfirmedSpanAt(candidate.end)
-            && !startsGrammarParticleContinuation(text, candidate.end)) {
-            return false;
+            && !context.hasConfirmedSpanAt(candidate.end)) {
+            const continuation = grammarParticleContinuation(text, candidate.end);
+            return continuation === 'case'
+                || (continuation === 'final' && candidate.lookupCandidate.depth > 0);
         }
         return true;
     };
@@ -1472,11 +1473,11 @@ export function pickAuthoritativeTokenAt(
 function endsInsideKanaRun(text: string, end: number): boolean {
     if (end <= 0 || end >= text.length) return false;
     if (!KANA_RUN_CHARACTER_RE.test(text[end - 1]) || !KANA_RUN_CHARACTER_RE.test(text[end])) return false;
-    return !startsGrammarParticleContinuation(text, end);
+    return grammarParticleContinuation(text, end) === null;
 }
 
-function startsGrammarParticleContinuation(text: string, start: number): boolean {
-    if (KANA_CASE_PARTICLE_CONTINUATIONS.some(particle => text.startsWith(particle, start))) return true;
+function grammarParticleContinuation(text: string, start: number): 'case' | 'final' | null {
+    if (KANA_CASE_PARTICLE_CONTINUATIONS.some(particle => text.startsWith(particle, start))) return 'case';
     let cursor = start;
     let consumedFinal = true;
     while (consumedFinal && cursor < text.length) {
@@ -1488,7 +1489,7 @@ function startsGrammarParticleContinuation(text: string, start: number): boolean
             break;
         }
     }
-    return cursor > start && (cursor >= text.length || !KANA_RUN_CHARACTER_RE.test(text[cursor]));
+    return cursor > start && (cursor >= text.length || !KANA_RUN_CHARACTER_RE.test(text[cursor])) ? 'final' : null;
 }
 
 function authoritativeCardsFromParsedTerms(

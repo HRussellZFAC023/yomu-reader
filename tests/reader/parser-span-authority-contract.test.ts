@@ -217,6 +217,28 @@ function tokenSummary(text: string, tokens: readonly JPDBToken[]) {
 }
 
 describe('ReaderParser span authority contract', () => {
+    it('does not treat word-internal final-particle kana before CJK as a confirmed span boundary', async () => {
+        const text = 'なにわ男子';
+        const harness = providerHarness({
+            provider: 'local',
+            text,
+            lexicon: { なに: { spelling: '何', reading: 'なに', rules: 'pn' } },
+        });
+
+        // Both Chromium and Firefox preserve なにわ as a single word segment.
+        await withFakeSegmenter([
+            { segment: 'なにわ', index: 0, isWordLike: true },
+            { segment: '男子', index: 3, isWordLike: true },
+        ], async parser => {
+            const [tokens] = await parser.parse([text], SPAN_OPTIONS);
+            expect(tokens[0]).toMatchObject({
+                start: 0,
+                end: 3,
+                card: { spelling: 'なにわ', source: 'fallback' },
+            });
+        }, harness.dependencies);
+    });
+
     it.each(['jpdb', 'jiten', 'public', 'local'] as const)(
         'keeps a confirmed polite verb before a final particle glued by Firefox segmentation for %s',
         async provider => {
