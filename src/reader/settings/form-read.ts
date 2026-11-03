@@ -190,10 +190,12 @@ function readLanguageProfileFormSettings(
     const outputLanguage = isSupportedTranslationLanguage(requestedTranslationLanguage)
         ? requestedTranslationLanguage
         : active.outputLanguage;
-    // Only sentence/example output changes; preserve target and dictionary choices.
+    const definitionTranslationProviderIds = data.has('definitionTranslationControlsPresent')
+        ? [...new Set(data.getAll('definitionTranslationProviderIds').filter((value): value is string => typeof value === 'string' && Boolean(value.trim())))]
+        : [...active.definitionTranslationProviderIds];
     return {
         languageProfiles: current.languageProfiles.map(profile => profile.id === active.id
-            ? { ...profile, outputLanguage, learnerLanguage: outputLanguage, uiLocale: interfaceLanguage, parserProvider, dictionaries }
+            ? { ...profile, outputLanguage, learnerLanguage: outputLanguage, definitionTranslationProviderIds, uiLocale: interfaceLanguage, parserProvider, dictionaries }
             : profile),
         activeLanguageProfileId: active.id,
     };

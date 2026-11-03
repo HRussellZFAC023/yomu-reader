@@ -3167,11 +3167,11 @@ function debugStorageError(message, key, error) {
 }
 function sandboxSharedState(key, create) {
   const realm = globalThis;
-  const slot = Symbol.for(key);
-  const existing = realm[slot];
+  const slot2 = Symbol.for(key);
+  const existing = realm[slot2];
   if (existing && typeof existing === "object") return existing;
   const created = create();
-  Object.defineProperty(realm, slot, {
+  Object.defineProperty(realm, slot2, {
   configurable: true,
   enumerable: false,
   value: created,
@@ -3226,36 +3226,36 @@ const { valuesByElement, pendingValues, replayableBlueprints, domainSlots } = sa
   domainSlots: /* @__PURE__ */ new Map()
 }));
 function createPrivateElementStateSlot(domain, snapshot, options = {}) {
-  const slot = domainSlot(domain);
+  const slot2 = domainSlot(domain);
   return {
   attributes(value) {
-    const token = registerPendingValue(slot, snapshot(value), options.replayable === true);
+    const token = registerPendingValue(slot2, snapshot(value), options.replayable === true);
     return ` ${TOKEN_ATTRIBUTE}="${token}"`;
   },
   prepareSerialization(element, value) {
-    const token = registerPendingValue(slot, snapshot(value), options.replayable === true);
+    const token = registerPendingValue(slot2, snapshot(value), options.replayable === true);
     const current = element.getAttribute(TOKEN_ATTRIBUTE)?.trim();
     element.setAttribute(TOKEN_ATTRIBUTE, current ? `${current} ${token}` : token);
   },
   bind(element, value) {
     element.removeAttribute(TOKEN_ATTRIBUTE);
-    setPrivateValue(element, slot, snapshot(value));
+    setPrivateValue(element, slot2, snapshot(value));
   },
   read(element) {
-    return element ? valuesByElement.get(element)?.get(slot) : void 0;
+    return element ? valuesByElement.get(element)?.get(slot2) : void 0;
   }
   };
 }
 function domainSlot(domain) {
   const existing = domainSlots.get(domain);
   if (existing) return existing;
-  const slot = Symbol(`yomu-private-element-state:${domain}`);
-  domainSlots.set(domain, slot);
-  return slot;
+  const slot2 = Symbol(`yomu-private-element-state:${domain}`);
+  domainSlots.set(domain, slot2);
+  return slot2;
 }
-function registerPendingValue(slot, value, replayable) {
+function registerPendingValue(slot2, value, replayable) {
   const token = privateStateToken();
-  const pending = { slot, value };
+  const pending = { slot: slot2, value };
   pendingValues.set(token, pending);
   if (replayable) replayableBlueprints.set(token, pending);
   prunePendingValues();
@@ -3276,9 +3276,9 @@ function hydratePrivateElement(element) {
   if (pending) setPrivateValue(element, pending.slot, pending.value);
   }
 }
-function setPrivateValue(element, slot, value) {
+function setPrivateValue(element, slot2, value) {
   const values = valuesByElement.get(element) ?? /* @__PURE__ */ new Map();
-  values.set(slot, value);
+  values.set(slot2, value);
   valuesByElement.set(element, values);
 }
 function prunePendingValues() {
@@ -6998,7 +6998,11 @@ fourGradeShortcutsHelp	4段階の復習では、最初の4つのショートカ�
 twoPoint	2段階: 失敗 / 合格
 settingsLanguage	設定の表示言語
 translationLanguage	翻訳先の言語
-translationLanguageHelp	文や例文の自動翻訳先の言語を選びます。
+translationLanguageHelp	文・例文や、選択した辞書の自動翻訳先の言語を選びます。
+definitionTranslationTitle	辞書の語義を翻訳
+definitionTranslationHelp	選択したソースの語義と品詞を、翻訳先の言語へGoogleで機械翻訳します（任意）。インポートした辞書には個人的な内容が含まれる場合があります。原文も表示でき、同じ言語の語義はそのまま表示します。
+definitionTranslationCredit	Googleによる機械翻訳
+definitionTranslationOriginal	語義の原文を表示
 theme	テーマ
 auto	自動
 dark	ダーク
@@ -7835,6 +7839,43 @@ Logger.scope("DictionaryReplicaPurge");
 Logger.scope("Yomitan");
 new TextDecoder();
 Logger.scope("Yomitan");
+const OFFICIAL_DICTIONARY_LANGUAGE_BY_NAME = Object.freeze({
+  dutch: "nl",
+  english: "en",
+  french: "fr",
+  german: "de",
+  hungarian: "hu",
+  portuguese: "pt",
+  russian: "ru",
+  spanish: "es",
+  swedish: "sv"
+});
+function dictionaryDefinitionLanguage(dictionary) {
+  const normalized = dictionary.normalize("NFKC");
+  const pair = normalized.match(/\[(?:JA|JP)-([A-Z]{2,3})(?:\s|\])/u);
+  if (pair?.[1]) return dictionaryLanguageCode(pair[1]);
+  const officialTitle = normalized.match(/\b(?:JMdict|JMnedict|KANJIDIC(?:2)?)\s*\(([A-Z]{2,3}(?:-[A-Z]{2,4})?)\)/iu);
+  if (officialTitle?.[1]) return dictionaryLanguageCode(officialTitle[1]);
+  const officialArchive = normalized.match(/\b(?:JMdict|KANJIDIC(?:2)?)[_ -](dutch|english|french|german|hungarian|portuguese|russian|spanish|swedish)(?:\.zip)?$/iu);
+  if (officialArchive?.[1]) return OFFICIAL_DICTIONARY_LANGUAGE_BY_NAME[officialArchive[1].toLowerCase()] ?? "auto";
+  if (/\b(?:jitendex|jmnedict(?:\.zip)?|dojg|new saitou)\b/iu.test(normalized) || /新和英|斎藤和英/u.test(normalized)) return "en";
+  if (/\bJapanese-Mongolian\b/iu.test(normalized)) return "mn";
+  if (/\bJapanese-German\b/iu.test(normalized)) return "de";
+  if (/\bJapanese-Portuguese\b/iu.test(normalized)) return "pt";
+  if (/\bFrench-Japanese\b/iu.test(normalized)) return "fr";
+  if (/\bEnglish\b/iu.test(normalized)) return "en";
+  return "auto";
+}
+function dictionaryLanguageCode(value) {
+  const code = value.toLowerCase();
+  if (code === "jp") return "ja";
+  if (code === "cn") return "zh";
+  return code;
+}
+const slot = createPrivateElementStateSlot("definition-translation", (value) => Object.freeze({ ...value }), { replayable: true });
+function definitionTranslationAttributes(payload, sourceId, sourceLanguage = dictionaryDefinitionLanguage(sourceId)) {
+  return `data-definition-translation-text${slot.attributes({ payload, sourceId, sourceLanguage, isCurrent: () => true })}`;
+}
 function definitionSourceStateKey(sourceId) {
   return `definition-source:${sourceId}`;
 }
@@ -7988,7 +8029,8 @@ function renderWanikaniAccuracy(info) {
   return info.reviewStatistic ? `${info.reviewStatistic.percentageCorrect}% correct` : "";
 }
 function renderWanikaniPublicDefinitions(subject) {
-  return `<div class="yomu-wanikani-public-definitions">
+  const payload = [...subject.meanings.map((item) => item.meaning), ...subject.auxiliaryMeanings.map((item) => item.meaning)].join("\n");
+  return `<div class="yomu-wanikani-public-definitions" ${definitionTranslationAttributes(payload, WANIKANI_DEFINITION_SOURCE_ID, "en")}>
         <p><strong>Meanings:</strong> ${subject.meanings.map(renderWanikaniMeaning).join(", ")}</p>
         ${renderWanikaniAlternatives("Also accepted", subject.auxiliaryMeanings, "whitelist")}
         ${renderWanikaniAlternatives("Not accepted", subject.auxiliaryMeanings, "blacklist")}

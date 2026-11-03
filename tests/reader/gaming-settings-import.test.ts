@@ -3,7 +3,7 @@ import type { JPDBCard, ReaderSettings } from '../../src/reader/app/types';
 import { reviewGradeProfile, reviewGradeScale } from '../../src/reader/cards/grade-scale';
 import { DEFAULT_SETTINGS, normalizeReaderSettings } from '../../src/reader/settings';
 import { READER_SETTINGS_BACKUP_FORMAT, READER_SETTINGS_BACKUP_VERSION, parseReaderSettingsBackup } from '../../src/reader/settings/file-io';
-import { gamingSettingsFromBrowserExport, desktopSettingsExport, desktopCaptureShortcutFromExport } from '../../src/gaming/renderer/settings-import';
+import { gamingSettingsFromBrowserExport, desktopSettingsExport, desktopShortcutsFromExport } from '../../src/gaming/renderer/settings-import';
 
 const JITEN_CARD = { vid: 1234, sid: 0, source: 'jiten', jitenWordId: 1234, jitenReadingIndex: 0 } as unknown as JPDBCard;
 
@@ -102,12 +102,12 @@ it('round-trips desktop capture choices in a portable settings backup', () => {
 
 it('includes the native capture shortcut only in desktop exports', () => {
     const exported = desktopSettingsExport(DEFAULT_SETTINGS, 'Control+Shift+K');
-    expect(desktopCaptureShortcutFromExport(exported)).toBe('Control+Shift+K');
+    expect(desktopShortcutsFromExport(exported, 'win32')).toEqual({ kind: 'update', shortcuts: { captureShortcut: 'Control+Shift+K' } });
     expect(parseReaderSettingsBackup(JSON.parse(exported))?.settings).toEqual(DEFAULT_SETTINGS);
     expect(JSON.parse(exported).formatName).toBe(READER_SETTINGS_BACKUP_FORMAT);
-    expect(desktopCaptureShortcutFromExport(JSON.stringify({ formatName: READER_SETTINGS_BACKUP_FORMAT,
-        formatVersion: READER_SETTINGS_BACKUP_VERSION, settings: DEFAULT_SETTINGS, captureShortcut: '1' }))).toBeNull();
-    expect(desktopCaptureShortcutFromExport(desktopSettingsExport(DEFAULT_SETTINGS))).toBeNull();
+    expect(desktopShortcutsFromExport(JSON.stringify({ formatName: READER_SETTINGS_BACKUP_FORMAT,
+        formatVersion: READER_SETTINGS_BACKUP_VERSION, settings: DEFAULT_SETTINGS, captureShortcut: '1' }), 'win32')).toEqual({ kind: 'invalid' });
+    expect(desktopShortcutsFromExport(desktopSettingsExport(DEFAULT_SETTINGS), 'win32')).toEqual({ kind: 'absent' });
 });
 
 
@@ -116,5 +116,17 @@ it('rejects invalid desktop metadata before attempting a native shortcut restore
     exported.desktop.captureShortcut = 123;
     expect(parseReaderSettingsBackup(exported)).toBeNull();
     expect(gamingSettingsFromBrowserExport(JSON.stringify(exported), DEFAULT_SETTINGS)).toBeNull();
-    expect(desktopCaptureShortcutFromExport(JSON.stringify(exported))).toBeNull();
+    expect(desktopShortcutsFromExport(JSON.stringify(exported), 'win32')).toEqual({ kind: 'invalid' });
+});
+
+it('round-trips selected-text shortcut settings without resetting them from older or browser backups', () => {
+    const selection = { shortcut: 'Control+Alt+L', enabled: false, language: 'ja' } as const;
+    const exported = desktopSettingsExport(DEFAULT_SETTINGS, 'Control+Shift+Y', selection);
+    expect(desktopShortcutsFromExport(exported, 'win32')).toEqual({ kind: 'update', shortcuts: { captureShortcut: 'Control+Shift+Y', textLookupShortcut: selection } });
+    expect(gamingSettingsFromBrowserExport(exported, DEFAULT_SETTINGS)).toEqual(DEFAULT_SETTINGS);
+    expect(desktopShortcutsFromExport(desktopSettingsExport(DEFAULT_SETTINGS, 'Control+Shift+Y'), 'win32')).toEqual({ kind: 'update', shortcuts: { captureShortcut: 'Control+Shift+Y' } });
+    expect(desktopShortcutsFromExport(browserExport({}), 'win32')).toEqual({ kind: 'absent' });
+    const invalid = JSON.parse(exported);
+    invalid.desktop.textLookupShortcut.enabled = 'yes';
+    expect(parseReaderSettingsBackup(invalid)).toBeNull();
 });

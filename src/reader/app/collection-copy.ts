@@ -29,6 +29,12 @@ const EN = {
     addedToYomuLocal: `Added to your ${YOMU_DECK_LABEL}.`,
     // A よむ deck word kept without a schedule (Library, Stats and the popups).
     savedWord: 'Saved',
+    deckPickerSaved: 'Saved in this deck',
+    deckPickerNotSaved: 'Not saved in this deck',
+    deckPickerChecking: 'Checking…',
+    deckPickerUnsupported: 'Status unknown: this destination cannot check saved words',
+    deckPickerUnavailable: 'Status unknown: could not check this deck',
+    deckPickerStatusHelp: 'Checked when opened. Saved decks remain selectable; sentence updates depend on the destination.',
 } as const;
 
 const JA: Record<keyof typeof EN, string> = {
@@ -55,6 +61,12 @@ const JA: Record<keyof typeof EN, string> = {
     yomuLocalSrsSaveInterrupted: '保存が中断されたため、よむデッキに保存されませんでした。もう一度お試しください。',
     addedToYomuLocal: 'よむデッキに追加しました。',
     savedWord: '保存済み',
+    deckPickerSaved: 'このデッキに保存済み',
+    deckPickerNotSaved: 'このデッキには未保存',
+    deckPickerChecking: '確認中…',
+    deckPickerUnsupported: '保存状況不明：この保存先では保存済みの単語を確認できません',
+    deckPickerUnavailable: '保存状況不明：このデッキを確認できませんでした',
+    deckPickerStatusHelp: '開くたびに確認します。保存済みのデッキも選択できます。例文の更新は保存先の対応によります。',
 };
 
 export const COLLECTION_COPY = { en: EN, ja: JA };

@@ -14,6 +14,7 @@ import {
 } from './wanikani-subjects';
 import { renderWanikaniMarkup } from './wanikani-render';
 import { privateCommandAttributes } from '../dom/private-command-capabilities';
+import { definitionTranslationAttributes } from '../sources/definition-translation-markup';
 
 type SourceAttributes = (key: string, initiallyExpanded?: boolean) => string;
 
@@ -140,7 +141,8 @@ function renderWanikaniAccuracy(info: WanikaniLookupInfo): string {
 }
 
 function renderWanikaniPublicDefinitions(subject: WanikaniSubject): string {
-    return `<div class="yomu-wanikani-public-definitions">
+    const payload = [...subject.meanings.map(item => item.meaning), ...subject.auxiliaryMeanings.map(item => item.meaning)].join('\n');
+    return `<div class="yomu-wanikani-public-definitions" ${definitionTranslationAttributes(payload, WANIKANI_DEFINITION_SOURCE_ID, 'en')}>
         <p><strong>Meanings:</strong> ${subject.meanings.map(renderWanikaniMeaning).join(', ')}</p>
         ${renderWanikaniAlternatives('Also accepted', subject.auxiliaryMeanings, 'whitelist')}
         ${renderWanikaniAlternatives('Not accepted', subject.auxiliaryMeanings, 'blacklist')}

@@ -7,6 +7,8 @@ import { newTabText } from './i18n';
 import { kanjiSourceStateKey } from '../sources/definition-render';
 import { KANJI_JPDB_SOURCE_ID } from '../sources/sections';
 import type { JPDBCard, ReaderSettings } from '../app/types';
+import { JPDB_DEFINITION_SOURCE_ID } from '../app/constants';
+import { bindDefinitionTranslation } from '../sources/definition-translation-markup';
 
 export function renderNewTabKanjiInfoSection(
     card: JPDBCard,
@@ -25,7 +27,7 @@ export function renderNewTabKanjiInfoSection(
     `) as HTMLDetailsElement | null;
     if (!section) return el('div');
     section.append(el('div', { class: 'jpdb-reader-local-entry jpdb-reader-newtab-kanji-info-body' },
-        renderNewTabKanjiFactSection(card, facts),
+        renderNewTabKanjiFactSection(card, facts, fullInfo?.keyword),
         renderNewTabKanjiReadingSection(readings),
         renderNewTabKanjiLocalMeanings(localMeanings),
         renderNewTabKanjiComponents(fullInfo, language),
@@ -34,9 +36,13 @@ export function renderNewTabKanjiInfoSection(
     return section;
 }
 
-function renderNewTabKanjiFactSection(card: JPDBCard, facts: [string, string][]): HTMLElement {
+function renderNewTabKanjiFactSection(card: JPDBCard, facts: [string, string][], keyword: string | undefined): HTMLElement {
     return facts.length
-        ? el('div', { class: 'jpdb-reader-kanji-facts' }, facts.map(([label, value]) => el('span', { title: `${label}: ${value}` }, el('strong', {}, label), el('span', { class: 'jpdb-reader-kanji-fact-value' }, value))))
+        ? el('div', { class: 'jpdb-reader-kanji-facts' }, facts.map(([label, value]) => {
+            const fact = el('span', { title: `${label}: ${value}` }, el('strong', {}, label), el('span', { class: 'jpdb-reader-kanji-fact-value' }, value));
+            if (keyword && value === keyword) bindDefinitionTranslation(fact, { payload: keyword, sourceId: JPDB_DEFINITION_SOURCE_ID, sourceLanguage: 'en' });
+            return fact;
+        }))
         : el('div', { class: 'jpdb-reader-help' }, firstCardMeaning(card));
 }
 

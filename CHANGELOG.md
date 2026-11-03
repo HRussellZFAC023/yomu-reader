@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.3.0] - 2026-11-03
+
+### Added
+
+- Translate dictionary definitions, part-of-speech text and kanji meanings into your chosen language. Enable only the sources you want in Settings → Sources; originals remain available, with Try again after a failed translation. The JPDB choice also covers matching public vocabulary and kanji pages on jpdb.io.
+- Desktop can look up selected Japanese text from compatible apps without OCR. Enable and configure its separate shortcut in Settings → Shortcuts, or use the tray action. It starts disabled, leaves the clipboard unchanged and keeps screen OCR available. Shortcut changes and backup imports restore prior keys when possible after a failed save; partial or unconfirmed recovery is explained, with Refresh available to confirm the current settings.
+- Add to deck… shows saved status for each destination inside its private menu. The よむ deck, JPDB, Jiten and Anki use destination-specific checks; unavailable or unsupported checks show Status unknown. Saved destinations remain selectable.
+
 ## [2.2.2] - 2026-11-03
 
 ### Fixed

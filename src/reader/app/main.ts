@@ -83,6 +83,8 @@ import {
 } from '../sources/definition-render';
 import { renderDefinitionSourceImmersionMount, renderDefinitionSourcesStack, type DefinitionSourceStackOptions } from '../sources/definition-stack';
 import { installProviderExampleBehaviors } from '../sources/provider-examples';
+import { installDefinitionTranslationBehaviors } from '../sources/definition-translation';
+import { installJpdbDefinitionTranslation } from '../jpdb/jpdb-definition-translation';
 import { isUsefulImmersionPreloadQuery } from '../immersion/query';
 import type { ImmersionSearchOptions } from '../immersion/popover-controller';
 import { waitForIdle as waitForBrowserIdle } from '../platform/idle';
@@ -488,6 +490,7 @@ export class ReaderApp {
     private isDestroyed = false;
     private settings: ReaderSettings = DEFAULT_SETTINGS;
     private settingsSurface?: ReaderSettingsSurface;
+    private startupReaderCss?: string;
     private hostTheme = new HostThemeController({
         getSettings: () => this.settings,
         adoptTheme: theme => {
@@ -578,7 +581,10 @@ export class ReaderApp {
         new WanikaniLookupClient(this.wanikani),
         () => this.settings,
         (key, initiallyExpanded) => this.dictionarySourceState.attributes(key, initiallyExpanded),
-        () => this.repositionActivePopover(),
+        mount => {
+            void installDefinitionTranslationBehaviors(mount, this.settings, { getSettings: () => this.settings });
+            this.repositionActivePopover();
+        },
     );
     private bunproWordStates = this.bunproCompanion && this.bunpro ? new this.bunproCompanion.BunproWordStateStore(this.bunpro) : null;
     private yomuLocalSrs = createYomuLocalSrsAdapter(new LocalYomuSrsRepository());
@@ -1148,6 +1154,7 @@ export class ReaderApp {
     }
 
     private async loadInitialSettings(options?: ReaderAppInitOptions): Promise<boolean> {
+        this.startupReaderCss = options?.readerCss;
         // A rejecting backend or a pair still torn after the strict retries is
         // typed so boot can offer the content-page recovery affordance.
         const startup = await loadReaderStartupSettings(options).catch(rejectAsReaderSettingsUnavailable);
@@ -1569,15 +1576,16 @@ export class ReaderApp {
     }
 
     private installStyles(): void {
+        const readerCss = this.startupReaderCss ?? READER_CSS;
         const hasLinkedReaderCss = Boolean(document.querySelector('link[href$="/yomu.css"], link[href*="/yomu.css?"]'));
         const style = document.createElement('style');
-        style.textContent = hasLinkedReaderCss ? '' : initialReaderCss(READER_CSS);
+        style.textContent = hasLinkedReaderCss ? '' : initialReaderCss(readerCss);
         appendToDocumentHead(style);
         // Shadow roots never receive document-level CSS; seed the shared
         // shadow sheet with the same effective reader CSS (hosted pages link
         // the sheet instead of inlining it, so fall back to the bundled copy).
-        setShadowReaderCss(initialReaderCss(READER_CSS));
-        if (!shouldLoadReaderCssFallback(hasLinkedReaderCss, READER_CSS) || isJsdomRuntime()) return;
+        setShadowReaderCss(initialReaderCss(readerCss));
+        if (!shouldLoadReaderCssFallback(hasLinkedReaderCss, readerCss) || isJsdomRuntime()) return;
         void loadReaderCssFallback().then(css => {
             if (!css || this.isDestroyed) return;
             style.textContent = css;
@@ -1776,6 +1784,10 @@ export class ReaderApp {
     }
 
     private async refreshJpdbPageEnhancements(): Promise<void> {
+        void installJpdbDefinitionTranslation(document, this.settings, {
+            getSettings: () => this.settings,
+            signal: this.abortController.signal,
+        });
         const generation = ++this.jpdbPageEnhancementGeneration;
         this.lastEnhancedHref = location.href;
         this.installJpdbReviewExamplesToggleMemory();
@@ -5416,6 +5428,11 @@ export class ReaderApp {
         return this.parser.isJpdbBackedCard(card);
     }
 
+    /** First-party desktop text ingress uses the same cards and token list as browser selections. */
+    showTextLookup(text: string, anchor: HTMLElement): Promise<void> {
+        return this.lookupText(text, text, { anchor, trigger: 'modal', focusOnMount: true, userGesture: true, displaySelected: text });
+    }
+
     private lookupText(text: string, sentence = text, options: TextLookupOptions = {}, scope: CardLookupTargetSnapshot = this.cardLookup.captureTarget()): Promise<void> {
         return this.cardLookup.lookupText(text, sentence, options, scope);
     }
@@ -7030,7 +7047,7 @@ export class ReaderApp {
     private mountDeckSelects(popover: HTMLElement, card: JPDBCard, sentence: string | undefined): void {
         mountDeckSelects(popover, card, sentence, (control, actionCard, actionSentence, command) => (
             this.handleCardAction(control, actionCard, actionSentence, command)
-        ));
+        ), { language: this.settings.interfaceLanguage, load: (word, choices) => this.cardActions.loadDeckMembership(word, choices) });
     }
 
     private async showPreviousWord(anchor?: HTMLElement, trigger: 'modal' | 'hover' = 'modal'): Promise<void> {
@@ -7623,6 +7640,10 @@ export class ReaderApp {
     }
 
     private async performPopoverJapaneseParse(popover: HTMLElement): Promise<void> {
+        void installDefinitionTranslationBehaviors(popover, this.settings, {
+            getSettings: () => this.settings,
+            isCurrentRoot: () => this.isCurrentPopoverRoot(popover),
+        });
         installProviderExampleBehaviors(popover, {
             interfaceLanguage: this.settings.interfaceLanguage,
             outputLanguage: translationOutputLanguage(this.settings),

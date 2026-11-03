@@ -83,10 +83,13 @@
     "scripts/build-gaming-electron.mjs",
     "scripts/dev-gaming-app.mjs",
     "scripts/gaming-app-smoke.mjs",
+    "scripts/manual/gaming-selected-text-proof.mjs",
     "scripts/package-gaming-electron.mjs",
     "scripts/manual/youtube-fullscreen-smoke.mjs",
     "scripts/yt-live-harness.mjs",
     "scripts/manual/extension-boot-smoke.mjs",
+    // Direct browser fixture for the closed picker's public geometry boundary.
+    "scripts/private-deck-status-smoke.mjs",
     // Documented check-performance profiler; invoked directly when capturing
     // timing baselines rather than from an npm script.
     "scripts/measure-check.mjs",

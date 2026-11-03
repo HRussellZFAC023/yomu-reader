@@ -35,14 +35,21 @@ export function parseReaderSettingsBackup(value: unknown): ReaderSettingsBackup 
     if (Object.keys(value).some(key => !BACKUP_FIELDS.has(key))) return null;
     // Desktop's native shortcut is not a browser ReaderSetting. Accept its explicit
     // metadata envelope for portable backups without writing it to browser storage.
-    if (value.desktop !== undefined && (!isRecord(value.desktop)
-        || Object.keys(value.desktop).some(key => key !== 'captureShortcut')
-        || (value.desktop.captureShortcut !== undefined && (typeof value.desktop.captureShortcut !== 'string'
-            || value.desktop.captureShortcut.length > 128)))) return null;
+    if (value.desktop !== undefined && !isDesktopBackupMetadata(value.desktop)) return null;
     const storage = value.storage;
     if (storage !== undefined && !isRecord(storage)) return null;
     if (value.dictionaries !== undefined && !isReaderDictionaryExport(value.dictionaries)) return null;
     return { settings: value.settings, storage, dictionaries: value.dictionaries };
+}
+
+function isDesktopBackupMetadata(value: unknown): boolean {
+    if (!isRecord(value) || Object.keys(value).some(key => key !== 'captureShortcut' && key !== 'textLookupShortcut')) return false;
+    if (value.captureShortcut !== undefined && (typeof value.captureShortcut !== 'string' || value.captureShortcut.length > 128)) return false;
+    const selection = value.textLookupShortcut;
+    return selection === undefined || (isRecord(selection)
+        && Object.keys(selection).every(key => ['enabled', 'shortcut', 'language'].includes(key))
+        && typeof selection.enabled === 'boolean' && typeof selection.shortcut === 'string' && selection.shortcut.length <= 128
+        && (selection.language === 'en' || selection.language === 'ja'));
 }
 
 export function readerDictionaryExportHasData(value: unknown): boolean {

@@ -20,6 +20,11 @@ const bridge: YomuGamingBridge = {
     hideApp: () => ipcRenderer.invoke(YOMU_GAMING_CHANNELS.hideApp),
     openExternal: (url: string) => ipcRenderer.invoke(YOMU_GAMING_CHANNELS.openExternal, url),
     updateCaptureShortcut: (shortcut: string) => ipcRenderer.invoke(YOMU_GAMING_CHANNELS.updateCaptureShortcut, shortcut),
+    getSelectedText: session => ipcRenderer.invoke(YOMU_GAMING_CHANNELS.getSelectedText, session),
+    closeTextLookup: () => ipcRenderer.invoke(YOMU_GAMING_CHANNELS.closeTextLookup),
+    retryTextLookup: () => ipcRenderer.invoke(YOMU_GAMING_CHANNELS.retryTextLookup),
+    updateTextLookupShortcut: settings => ipcRenderer.invoke(YOMU_GAMING_CHANNELS.updateTextLookupShortcut, settings),
+    updateDesktopShortcuts: (shortcuts, expectedRevision) => ipcRenderer.invoke(YOMU_GAMING_CHANNELS.updateDesktopShortcuts, shortcuts, expectedRevision),
 };
 
 contextBridge.exposeInMainWorld('yomuGaming', bridge);

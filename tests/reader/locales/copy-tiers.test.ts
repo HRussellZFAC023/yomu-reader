@@ -118,6 +118,32 @@ describe('D43 copy tiers are a property of the string', () => {
         expect(HUMAN_TIER_ESCALATION_PHRASES).toContain('cannot be undone');
     });
 
+    it('classifies community consent, lookup actions and validation by their exact IDs', () => {
+        const groups = [
+            { keys: ['definitionTranslationTitle', 'definitionTranslationHelp'],
+                category: 'privacy-and-credentials', rule: 'privacy-permissions-credentials-and-account' },
+            { keys: ['desktopSelectedTextLookUp', 'desktopSelectedTextTray', 'desktopSelectedTextPaste',
+                'definitionTranslationOriginal', 'deckPickerSaved', 'deckPickerNotSaved'],
+                category: 'lookup-primary-actions', rule: 'lookup-primary-actions' },
+            { keys: ['desktopSelectedTextTaken', 'desktopSelectedTextInvalid', 'desktopSelectedTextTooLong',
+                'desktopSelectedTextNoJapanese', 'deckPickerChecking', 'desktopShortcutImportInvalid',
+                'desktopShortcutImportTaken', 'desktopShortcutImportSaveFailed', 'desktopShortcutImportPartial',
+                'desktopShortcutImportUnconfirmed', 'desktopShortcutsUnavailable', 'desktopShortcutsRefresh'],
+                category: 'degraded-and-empty-states', rule: 'degraded-empty-and-unavailable-states' },
+        ];
+        for (const { keys, category, rule } of groups) {
+            for (const key of keys) {
+                expect(chromeMessageSource()).toHaveProperty(key);
+                expect(copyTierOf(legacyChromeMessageId(key)), key).toMatchObject({ tier: 'human-critical', category, rule });
+            }
+        }
+        for (const key of ['definitionTranslationCredit', 'desktopSelectedTextShortcutHelp', 'deckPickerStatusHelp']) {
+            expect(copyTierOf(legacyChromeMessageId(key)), key).toMatchObject({
+                tier: 'machine-draft-ok', category: 'supplementary', rule: 'default-supplementary-copy',
+            });
+        }
+    });
+
     it('keeps toast copy behind stable IDs instead of raw English errors', () => {
         const readerRoot = resolve('src/reader');
         const offenders: string[] = [];
@@ -153,7 +179,7 @@ describe('D43 copy tiers are a property of the string', () => {
         const humanCritical = messages.filter((message) => message.tier === 'human-critical');
         const byIdAlone = humanCritical.filter((message) => copyTierOf(message.id).tier === 'human-critical');
         expect({ total: messages.length, critical: humanCritical.length, byId: byIdAlone.length })
-            .toEqual({ total: 1240, critical: 432, byId: 427 });
+            .toEqual({ total: 1282, critical: 462, byId: 457 });
         // 2.2.1 restores two translation controls and adds five deck-save failure messages.
         for (const key of ['translationLanguage', 'translationLanguageHelp']) {
             expect(chromeMessageSource()).toHaveProperty(key);

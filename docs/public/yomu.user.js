@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 2.2.2
+// @version 2.3.0
 // @author Henry Russell
 // @description Japanese pop-up dictionary with furigana, pitch accent, audio, subtitles, OCR and Study.
 // @license MIT
@@ -11,8 +11,8 @@
 // @updateURL https://update.greasyfork.org/scripts/581653/%E3%82%88%E3%82%80.meta.js
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-runtime.470b322dd791.user.js#sha256=RwsyLdeRH9aPWzXXZsfugfc78EEcZTcWcVp1h/Lb6x0=
-// @resource yomuCss  https://yomureader.com/yomu.488c61b31c79.css#sha256=SIxhsxx5GL5cHXgQH4VAoOuZjKvqUDSSwfauOCUg+1Y=
+// @require https://yomureader.com/greasyfork/yomu-runtime.78278e09195e.user.js#sha256=eCeOCRleGtc5e2v0o7CGuTSxmaFet3Rii4JAYd2S+kc=
+// @resource yomuCss  https://yomureader.com/yomu.2f5e4cd86c3f.css#sha256=L15M2Gw/xpqAwPZBGLqUBSWHqd6p3DFpdfY061dHvXs=
 // @connect api.jiten.moe
 // @connect api.tatoeba.org
 // @connect tatoeba.org
@@ -4491,11 +4491,11 @@ return SYNTHETIC_INTERACTION_TEST_SLOT !== void 0;
 }
 function sandboxSharedState(key, create) {
 const realm = globalThis;
-const slot = Symbol.for(key);
-const existing = realm[slot];
+const slot2 = Symbol.for(key);
+const existing = realm[slot2];
 if (existing && typeof existing === "object") return existing;
 const created = create();
-Object.defineProperty(realm, slot, {
+Object.defineProperty(realm, slot2, {
 configurable: true,
 enumerable: false,
 value: created,
@@ -4947,20 +4947,20 @@ if (CARD_STATES.has(value)) return value;
 return null;
 }
 function normalizeCardStates(value, fallback2 = "not-in-deck") {
-const states = uniqueNormalizedCardStates(Array.isArray(value) ? value : [value]);
-return states.length ? states : [fallback2];
+const states2 = uniqueNormalizedCardStates(Array.isArray(value) ? value : [value]);
+return states2.length ? states2 : [fallback2];
 }
 function uniqueNormalizedCardStates(rawStates) {
-const states = [];
+const states2 = [];
 for (const rawState of rawStates) {
-appendNormalizedCardState(states, rawState);
+appendNormalizedCardState(states2, rawState);
 }
-return states;
+return states2;
 }
-function appendNormalizedCardState(states, rawState) {
+function appendNormalizedCardState(states2, rawState) {
 const state = normalizeCardState(rawState);
-if (!state || states.includes(state)) return;
-states.push(state);
+if (!state || states2.includes(state)) return;
+states2.push(state);
 }
 function primaryCardState(value) {
 return normalizeCardStates(value)[0] ?? "not-in-deck";
@@ -5385,36 +5385,36 @@ replayableBlueprints: new Map(),
 domainSlots: new Map()
 }));
 function createPrivateElementStateSlot(domain, snapshot, options = {}) {
-const slot = domainSlot(domain);
+const slot2 = domainSlot(domain);
 return {
 attributes(value) {
-const token = registerPendingValue(slot, snapshot(value), options.replayable === true);
+const token = registerPendingValue(slot2, snapshot(value), options.replayable === true);
 return ` ${TOKEN_ATTRIBUTE}="${token}"`;
 },
 prepareSerialization(element, value) {
-const token = registerPendingValue(slot, snapshot(value), options.replayable === true);
+const token = registerPendingValue(slot2, snapshot(value), options.replayable === true);
 const current = element.getAttribute(TOKEN_ATTRIBUTE)?.trim();
 element.setAttribute(TOKEN_ATTRIBUTE, current ? `${current} ${token}` : token);
 },
 bind(element, value) {
 element.removeAttribute(TOKEN_ATTRIBUTE);
-setPrivateValue(element, slot, snapshot(value));
+setPrivateValue(element, slot2, snapshot(value));
 },
 read(element) {
-return element ? valuesByElement.get(element)?.get(slot) : void 0;
+return element ? valuesByElement.get(element)?.get(slot2) : void 0;
 }
 };
 }
 function domainSlot(domain) {
 const existing = domainSlots.get(domain);
 if (existing) return existing;
-const slot = Symbol(`yomu-private-element-state:${domain}`);
-domainSlots.set(domain, slot);
-return slot;
+const slot2 = Symbol(`yomu-private-element-state:${domain}`);
+domainSlots.set(domain, slot2);
+return slot2;
 }
-function registerPendingValue(slot, value, replayable) {
+function registerPendingValue(slot2, value, replayable) {
 const token = privateStateToken();
-const pending = { slot, value };
+const pending = { slot: slot2, value };
 pendingValues.set(token, pending);
 if (replayable) replayableBlueprints.set(token, pending);
 prunePendingValues();
@@ -5435,9 +5435,9 @@ pendingValues.delete(token);
 if (pending) setPrivateValue(element, pending.slot, pending.value);
 }
 }
-function setPrivateValue(element, slot, value) {
+function setPrivateValue(element, slot2, value) {
 const values = valuesByElement.get(element) ?? new Map();
-values.set(slot, value);
+values.set(slot2, value);
 valuesByElement.set(element, values);
 }
 function prunePendingValues() {
@@ -7581,6 +7581,13 @@ if (!replaceWithHtmlFragment(element, html)) {
 element.textContent = html;
 }
 }
+function parseHtmlDocument(html) {
+const parsed = parseHtmlWithDomParser(html);
+if (parsed) return parsed;
+const fallback2 = document.implementation.createHTMLDocument("");
+fallback2.body.textContent = html;
+return fallback2;
+}
 function replaceWithHtmlFragment(element, html) {
 try {
 const ownerDocument = element.ownerDocument || document;
@@ -7652,6 +7659,13 @@ rootSelector: "[data-yomu-sanitize-root]"
 };
 default:
 return { source: html, rootSelector: "" };
+}
+}
+function parseHtmlWithDomParser(html) {
+try {
+return new DOMParser().parseFromString(trustedHtml(html), "text/html");
+} catch {
+return null;
 }
 }
 function htmlToFirstElement(html) {
@@ -14152,6 +14166,10 @@ if (headers instanceof Headers) return Object.fromEntries(headers.entries());
 if (Array.isArray(headers)) return Object.fromEntries(headers);
 return headers;
 }
+async function requestText(url, options = {}) {
+const value = await requestHttp(url, { ...options, responseType: "text" });
+return typeof value === "string" ? value : String(value ?? "");
+}
 async function requestJson(url, options = {}) {
 const value = await requestHttp(url, { ...options, responseType: "json" });
 return value;
@@ -14219,6 +14237,7 @@ yomuModelUpdatePlan = ankiNull;
 addMissingYomuModelFields = ankiEmptyStrings;
 warmStatusIndex = ankiNull;
 findExistingCards = ankiUntrustedLookup;
+findDeckMembership = ankiUnavailable;
 findCachedStatusBatch = ankiUntrustedLookupBatch;
 findExistingCardsBatch = ankiUntrustedLookupBatch;
 rebuildStatusIndex = ankiNull;
@@ -15169,7 +15188,7 @@ if (typeof window !== "undefined") {
 window.__YOMU_LOGGER__ = Logger;
 window.YomuLogger = Logger;
 }
-const log$c = Logger.scope("CardStateSignal");
+const log$d = Logger.scope("CardStateSignal");
 const CARD_STATE_SIGNAL_KEY = "yomu:private:card-state-signal:v1";
 const CARD_STATE_CHANNEL_NAME = "yomu:card-state";
 const SEEN_SIGNAL_LIMIT = 32;
@@ -15209,7 +15228,7 @@ at: Date.now(),
 card: cardStateSignalCard(card)
 };
 void gmPrivateStorageSet(CARD_STATE_SIGNAL_KEY, signal).catch((error) => {
-log$c.debug("GM card-state publish failed", error);
+log$d.debug("GM card-state publish failed", error);
 });
 publishBroadcastCardStateSignal(signal);
 }
@@ -15220,7 +15239,7 @@ const channel = new BroadcastChannel(CARD_STATE_CHANNEL_NAME);
 channel.postMessage(signal);
 channel.close();
 } catch (error) {
-log$c.debug("Broadcast card-state publish failed", error);
+log$d.debug("Broadcast card-state publish failed", error);
 }
 }
 function subscribeToCardStateSignals(onCard) {
@@ -15243,7 +15262,7 @@ const channel = new BroadcastChannel(CARD_STATE_CHANNEL_NAME);
 channel.onmessage = (event) => handle(event.data);
 cleanups.push(() => channel.close());
 } catch (error) {
-log$c.debug("Broadcast card-state listener failed", error);
+log$d.debug("Broadcast card-state listener failed", error);
 }
 }
 return () => cleanups.forEach((cleanup) => cleanup());
@@ -15410,7 +15429,7 @@ return () => {
 listeners.delete(listener);
 };
 }
-const RTL_SCRIPTS = new Set([
+const RTL_SCRIPTS$1 = new Set([
 "Adlm",
 "Arab",
 "Hebr",
@@ -15439,13 +15458,22 @@ return Intl.getCanonicalLocales(candidate)[0] ?? null;
 return null;
 }
 }
+function languageSubtag(value) {
+const canonical = canonicalLanguageTag(value);
+if (!canonical) return null;
+try {
+return new Intl.Locale(canonical).language;
+} catch {
+return canonical.split("-")[0]?.toLowerCase() ?? null;
+}
+}
 function localeDirection(value) {
 const canonical = canonicalLanguageTag(value);
 if (!canonical) return "ltr";
 try {
 const locale = new Intl.Locale(canonical);
 const script = locale.script || locale.maximize().script;
-if (script && RTL_SCRIPTS.has(script)) return "rtl";
+if (script && RTL_SCRIPTS$1.has(script)) return "rtl";
 return RTL_LANGUAGES.has(locale.language) ? "rtl" : "ltr";
 } catch {
 return RTL_LANGUAGES.has(canonical.split("-")[0]?.toLowerCase() ?? "") ? "rtl" : "ltr";
@@ -17210,6 +17238,40 @@ direction: "ltr"
 const languageConfig = {
 languages
 };
+const LEARNER_LANGUAGE_IDS = [
+"sq",
+"grc",
+"ar",
+"yue",
+"zh",
+"da",
+"nl",
+"en",
+"fi",
+"fr",
+"de",
+"el",
+"hu",
+"id",
+"it",
+"km",
+"ko",
+"lo",
+"la",
+"mn",
+"fa",
+"pl",
+"pt",
+"ro",
+"ru",
+"sh",
+"es",
+"sv",
+"tl",
+"th",
+"tr",
+"vi"
+];
 const configuredLanguages = languageConfig.languages;
 const LEARNER_LANGUAGES = Object.freeze(
 configuredLanguages.map(
@@ -17219,9 +17281,27 @@ scripts: Object.freeze([...language.scripts])
 })
 )
 );
-new Map(
+const LANGUAGE_BY_ID = new Map(
 LEARNER_LANGUAGES.map((language) => [language.id, language])
 );
+function learnerLanguageById(id) {
+const language = LANGUAGE_BY_ID.get(id);
+if (!language) throw new Error(`Unknown Slice 1 learner language: ${id}`);
+return language;
+}
+function isLearnerLanguageId(value) {
+return LEARNER_LANGUAGE_IDS.includes(value);
+}
+function resolveLearnerLanguage(value) {
+if (!value) return learnerLanguageById("en");
+const normalized = value.trim().toLowerCase();
+const direct = normalized.split("-")[0];
+if (isLearnerLanguageId(direct)) return learnerLanguageById(direct);
+if (direct === "fil") return learnerLanguageById("tl");
+if (direct === "sr" || direct === "hr" || direct === "bs")
+return learnerLanguageById("sh");
+return learnerLanguageById("en");
+}
 const JAPANESE_TARGET_ROSTER_ENTRY = Object.freeze({
 id: "ja",
 runtimeLocale: "ja",
@@ -17244,6 +17324,19 @@ studyTargetReadiness: READING_ONLY_STUDY_TARGET_IDS.includes(language.id) ? "rea
 Object.freeze(
 LEARNER_LANGUAGES.map((language) => canonicalLanguageTag(language.runtimeLocale) ?? language.runtimeLocale)
 );
+function slice1LanguageIdForTag(value) {
+if (typeof value !== "string") return null;
+const input = value.trim().toLowerCase().replace(/_/g, "-");
+const inputBase = input.split("-")[0] ?? "";
+if (isLearnerLanguageId(inputBase)) return inputBase;
+const canonical = canonicalLanguageTag(value);
+if (!canonical) return null;
+const base = languageSubtag(canonical);
+if (!base) return null;
+if (base === "sr" || base === "hr" || base === "bs") return "sh";
+if (base === "fil") return "tl";
+return isLearnerLanguageId(base) ? base : null;
+}
 function activeLanguageProfile(profiles, activeProfileId) {
 return profiles.find((profile) => profile.id === activeProfileId) ?? profiles[0] ?? null;
 }
@@ -17391,8 +17484,8 @@ await jpdb.addToDeck(targetDeck, card, sentence);
 if (shouldAlsoAddToForq(settings2, targetDeck)) await jpdb.addToDeck("forq", card, sentence);
 },
 reviewCard: async (card, grade, reviewOptions = {}) => {
-const states = normalizeCardStates(card.cardState);
-const wasNotInDeck = states.includes("not-in-deck");
+const states2 = normalizeCardStates(card.cardState);
+const wasNotInDeck = states2.includes("not-in-deck");
 if (wasNotInDeck) await jpdb.addToDeck(reviewOptions.deckId || defaultJpdbDeckId$1(settings2), card, reviewOptions.sentence);
 await jpdb.reviewCard(card, grade);
 return { addedBeforeReview: wasNotInDeck };
@@ -18314,6 +18407,17 @@ forgetInFlight(paragraph, promise) {
 if (this.inFlight.get(paragraph) === promise) this.inFlight.delete(paragraph);
 }
 }
+function providerInteger(value, minimum) {
+const numeric = typeof value === "string" && /^\d+$/.test(value.trim()) ? Number(value) : value;
+if (typeof numeric !== "number" || !Number.isSafeInteger(numeric) || numeric < minimum) throw new Error("Invalid provider word identity");
+return numeric;
+}
+function providerWordId(value) {
+return providerInteger(value, 1);
+}
+function providerReadingIndex(value) {
+return providerInteger(value, 0);
+}
 const JITEN_API_BASE_URL = "https://api.jiten.moe/api";
 const REQUEST_TIMEOUT_MS = 3e4;
 const MISSING_API_KEY_MESSAGE = "Jiten API key is not set.";
@@ -18560,6 +18664,17 @@ keys.add(`${wordId}:${Number(record2?.readingIndex) || 0}`);
 }
 return keys;
 }
+/** Strict membership evidence; Study's legacy word-key fallback stays unchanged. */
+async isCardInStudyDeck(deckId, reference) {
+const id = normalizeJitenStudyDeckId(deckId);
+const response = await this.requestEndpoint(`srs/study-decks/${id}/word-keys`, void 0, { method: "GET" });
+if (!Array.isArray(response)) throw new Error("Invalid Jiten deck word keys");
+const keys = response.map((value) => {
+if (!isRecord$1(value)) throw new Error("Invalid Jiten deck word key");
+return `${providerWordId(value.wordId)}:${providerReadingIndex(value.readingIndex)}`;
+});
+return keys.includes(`${reference.wordId}:${reference.readingIndex}`);
+}
 async listStudyDeckVocabularyCards(deckId, limit = 5e3) {
 const normalizedDeckId = normalizeJitenStudyDeckId(deckId);
 const cardLimit = Math.max(1, Math.floor(limit));
@@ -18642,10 +18757,10 @@ if (!entries2.length) return 0;
 const response = await this.request("reader/lookup-vocabulary", {
 words: entries2.map((entry) => [entry.ref.wordId, entry.ref.readingIndex])
 });
-const states = isJsonRecord(response) && Array.isArray(response.result) ? response.result : [];
+const states2 = isJsonRecord(response) && Array.isArray(response.result) ? response.result : [];
 let refreshed = 0;
 entries2.forEach((entry, index) => {
-const state = states[index];
+const state = states2[index];
 if (!Array.isArray(state) || !state.every((value) => Number.isInteger(value) && Object.hasOwn(JITEN_CARD_STATE_MAP, value))) return;
 entry.card.cardState = jitenKnownStateToCardStates(state);
 refreshed += 1;
@@ -18998,8 +19113,8 @@ return value.replace(/([\u4e00-\u9faf\u3005-\u3007]+)\[([^\]]+)\]/g, "$2");
 function cleanJitenAnnotatedSpelling$1(value) {
 return value.replace(/([\u4e00-\u9faf\u3005-\u3007]+)\[[^\]]+]/g, "$1");
 }
-function jitenKnownStateToCardStates(states) {
-const mapped = jitenStateNumbers(states).map((state) => JITEN_CARD_STATE_MAP[state]).filter((state) => Boolean(state));
+function jitenKnownStateToCardStates(states2) {
+const mapped = jitenStateNumbers(states2).map((state) => JITEN_CARD_STATE_MAP[state]).filter((state) => Boolean(state));
 return mapped.length ? mapped : ["not-in-deck"];
 }
 const JITEN_CARD_STATE_MAP = {
@@ -19774,11 +19889,16 @@ return Object.freeze({ ...command, choices: Object.freeze(command.choices.map((c
 }
 return Object.freeze({ ...command });
 }
-const log$b = Logger.scope("CardActionController");
-function assertReviewableApiCardState(states) {
-if (states.includes("blacklisted")) throw userFacingError("reviewBlockedBlacklisted");
-if (states.includes("never-forget")) throw userFacingError("reviewBlockedNeverForget");
-if (states.includes("redundant")) throw userFacingError("reviewBlockedRedundant");
+const log$c = Logger.scope("CardActionController");
+const ANKI_DECK_MEMBERSHIP = {
+saved: { kind: "saved" },
+"not-saved": { kind: "not-saved" },
+unknown: { kind: "unknown", reason: "unavailable" }
+};
+function assertReviewableApiCardState(states2) {
+if (states2.includes("blacklisted")) throw userFacingError("reviewBlockedBlacklisted");
+if (states2.includes("never-forget")) throw userFacingError("reviewBlockedNeverForget");
+if (states2.includes("redundant")) throw userFacingError("reviewBlockedRedundant");
 }
 class CardActionController {
 constructor(options) {
@@ -19796,6 +19916,35 @@ notify: (card) => this.notifyApiCardStateChanged(card)
 });
 }
 batchMining;
+/** Called only by a trusted opening of the closed deck picker. No hover reads. */
+loadDeckMembership(card, choices) {
+const settings2 = this.options.getSettings();
+const ankiDecks = choices.some((choice) => choice.source === "anki") && settings2.ankiEnabled ? Promise.resolve().then(() => this.options.anki.findDeckMembership(card)) : void 0;
+return choices.map(async (choice) => {
+try {
+let member;
+if (choice.source === "anki" && ankiDecks) {
+const state = (await ankiDecks).get(choice.id);
+return ANKI_DECK_MEMBERSHIP[state ?? "not-saved"];
+} else if (choice.source === "yomu-local" && settings2.yomuLocalSrsEnabled && this.options.srsAdapters?.["yomu-local"]?.lookupCards) {
+const cards = await this.options.srsAdapters["yomu-local"].lookupCards([{ expression: card.spelling, reading: card.reading, language: card.language ?? activeLearningTargetLanguage() }]);
+member = cards.length > 0;
+} else if (choice.source === "jpdb" || choice.source === "jiten") {
+const provider = this.apiProviderForDeckSource(choice.source, card, settings2);
+this.assertApiProviderActionAllowed(provider, providerAddApiKeyRequiredKey(provider, choice.source));
+const word = await this.wordOnCollectionService(provider, card);
+if (choice.source === "jpdb") member = await this.options.jpdb.isCardInDeck(choice.id, word);
+else if (this.options.jiten) {
+const reference = jitenCardReference(word);
+member = await this.options.jiten.isCardInStudyDeck(Number(choice.id), reference);
+} else return { kind: "unknown", reason: "unavailable" };
+} else return { kind: "unknown", reason: "unsupported" };
+return { kind: member ? "saved" : "not-saved" };
+} catch {
+return { kind: "unknown", reason: "unavailable" };
+}
+});
+}
 async perform(command, control, card, sentence, context = {}) {
 const button = control.localName === "button" ? control : null;
 const studyAction = button ? this.performStudyAction(command, button, sentence) : void 0;
@@ -20053,7 +20202,7 @@ recorded = false;
 if (trusted) throw error;
 throw recorded ? privateCollectionFailure(error) : userFacingError("collectDetailsUnavailable", { cause: error });
 }
-await clearCollectionSaveFailure(target).catch((error) => log$b.warn("Clearing the saved word failure notice failed", error));
+await clearCollectionSaveFailure(target).catch((error) => log$c.warn("Clearing the saved word failure notice failed", error));
 }
 accountDataSurfaceTrusted() {
 return this.options.accountDataSurfaceTrusted?.() ?? currentAccountDataSurfaceIsTrusted();
@@ -20198,12 +20347,12 @@ const resolveOn = apiGradingServiceToResolve(card, settings2, this.options.isJpd
 const provider = options.providerId ? this.apiProviders(settings2).find((candidate) => candidate.id === options.providerId && (candidate.supportsCard(card) || candidate.id === resolveOn)) ?? null : this.gradingProviderForCard(card, settings2);
 this.assertApiProviderReviewAllowed(provider, provider?.reviewApiKeyRequiredKey ?? "addJpdbApiKeyReview");
 const target = provider.supportsCard(card) ? card : await this.resolveWordOnGradingService(card, provider);
-const states = normalizeCardStates(target.cardState);
-assertReviewableApiCardState(states);
+const states2 = normalizeCardStates(target.cardState);
+assertReviewableApiCardState(states2);
 const result = await provider.reviewCard(target, grade, { sentence, deckId: this.reviewDeckId(options) });
 options.onReviewed?.();
 options.assertCurrent?.();
-const added = result.addedBeforeReview || await this.collectGradedWord(provider, target, sentence, states, settings2);
+const added = result.addedBeforeReview || await this.collectGradedWord(provider, target, sentence, states2, settings2);
 if (added && !options.suppressToast) this.options.toast(uiText(settings2.interfaceLanguage, "addedToDeckAndReviewed"));
 this.notifyApiCardStateChanged(target);
 }
@@ -20212,15 +20361,15 @@ const [match] = await this.findOnService(provider, [card]);
 if (!match) throw userFacingError(notFound);
 return match;
 }
-async collectGradedWord(provider, card, sentence, states, settings2) {
-if (!states.includes("not-in-deck")) return false;
+async collectGradedWord(provider, card, sentence, states2, settings2) {
+if (!states2.includes("not-in-deck")) return false;
 try {
 const deckId = await this.privateDefaultDeckId(provider, settings2);
 if (!deckId) return false;
 await provider.addToDeck(deckId, card, sentence, { sourceTitle: document.title, sourceUrl: location.href });
 return true;
 } catch (error) {
-log$b.warn("Adding a graded word to its deck failed", { provider: provider.id, term: card.spelling }, error);
+log$c.warn("Adding a graded word to its deck failed", { provider: provider.id, term: card.spelling }, error);
 return false;
 }
 }
@@ -21394,7 +21543,7 @@ return record2.frequency ?? record2.value ?? record2.displayValue;
 }
 const YOMITAN_DATABASE_NAME = "jpdb-popup-reader-yomitan";
 Logger.scope("DictionaryArchiveCache");
-const log$a = Logger.scope("DictionaryReplicaPurge");
+const log$b = Logger.scope("DictionaryReplicaPurge");
 const PURGE_REQUEST_KEY = "yomu:dictionary-replica-purge:v1";
 const PURGE_HONORED_KEY = "yomu:dictionary-replica-purged:v1";
 const STATE_STORE = "managedState";
@@ -21415,7 +21564,7 @@ return false;
 }
 const check = await checkDictionaryDatabase(requestedAt, token);
 if (check !== "retry") recordHonored(requestedAt);
-if (check === "cleared") log$a.info("Removed this origin's dictionary copy after an all-sites purge");
+if (check === "cleared") log$b.info("Removed this origin's dictionary copy after an all-sites purge");
 return check === "cleared";
 }
 function timestamp(value) {
@@ -21681,11 +21830,11 @@ if (items.length <= VISIBLE_EXAMPLE_COUNT + 1) return list(items.join(""));
 return `${list(items.slice(0, VISIBLE_EXAMPLE_COUNT).join(""))}${renderMoreDisclosure(list(items.slice(VISIBLE_EXAMPLE_COUNT).join("")), label, "examples")}`;
 }
 function preserveMoreDisclosures(root) {
-const states = new Map();
-for (const [key, details] of keyedDisclosures(root)) states.set(key, details.open);
+const states2 = new Map();
+for (const [key, details] of keyedDisclosures(root)) states2.set(key, details.open);
 return () => {
 for (const [key, details] of keyedDisclosures(root)) {
-const open = states.get(key);
+const open = states2.get(key);
 if (open !== void 0) details.open = open;
 }
 };
@@ -21698,6 +21847,48 @@ const entry = details.closest("[data-more-entry-key]")?.dataset.moreEntryKey ?? 
 return [[JSON.stringify([source.dataset.sourceStateKey, entry, details.dataset.moreKind]), details]];
 });
 }
+const OFFICIAL_DICTIONARY_LANGUAGE_BY_NAME = Object.freeze({
+dutch: "nl",
+english: "en",
+french: "fr",
+german: "de",
+hungarian: "hu",
+portuguese: "pt",
+russian: "ru",
+spanish: "es",
+swedish: "sv"
+});
+function dictionaryDefinitionLanguage(dictionary) {
+const normalized = dictionary.normalize("NFKC");
+const pair = normalized.match(/\[(?:JA|JP)-([A-Z]{2,3})(?:\s|\])/u);
+if (pair?.[1]) return dictionaryLanguageCode(pair[1]);
+const officialTitle = normalized.match(/\b(?:JMdict|JMnedict|KANJIDIC(?:2)?)\s*\(([A-Z]{2,3}(?:-[A-Z]{2,4})?)\)/iu);
+if (officialTitle?.[1]) return dictionaryLanguageCode(officialTitle[1]);
+const officialArchive = normalized.match(/\b(?:JMdict|KANJIDIC(?:2)?)[_ -](dutch|english|french|german|hungarian|portuguese|russian|spanish|swedish)(?:\.zip)?$/iu);
+if (officialArchive?.[1]) return OFFICIAL_DICTIONARY_LANGUAGE_BY_NAME[officialArchive[1].toLowerCase()] ?? "auto";
+if (/\b(?:jitendex|jmnedict(?:\.zip)?|dojg|new saitou)\b/iu.test(normalized) || /新和英|斎藤和英/u.test(normalized)) return "en";
+if (/\bJapanese-Mongolian\b/iu.test(normalized)) return "mn";
+if (/\bJapanese-German\b/iu.test(normalized)) return "de";
+if (/\bJapanese-Portuguese\b/iu.test(normalized)) return "pt";
+if (/\bFrench-Japanese\b/iu.test(normalized)) return "fr";
+if (/\bEnglish\b/iu.test(normalized)) return "en";
+return "auto";
+}
+function dictionaryLanguageCode(value) {
+const code = value.toLowerCase();
+if (code === "jp") return "ja";
+if (code === "cn") return "zh";
+return code;
+}
+const slot = createPrivateElementStateSlot("definition-translation", (value) => Object.freeze({ ...value }), { replayable: true });
+function definitionTranslationAttributes(payload, sourceId, sourceLanguage = dictionaryDefinitionLanguage(sourceId)) {
+return `data-definition-translation-text${slot.attributes({ payload, sourceId, sourceLanguage, isCurrent: () => true })}`;
+}
+function bindDefinitionTranslation(element, value, isCurrent = () => true) {
+slot.bind(element, { ...value, isCurrent });
+element.dataset.definitionTranslationText = "";
+}
+const readDefinitionTranslation = slot.read;
 const renderJpdbDefinitionSource = (...args) => yomuJpdbCompanion()?.renderJpdbDefinitionSource?.(...args) ?? "";
 function renderLocalDefinitionSourcesSection(dictionaries, grouped, settings2, sourceAttributes, dictionaryLabel, reference) {
 const groupsByDictionary = dictionaries.map((dictionary) => ({ dictionary, groups: groupTermEntriesByHeadword(grouped.get(dictionary) ?? []) })).filter((source) => source.groups.length);
@@ -21723,6 +21914,7 @@ return `
                     <div
                         class="jpdb-reader-local-glossary jpdb-reader-parseable"
                         data-dictionary="${escapeHtml(entry.dictionary)}"
+                        ${definitionTranslationAttributes(entry.meanings.slice(0, 6).join("\n"), entry.dictionary)}
                     >
                         ${entry.meanings.slice(0, 6).map((meaning) => `<div>${escapeHtml(meaning)}</div>`).join("")}
                     </div>
@@ -21762,7 +21954,9 @@ return `
         <article class="jpdb-reader-local-entry jpdb-reader-local-term" data-more-entry-key="${escapeHtml(JSON.stringify([group.expression, group.reading]))}">
             ${renderLocalTermHead(group, reference)}
             ${renderLocalTermTags(dictionary, group, dictionaryLabel, options.showDictionaryTag ?? true, language)}
-            ${renderLocalTermMeaning(dictionary, group, language)}
+            <div ${definitionTranslationAttributes(group.entries.flatMap((entry) => entry.glossary.map(glossaryToText)).join("\n"), dictionary)}>
+                ${renderLocalTermMeaning(dictionary, group, language)}
+            </div>
         </article>
     `;
 }
@@ -21795,7 +21989,7 @@ const tagItems = [
 showDictionaryTag ? `<span class="jpdb-reader-dict-tag jpdb-reader-source-tag">${escapeHtml(dictionaryLabel(dictionary))}</span>` : "",
 ...localTermTags(group.entries, language).map((tag) => `<span class="jpdb-reader-dict-tag" data-tag="${escapeHtml(tag)}">${escapeHtml(tag)}</span>`)
 ].filter(Boolean);
-return tagItems.length ? `<div class="jpdb-reader-local-tags">${tagItems.join("")}</div>` : "";
+return tagItems.length ? `<div class="jpdb-reader-local-tags" ${definitionTranslationAttributes(localTermTags(group.entries, "en").join(", "), dictionary, "en")}>${tagItems.join("")}</div>` : "";
 }
 function renderLocalTermMeaning(dictionary, group, language) {
 if (group.entries.some(hasAdditionalLocalDictionaryText)) return renderLocalGlossaryEntries(dictionary, group.entries, { showIndex: false });
@@ -23565,7 +23759,7 @@ return `
             <div class="jpdb-reader-popover-body" data-card-popover${bunproDefinitionStatusAttributes(data.bunproDefinitionStatus)}>
                 ${this.dependencies.renderWordHistory(view.language, trigger)}
                 ${this.renderHeader(card, data, view, trigger)}
-                ${this.renderPartOfSpeech(view)}
+                ${this.renderPartOfSpeech(card, view)}
                 ${expressionComponents}
                 ${definitionSources}
                 ${fallbackAnkiSection}
@@ -23667,8 +23861,11 @@ return `<div class="jpdb-reader-title-row">
             ${renderMeta(view.metaItems)}
         </div>`;
 }
-renderPartOfSpeech(view) {
-return view.cardPos ? `<div class="jpdb-reader-pos" title="${escapeHtml(view.cardPosDetails)}">${escapeHtml(view.cardPos)}</div>` : "";
+renderPartOfSpeech(card, view) {
+const source = card.source ?? "jpdb";
+const translatable = ["jpdb", "jiten", "bunpro", "wanikani"].includes(source);
+const translation = translatable ? definitionTranslationAttributes(view.cardPos, `__${source}__`, "en") : "";
+return view.cardPos ? `<div class="jpdb-reader-pos" ${translation} title="${escapeHtml(view.cardPosDetails)}">${escapeHtml(view.cardPos)}</div>` : "";
 }
 renderExpressionComponents(card, data, view) {
 const components = uniqueExpressionComponents(data.expressionComponents ?? []);
@@ -24252,8 +24449,8 @@ function cardNeedsJpdbDeckPoolLookup(card) {
 return normalizeCardStates(card.cardState).includes("not-in-deck");
 }
 function applyPooledJpdbDeckState(card) {
-const states = normalizeCardStates(card.cardState).filter((state) => state !== "not-in-deck");
-card.cardState = states.length ? states : ["in-deck"];
+const states2 = normalizeCardStates(card.cardState).filter((state) => state !== "not-in-deck");
+card.cardState = states2.length ? states2 : ["in-deck"];
 }
 function emptyAnkiLookupResult$1() {
 return { state: "not-in-deck", notes: [], primary: null };
@@ -24735,7 +24932,7 @@ const LOCAL_RUBY_SPLIT_BASE_RE = new RegExp(
 );
 const LOCAL_RUBY_SPLIT_KANJI_RE = new RegExp(`(?:${KANJI_PATTERN}|[${ITERATION_MARK}])`, "u");
 const LOCAL_RUBY_SPLIT_KANJI_CHAR_RE = new RegExp(`^(?:${KANJI_PATTERN}|[${ITERATION_MARK}])$`, "u");
-const log$9 = Logger.scope("ReaderParser");
+const log$a = Logger.scope("ReaderParser");
 function apiFirstParseOptions(options = {}) {
 const requireApi = options.requireApi ?? options.requireJpdb ?? true;
 return { includeLocalPitch: false, ...options, requireApi };
@@ -24761,7 +24958,7 @@ async parse(paragraphs, options = {}) {
 const { getSettings } = this.dependencies;
 const settings2 = getSettings();
 const target = activeLearningTarget();
-const done = log$9.time("parse", {
+const done = log$a.time("parse", {
 paragraphs: paragraphs.length,
 hasApiKey: hasJpdbApiCredential(settings2),
 hasJitenApiKey: hasJitenApiCredential(settings2),
@@ -24782,7 +24979,7 @@ LOCAL_PARSE_TIMEOUT_MS,
 );
 return hydrated;
 } catch (error) {
-log$9.warn("Academy SRS state hydration failed; keeping provider states", error);
+log$a.warn("Academy SRS state hydration failed; keeping provider states", error);
 return normalized;
 }
 } finally {
@@ -24879,7 +25076,7 @@ confirmed.set(match.request, { card, dictionary: match.entry.dictionary, score: 
 }
 return true;
 } catch (error) {
-log$9.warn("Exact local term span lookup failed", { requests: requests.length }, error);
+log$a.warn("Exact local term span lookup failed", { requests: requests.length }, error);
 return true;
 }
 }
@@ -24905,7 +25102,7 @@ if (source === "public-jiten") return await this.publicJitenAuthoritativeCards(t
 const parsed = source === "jpdb" ? await this.parseWithJpdb([...terms], options) : await this.parseWithJiten([...terms], options);
 return authoritativeCardsFromParsedTerms(terms, parsed, target);
 } catch (error) {
-log$9.warn("Exact term span lookup failed", { source, terms: terms.length }, error);
+log$a.warn("Exact term span lookup failed", { source, terms: terms.length }, error);
 return new Map();
 }
 }
@@ -24944,7 +25141,7 @@ LOCAL_PARSE_TIMEOUT_MS,
 () => new Error("Local parse reconciliation timed out.")
 );
 } catch (error) {
-log$9.warn("Local parse reconciliation timed out or failed; keeping unreconciled parse", error);
+log$a.warn("Local parse reconciliation timed out or failed; keeping unreconciled parse", error);
 return parsed;
 }
 }
@@ -25020,7 +25217,7 @@ return timeoutMs > 0 ? withTimeout(parsePromise, timeoutMs, () => new Error("Jit
 }
 handleRemoteParseError(source, error, options) {
 const canFallback = this.canUseParseFallback(options);
-log$9.warn(remoteParseErrorMessage(source, options, canFallback), error);
+log$a.warn(remoteParseErrorMessage(source, options, canFallback), error);
 if (shouldRethrowRemoteParseError(options, canFallback)) throw error;
 }
 async parseWithFallbackSource(paragraphs, options, target) {
@@ -25040,7 +25237,7 @@ const parsed = options.publicJitenDetailLimit === void 0 && options.publicJitenP
 if (!parsed.some((tokens) => tokens.length)) return null;
 return this.withSegmentedFallbackGaps(paragraphs, parsed, options, target);
 } catch (error) {
-log$9.warn("Jiten public parse failed; using local or segmented fallback", error);
+log$a.warn("Jiten public parse failed; using local or segmented fallback", error);
 return null;
 }
 }
@@ -25156,7 +25353,7 @@ LOCAL_PARSE_TIMEOUT_MS,
 () => new Error("Local parse timed out.")
 );
 } catch (error) {
-log$9.warn("Local parse timed out; using segmented fallback", { length: text2.length }, error);
+log$a.warn("Local parse timed out; using segmented fallback", { length: text2.length }, error);
 return this.localParseTimeoutFallback(text2, options, target);
 }
 }
@@ -25185,7 +25382,7 @@ const { dictionaries, getSettings } = this.dependencies;
 if (!await this.hasLocalTermDictionaries()) return [];
 const settings2 = getSettings();
 const matches = await dictionaries.findTermMatches(text2, LOCAL_MATCH_LIMIT, settings2.dictionaryPreferences, target).catch((error) => {
-log$9.warn("Local dictionary parse failed", { length: text2.length }, error);
+log$a.warn("Local dictionary parse failed", { length: text2.length }, error);
 return [];
 });
 return mapLimited(matches, this.enrichmentGate.limit, (match) => this.localTokenFromMatch(text2, match, options, target));
@@ -25219,7 +25416,7 @@ const store = this.dependencies.dictionaries;
 if (typeof store.hasTermDictionaries !== "function") return Promise.resolve(void 0);
 this.localTermDictionaryAvailability ??= store.hasTermDictionaries().catch((error) => {
 this.localTermDictionaryAvailability = void 0;
-log$9.warn("Local term dictionary availability check failed", { error });
+log$a.warn("Local term dictionary availability check failed", { error });
 return void 0;
 });
 return this.localTermDictionaryAvailability;
@@ -25406,7 +25603,7 @@ card.spelling,
 card.reading,
 (expression) => lookupTermMeta.call(this.dependencies.dictionaries, expression, 12, settings2.dictionaryPreferences)
 ).catch((error) => {
-log$9.warn("Local pitch parse failed", { term: card.spelling }, error);
+log$a.warn("Local pitch parse failed", { term: card.spelling }, error);
 return { patterns: [] };
 });
 this.rememberLocalPitchCacheEntry(key, promise);
@@ -25842,7 +26039,7 @@ promise,
 timeout
 ]).finally(() => window.clearTimeout(timeoutId));
 }
-const log$8 = Logger.scope("CardRenderData");
+const log$9 = Logger.scope("CardRenderData");
 const CARD_RENDER_DATA_CACHE_TTL_MS = 3e4;
 const CARD_RENDER_DATA_CACHE_LIMIT = 120;
 const CARD_RENDER_LOCAL_TIMEOUT_MS = 2500;
@@ -26089,7 +26286,7 @@ loadLocalTermEntriesUncapped(card) {
 const settings2 = this.settings();
 if (!settings2.localDictionariesEnabled) return Promise.resolve([]);
 return this.lookupLocalTermEntries(card, settings2).catch((error) => {
-log$8.warn("Local term lookup failed", { term: card.spelling }, error);
+log$9.warn("Local term lookup failed", { term: card.spelling }, error);
 return [];
 });
 }
@@ -26113,7 +26310,7 @@ loadLocalKanjiEntries(card) {
 const settings2 = this.settings();
 if (!targetUsesCharacterDictionary() || !settings2.localDictionariesEnabled || !settings2.localDictionaryShowKanji || !isLocalKanjiDictionaryCard(card)) return Promise.resolve([]);
 return this.withFallback(card, CARD_RENDER_LOCAL_TIMEOUT_MS, "local kanji dictionary", this.dependencies.dictionaries.lookupKanji(card.spelling, settings2.localDictionaryMaxResults, settings2.dictionaryPreferences).catch((error) => {
-log$8.warn("Local kanji lookup failed", { term: card.spelling }, error);
+log$9.warn("Local kanji lookup failed", { term: card.spelling }, error);
 return [];
 }), []);
 }
@@ -26124,7 +26321,7 @@ const lookup = this.dependencies.dictionaries.lookupTermMeta(card.spelling, CARD
 entries: entries2,
 completed: true
 })).catch((error) => {
-log$8.warn("Local metadata lookup failed", { term: card.spelling }, error);
+log$9.warn("Local metadata lookup failed", { term: card.spelling }, error);
 return { entries: [], completed: false };
 });
 return cardRenderDetailWithFallback(
@@ -26139,7 +26336,7 @@ loadPublicPitch(card) {
 const settings2 = this.settings();
 if (!settings2.showPitchAccent || !cardUsesPitchAccentPronunciation(card) || card.pitchAccent.length) return Promise.resolve([]);
 return this.withFallback(card, CARD_RENDER_PITCH_TIMEOUT_MS, "JPDB public pitch", this.dependencies.jpdbPublicPitch.lookup(card.spelling, card.reading).catch((error) => {
-log$8.warn("Public pitch lookup failed", { term: card.spelling }, error);
+log$9.warn("Public pitch lookup failed", { term: card.spelling }, error);
 return [];
 }), []);
 }
@@ -26152,7 +26349,7 @@ const settings2 = this.settings();
 if (!settings2.jpdbDefinitionsEnabled) return Promise.resolve(null);
 const jpdbVid = this.dependencies.isJpdbBackedCard(card) ? card.vid : 0;
 return this.withFallback(card, CARD_RENDER_JPDB_DETAIL_TIMEOUT_MS, "JPDB vocabulary details", this.dependencies.jpdbVocabulary.lookup(jpdbVid, card.spelling, card.reading).catch((error) => {
-log$8.warn("JPDB page lookup failed", { term: card.spelling }, error);
+log$9.warn("JPDB page lookup failed", { term: card.spelling }, error);
 return null;
 }), null).then((result) => {
 if (!result) onIncomplete();
@@ -26167,7 +26364,7 @@ enrichCardFromJitenVocabularyInfo(card, info);
 return info;
 }).catch((error) => {
 onIncomplete();
-log$8.warn("Jiten vocabulary lookup failed", { term: card.spelling }, error);
+log$9.warn("Jiten vocabulary lookup failed", { term: card.spelling }, error);
 return null;
 });
 }
@@ -26175,14 +26372,14 @@ loadFrequencyRanks(card, jitenVocabularyLookup, seeded, bunproDefinitionLookup, 
 const settings2 = this.settings();
 const searchJiten = this.dependencies.jiten?.searchVocabulary?.bind(this.dependencies.jiten);
 const jiten = liveFrequencyEnabled(settings2, "jiten") && !seeded.jiten ? settings2.jitenDefinitionsEnabled ? jitenVocabularyLookup.then((info) => jitenFrequencyRankForCard(card, info)) : searchJiten ? searchJiten(card.spelling, 10).then((candidates) => exactJitenFrequencyRank(card, candidates)).catch((error) => {
-log$8.warn("Jiten frequency lookup failed", { term: card.spelling }, error);
+log$9.warn("Jiten frequency lookup failed", { term: card.spelling }, error);
 return null;
 }) : Promise.resolve(null) : Promise.resolve(null);
 const searchJpdb = this.dependencies.jpdbVocabulary.search?.bind(this.dependencies.jpdbVocabulary);
 const jpdbIdentityReady = cardNeedsCanonicalReading(card) ? jitenVocabularyLookup.then(() => card, () => card) : Promise.resolve(card);
 const jpdb = liveFrequencyEnabled(settings2, "jpdb") && !seeded.jpdb && searchJpdb ? Promise.all([searchJpdb(card.spelling, 10), jpdbIdentityReady]).then(([result]) => exactJpdbFrequencyRank(card, result.cards)).catch((error) => {
 onIncomplete();
-log$8.warn("JPDB frequency lookup failed", { term: card.spelling }, error);
+log$9.warn("JPDB frequency lookup failed", { term: card.spelling }, error);
 return null;
 }) : Promise.resolve(null);
 const bunpro = liveFrequencyEnabled(settings2, "bunpro") ? bunproDefinitionLookup.then((result) => bunproFrequencyRank(card, result.info)).catch(() => null) : Promise.resolve(null);
@@ -26202,13 +26399,13 @@ if (!this.dependencies.bunpro) return Promise.resolve({ info: null, status: { st
 const lookupBunproDefinitionResult = yomuBunproCompanion()?.lookupBunproDefinitionResult;
 if (!lookupBunproDefinitionResult) return Promise.resolve({ info: null, status: { state: "client-unavailable" } });
 const startedAt = performance.now();
-log$8.debug("Bunpro definition lookup started", { term: card.spelling });
+log$9.debug("Bunpro definition lookup started", { term: card.spelling });
 return lookupBunproDefinitionResult(this.dependencies.bunpro, card).then((result) => {
 const resolved = {
 info: result.info,
 status: result.state === "success" ? { state: "success" } : { state: "no-match", reason: result.reason }
 };
-log$8.debug("Bunpro definition lookup completed", {
+log$9.debug("Bunpro definition lookup completed", {
 term: card.spelling,
 state: resolved.status.state,
 reason: resolved.status.state === "no-match" ? resolved.status.reason : void 0,
@@ -26216,7 +26413,7 @@ durationMs: Math.round(performance.now() - startedAt)
 });
 return resolved;
 }).catch((error) => {
-log$8.warn("Bunpro definition lookup failed", { term: card.spelling }, error);
+log$9.warn("Bunpro definition lookup failed", { term: card.spelling }, error);
 return { info: null, status: { state: "error" } };
 });
 }
@@ -26225,14 +26422,14 @@ if (!shouldLookupAnkiStatus(this.settings())) return Promise.resolve(emptyAnkiLo
 const fallback2 = sourceCardAnkiLookupOrEmpty(card);
 if (typeof this.dependencies.anki.findCachedStatusBatch !== "function") return Promise.resolve(fallback2);
 return this.dependencies.anki.findCachedStatusBatch([card]).then(([lookup]) => lookup ?? fallback2).catch((error) => {
-log$8.warn("Cached Anki status failed", { term: card.spelling }, error);
+log$9.warn("Cached Anki status failed", { term: card.spelling }, error);
 return fallback2;
 });
 }
 loadDetailedAnkiLookup(card, fastLookup) {
 if (!shouldLookupAnkiStatus(this.settings())) return fastLookup;
 return fastLookup.then((fallback2) => this.withFallback(card, CARD_RENDER_ANKI_TIMEOUT_MS, "Anki existing cards", this.loadAnkiLookupWhenAvailable(card, fallback2).catch((error) => {
-log$8.warn("Anki lookup failed", { term: card.spelling }, error);
+log$9.warn("Anki lookup failed", { term: card.spelling }, error);
 return ankiLookupWithUnavailableDetails(fallback2);
 }), ankiLookupWithUnavailableDetails(fallback2)));
 }
@@ -26245,14 +26442,14 @@ loadJpdbDecks(card) {
 const settings2 = this.settings();
 if (!settings2.jpdbMiningEnabled || !hasJpdbApiCredential(settings2) || !this.dependencies.isJpdbBackedCard(card)) return Promise.resolve([]);
 return this.withFallback(card, CARD_RENDER_DECK_TIMEOUT_MS, "JPDB deck list", this.cachedJpdbDecks(settings2).catch((error) => {
-log$8.warn("JPDB deck list failed", { term: card.spelling }, error);
+log$9.warn("JPDB deck list failed", { term: card.spelling }, error);
 return [];
 }), []);
 }
 loadAnkiDecks(card) {
 if (!this.settings().ankiEnabled) return Promise.resolve([]);
 return this.withFallback(card, CARD_RENDER_DECK_TIMEOUT_MS, "Anki deck list", this.cachedAnkiDecks(this.settings()).catch((error) => {
-log$8.warn("Anki deck list failed", { term: card.spelling }, error);
+log$9.warn("Anki deck list failed", { term: card.spelling }, error);
 return [];
 }), []);
 }
@@ -26260,7 +26457,7 @@ loadJitenDecks(card) {
 const settings2 = this.settings();
 if (!settings2.jitenMiningEnabled || !jitenCanTakeWord(card, settings2, this.dependencies.isJpdbBackedCard) || !hasJitenApiCredential(settings2)) return Promise.resolve(void 0);
 return this.withFallback(card, CARD_RENDER_DECK_TIMEOUT_MS, "Jiten deck list", this.cachedJitenDecks(settings2).catch((error) => {
-log$8.warn("Jiten deck list failed", { term: card.spelling }, error);
+log$9.warn("Jiten deck list failed", { term: card.spelling }, error);
 return void 0;
 }), void 0);
 }
@@ -26269,7 +26466,7 @@ const settings2 = this.settings();
 if (!settings2.ankiEnabled || !settings2.ankiSectionEnabled) return Promise.resolve(null);
 if (typeof this.dependencies.anki.noteFieldTargetPlan !== "function") return Promise.resolve(null);
 return this.withFallback(card, CARD_RENDER_DECK_TIMEOUT_MS, "Anki field target plan", this.dependencies.anki.noteFieldTargetPlan().catch((error) => {
-log$8.warn("Anki field target plan failed", { term: card.spelling }, error);
+log$9.warn("Anki field target plan failed", { term: card.spelling }, error);
 return null;
 }), null);
 }
@@ -26280,7 +26477,7 @@ if (!settings2.jpdbMiningEnabled || !hasJpdbApiCredential(settings2) || !this.de
 const isInUserDeckPool = this.dependencies.jpdb.isInUserDeckPool?.bind(this.dependencies.jpdb);
 if (typeof isInUserDeckPool !== "function") return Promise.resolve(false);
 return this.withFallback(card, CARD_RENDER_DECK_POOL_TIMEOUT_MS, "JPDB pooled deck membership", isInUserDeckPool(card).catch((error) => {
-log$8.warn("JPDB pool lookup failed", { term: card.spelling }, error);
+log$9.warn("JPDB pool lookup failed", { term: card.spelling }, error);
 return false;
 }), false);
 }
@@ -26394,7 +26591,7 @@ card.reading,
 (expression) => this.dependencies.dictionaries.lookupTermMeta(expression, CARD_RENDER_META_LOOKUP_LIMIT, settings2.dictionaryPreferences),
 { initialEntries: metaEntries }
 ).catch((error) => {
-log$8.warn("Local pitch lookup failed", { term: card.spelling }, error);
+log$9.warn("Local pitch lookup failed", { term: card.spelling }, error);
 return { patterns: [] };
 });
 if (!usesJapaneseProviders()) return;
@@ -26512,7 +26709,7 @@ return Promise.race([
 promise,
 new Promise((resolve) => {
 timeoutId = window.setTimeout(() => {
-log$8.debug(`${detail} timed out while rendering card`, { term: card.spelling, timeoutMs });
+log$9.debug(`${detail} timed out while rendering card`, { term: card.spelling, timeoutMs });
 resolve(fallback2);
 }, timeoutMs);
 })
@@ -26582,7 +26779,7 @@ if (!card.pitchAccent.includes(pattern)) card.pitchAccent = [...card.pitchAccent
 }
 }
 const SETTINGS_CHANGE_BUS_SLOT = Symbol.for("yomu.private-settings-change-bus.v1");
-const log$7 = Logger.scope("SettingsChangeBus");
+const log$8 = Logger.scope("SettingsChangeBus");
 const HOSTED_PUBLIC_SETTINGS_KEYS = [
 "theme",
 "accentColor",
@@ -26599,7 +26796,7 @@ for (const listener of privateSettingsChangeBus().listeners) {
 try {
 listener(detail);
 } catch (error) {
-log$7.warn("Private settings change listener failed", error);
+log$8.warn("Private settings change listener failed", error);
 }
 }
 publishPublicSettingsProjection(detail);
@@ -26760,7 +26957,7 @@ return settings2.localDictionariesEnabled ? loadDictionaryCss(settings2.dictiona
 onUnavailable
 });
 }
-const log$6 = Logger.scope("FactoryReset");
+const log$7 = Logger.scope("FactoryReset");
 const FACTORY_RESET_PREPARE_DELAY_MS = 80;
 const FACTORY_RESET_REMOTE_GUARD_TIMEOUT_MS = 3e4;
 const FACTORY_RESET_DICTIONARY_DELETE_TIMEOUT_MS = 6e4;
@@ -26813,21 +27010,21 @@ await this.assertManagedStateDeleted();
 await this.dependencies.resetDictionaryDatabase();
 await commitManagedStateResetEpoch(resetSignal.id);
 epochCommitted = true;
-await this.dependencies.resetDictionaryDatabase(resetSignal.id).catch((error) => log$6.warn("Final dictionary reset failed after epoch commit", error));
-await publishFactoryResetSignal(createFactoryResetSignal("complete", resetSignal.id)).catch((error) => log$6.warn("Factory reset completion signal failed after epoch commit", error));
-await clearFactoryResetSignal().catch((error) => log$6.warn("Factory reset signal cleanup failed after epoch commit", error));
+await this.dependencies.resetDictionaryDatabase(resetSignal.id).catch((error) => log$7.warn("Final dictionary reset failed after epoch commit", error));
+await publishFactoryResetSignal(createFactoryResetSignal("complete", resetSignal.id)).catch((error) => log$7.warn("Factory reset completion signal failed after epoch commit", error));
+await clearFactoryResetSignal().catch((error) => log$7.warn("Factory reset signal cleanup failed after epoch commit", error));
 this.dependencies.reload();
 } catch (error) {
 if (epochCommitted || managedStateResetEpochMayHaveCommitted(error)) {
-log$6.warn("Factory reset finalization failed after epoch commit; reloading stale realm", error);
-await clearFactoryResetSignal().catch((signalError) => log$6.warn("Factory reset signal cleanup failed", signalError));
+log$7.warn("Factory reset finalization failed after epoch commit; reloading stale realm", error);
+await clearFactoryResetSignal().catch((signalError) => log$7.warn("Factory reset signal cleanup failed", signalError));
 this.dependencies.reload();
 return;
 }
 this.activeResetId = "";
-await clearFactoryResetSignal().catch((signalError) => log$6.warn("Factory reset signal cleanup failed", signalError));
+await clearFactoryResetSignal().catch((signalError) => log$7.warn("Factory reset signal cleanup failed", signalError));
 endSettingsResetGuard();
-log$6.warn("All-data reset failed", error);
+log$7.warn("All-data reset failed", error);
 this.dependencies.toast(userFacingErrorText(this.dependencies.getLanguage(), "factoryResetFailed", error));
 }
 }
@@ -26849,7 +27046,7 @@ this.scheduleRemoteGuardRelease();
 async assertManagedStateDeleted() {
 const managedKeysStillPresent = await managedStoredKeysLeftAfterReset();
 if (!managedKeysStillPresent.length) return;
-log$6.warn("Managed keys remained after reset", { managedKeysStillPresent });
+log$7.warn("Managed keys remained after reset", { managedKeysStillPresent });
 throw new ManagedStateResetError(`Managed keys remained after reset: ${managedKeysStillPresent.join(", ")}`);
 }
 text(key, values = {}) {
@@ -28947,6 +29144,68 @@ image: { availability: "available", scope: "sentence" },
 corpus: "ample"
 };
 }
+function pruneOldestCacheEntries(cache, limit) {
+while (cache.size > limit) {
+const oldest = cache.keys().next();
+if (oldest.done) break;
+cache.delete(oldest.value);
+}
+}
+class SharedAbortableOperation {
+constructor(start, onInactive) {
+this.onInactive = onInactive;
+this.promise = start(this.controller.signal).finally(() => {
+this.settled = true;
+this.onInactive();
+});
+}
+controller = new AbortController();
+promise;
+subscribers = 0;
+settled = false;
+subscribe(signal) {
+if (signal?.aborted) {
+this.abandonIfUnobserved();
+return Promise.reject(abortSignalReason(signal));
+}
+this.subscribers += 1;
+return new Promise((resolve, reject) => {
+let active = true;
+const finish = (settle) => {
+if (!active) return;
+active = false;
+signal?.removeEventListener("abort", onAbort);
+this.unsubscribe();
+settle();
+};
+const onAbort = () => finish(() => reject(abortSignalReason(signal)));
+signal?.addEventListener("abort", onAbort, { once: true });
+this.promise.then(
+(value) => finish(() => resolve(value)),
+(error) => finish(() => reject(error))
+);
+});
+}
+unsubscribe() {
+this.subscribers -= 1;
+this.abandonIfUnobserved();
+}
+abandonIfUnobserved() {
+if (this.subscribers > 0 || this.settled) return;
+this.onInactive();
+this.controller.abort();
+}
+}
+function abortSignalReason(signal) {
+if (signal?.reason !== void 0) return signal.reason;
+if (typeof DOMException === "function") return new DOMException("Aborted", "AbortError");
+const error = new Error("Aborted");
+error.name = "AbortError";
+return error;
+}
+const DEFAULT_TIMEOUT_MS = 8e3;
+const TRANSLATION_CACHE_LIMIT = 320;
+const GOOGLE_TRANSLATE_ENDPOINT = "https://translate.googleapis.com/translate_a/single";
 const GOOGLE_TRANSLATION_LANGUAGE_CODES = new Set([
 "sq",
 "ar",
@@ -28981,7 +29240,9 @@ const GOOGLE_TRANSLATION_LANGUAGE_CODES = new Set([
 "vi",
 "ja"
 ]);
-Logger.scope("GoogleTranslation");
+const log$6 = Logger.scope("GoogleTranslation");
+const translationCache = new Map();
+const translationInFlight = new Map();
 function normalizeTranslationLanguage(language, options = {}) {
 const trimmed = language.trim();
 if (options.allowAuto && trimmed.toLowerCase() === "auto") return "auto";
@@ -29028,6 +29289,88 @@ logicalLanguage,
 providerLanguage: logicalLanguage,
 supported: true
 };
+}
+function googleTranslationUrl(text2, options) {
+const sourceLanguage = normalizeTranslationLanguage(options.sourceLanguage, { allowAuto: true });
+const sourceProviderLanguage = sourceLanguage === "auto" ? "auto" : requiredGoogleTranslationLanguage(sourceLanguage);
+const outputLanguage = requiredGoogleTranslationLanguage(options.outputLanguage);
+const params = new URLSearchParams({
+client: "gtx",
+sl: sourceProviderLanguage,
+tl: outputLanguage,
+dt: "t",
+dj: "1",
+q: text2
+});
+if (options.includeDictionaryData) params.append("dt", "bd");
+return `${GOOGLE_TRANSLATE_ENDPOINT}?${params.toString()}`;
+}
+async function translateText(text2, options) {
+throwIfTranslationAborted(options.signal);
+const original = text2.trim();
+if (!original) return "";
+const sourceLanguage = normalizeTranslationLanguage(options.sourceLanguage, { allowAuto: true });
+const outputLanguage = normalizeTranslationLanguage(options.outputLanguage);
+if (sourceLanguage !== "auto" && sourceLanguage.toLowerCase() === outputLanguage.toLowerCase()) return original;
+const cacheKey = `${sourceLanguage}:${outputLanguage}:${original}`;
+return resolveTranslationRequest(cacheKey, original, {
+...options,
+sourceLanguage,
+outputLanguage
+});
+}
+function resolveTranslationRequest(cacheKey, original, options) {
+const cached = translationCache.get(cacheKey);
+if (cached !== void 0) return Promise.resolve(cached);
+const active = translationInFlight.get(cacheKey);
+if (active) return active.subscribe(options.signal);
+return startTranslationRequest(cacheKey, original, options);
+}
+function startTranslationRequest(cacheKey, original, options) {
+let request;
+request = new SharedAbortableOperation((signal) => performTranslation(original, { ...options, signal }), () => {
+if (translationInFlight.get(cacheKey) === request) translationInFlight.delete(cacheKey);
+});
+translationInFlight.set(cacheKey, request);
+return request.subscribe(options.signal);
+}
+function throwIfTranslationAborted(signal) {
+if (signal?.aborted) throw abortSignalReason(signal);
+}
+function requiredGoogleTranslationLanguage(language) {
+const capability = googleTranslationLanguageCapability(language);
+if (!capability.supported || !capability.providerLanguage) {
+throw new Error(`Automatic translation is not available for ${capability.logicalLanguage}.`);
+}
+return capability.providerLanguage;
+}
+async function performTranslation(text2, options) {
+const url = googleTranslationUrl(text2, options);
+const done = log$6.time("Translate text", {
+sourceLanguage: options.sourceLanguage,
+outputLanguage: options.outputLanguage,
+textLength: text2.length
+});
+try {
+const json = await requestJson(url, {
+timeoutMs: options.timeoutMs ?? DEFAULT_TIMEOUT_MS,
+allowDirectCrossOrigin: true,
+allowConfiguredProxy: false,
+allowPublicProxies: false,
+preferFetch: true,
+failureLabel: "Translation request",
+timeoutLabel: "Translation timed out.",
+signal: options.signal
+});
+const translated = (json.sentences ?? []).map((item) => item.trans ?? "").join("").trim();
+if (!translated) throw new Error("No translation returned.");
+throwIfTranslationAborted(options.signal);
+translationCache.set(`${options.sourceLanguage}:${options.outputLanguage}:${text2}`, translated);
+pruneOldestCacheEntries(translationCache, TRANSLATION_CACHE_LIMIT);
+return translated;
+} finally {
+done();
+}
 }
 LEARNER_LANGUAGES.filter(
 (language) => googleTranslationLanguageCapability(language.runtimeLocale).supported
@@ -29821,6 +30164,1218 @@ context.card
 }
 function renderImmersionSource(params) {
 return params.renderImmersionSource ? params.renderImmersionSource() : renderDefinitionSourceImmersionMount(params.settings, params.sourceAttributes);
+}
+const ENGLISH_FALLBACK_MESSAGES = {
+setupTitle: "Set up Yomu in your language",
+learnerLanguageLabel: "Your language",
+targetLanguageLabel: "Language you are learning",
+targetJapanese: "Japanese",
+recommendedDictionariesTitle: "Recommended Japanese dictionaries",
+automaticTranslationLabel: "Translate automatically into {language}",
+dictionaryCountAndSize: "{count, plural, one {# dictionary} other {# dictionaries}} · {size}",
+setupProgress: "Language setup {current} of {total}",
+continueAction: "Continue",
+originalDefinitionLabel: "Original {language}",
+interfaceRtlVerificationPending: "Right-to-left layout checks are still running.",
+interfaceTranslationPending: "Translation is still in progress."
+};
+function defineLocaleCatalog(locale, reviewStatus, messages) {
+return Object.freeze({
+locale,
+reviewStatus,
+sourceLocale: "en",
+messages: Object.freeze(messages)
+});
+}
+defineLocaleCatalog("ar", "machine-draft", {
+setupTitle: "إعداد ⁨よむ⁩ بلغتك",
+learnerLanguageLabel: "لغتك",
+targetLanguageLabel: "اللغة التي تتعلمها",
+targetJapanese: "اليابانية",
+recommendedDictionariesTitle: "قواميس يابانية موصى بها",
+automaticTranslationLabel: "الترجمة تلقائيًا إلى ⁨{language}⁩",
+dictionaryCountAndSize: "{count, plural, one {عدد القواميس: #} other {عدد القواميس: #}} · ⁨{size}⁩",
+setupProgress: "إعداد اللغة: ⁨{current}⁩ من ⁨{total}⁩",
+continueAction: "متابعة",
+originalDefinitionLabel: "التعريف الأصلي باللغة ⁨{language}⁩",
+interfaceRtlVerificationPending: "لا يزال التحقق من التخطيط من اليمين إلى اليسار جاريًا.",
+interfaceTranslationPending: "الترجمة قيد التقدم."
+});
+defineLocaleCatalog("da", "machine-draft", {
+setupTitle: "Opsæt よむ på dit sprog",
+learnerLanguageLabel: "Dit sprog",
+targetLanguageLabel: "Det sprog, du lærer",
+targetJapanese: "Japansk",
+recommendedDictionariesTitle: "Anbefalede japanske ordbøger",
+automaticTranslationLabel: "Oversæt automatisk til {language}",
+dictionaryCountAndSize: "{count, plural, one {# ordbog} other {# ordbøger}} · {size}",
+setupProgress: "Sprogopsætning: {current} af {total}",
+continueAction: "Fortsæt",
+originalDefinitionLabel: "Original på {language}",
+interfaceRtlVerificationPending: "Kontrollen af højre-til-venstre-layout er stadig i gang.",
+interfaceTranslationPending: "Oversættelsen er stadig i gang."
+});
+defineLocaleCatalog("de", "machine-draft", {
+setupTitle: "よむ in deiner Sprache einrichten",
+learnerLanguageLabel: "Deine Sprache",
+targetLanguageLabel: "Sprache, die du lernst",
+targetJapanese: "Japanisch",
+recommendedDictionariesTitle: "Empfohlene Wörterbücher für Japanisch",
+automaticTranslationLabel: "Automatisch auf {language} übersetzen",
+dictionaryCountAndSize: "{count, plural, one {# Wörterbuch} other {# Wörterbücher}} · {size}",
+setupProgress: "Sprache einrichten: {current} von {total}",
+continueAction: "Weiter",
+originalDefinitionLabel: "Originaldefinition auf {language}",
+interfaceRtlVerificationPending: "Die Prüfungen für das Rechts-nach-links-Layout laufen noch.",
+interfaceTranslationPending: "Die Übersetzung läuft noch."
+});
+defineLocaleCatalog("el", "machine-draft", {
+setupTitle: "Ρυθμίστε το よむ στη γλώσσα σας",
+learnerLanguageLabel: "Η γλώσσα σας",
+targetLanguageLabel: "Γλώσσα που μαθαίνετε",
+targetJapanese: "Ιαπωνικά",
+recommendedDictionariesTitle: "Προτεινόμενα λεξικά για τα Ιαπωνικά",
+automaticTranslationLabel: "Αυτόματη μετάφραση στα {language}",
+dictionaryCountAndSize: "{count, plural, one {# λεξικό} other {# λεξικά}} · {size}",
+setupProgress: "Ρύθμιση γλώσσας: {current} από {total}",
+continueAction: "Συνέχεια",
+originalDefinitionLabel: "Πρωτότυπο κείμενο στα {language}",
+interfaceRtlVerificationPending: "Οι έλεγχοι διάταξης από δεξιά προς αριστερά είναι σε εξέλιξη.",
+interfaceTranslationPending: "Η μετάφραση είναι σε εξέλιξη."
+});
+defineLocaleCatalog(
+"en",
+"source-approved",
+ENGLISH_FALLBACK_MESSAGES
+);
+defineLocaleCatalog("es", "machine-draft", {
+setupTitle: "Configura Yomu en tu idioma",
+learnerLanguageLabel: "Tu idioma",
+targetLanguageLabel: "Idioma que estás aprendiendo",
+targetJapanese: "Japonés",
+recommendedDictionariesTitle: "Diccionarios de japonés recomendados",
+automaticTranslationLabel: "Traducir automáticamente al {language}",
+dictionaryCountAndSize: "{count, plural, one {# diccionario} other {# diccionarios}} · {size}",
+setupProgress: "Configuración del idioma: {current} de {total}",
+continueAction: "Continuar",
+originalDefinitionLabel: "Definición original ({language})",
+interfaceRtlVerificationPending: "Las comprobaciones del diseño de derecha a izquierda siguen en curso.",
+interfaceTranslationPending: "La traducción sigue en curso."
+});
+defineLocaleCatalog("fa", "machine-draft", {
+setupTitle: "راه‌اندازی ⁨よむ⁩ به زبان شما",
+learnerLanguageLabel: "زبان شما",
+targetLanguageLabel: "زبانی که یاد می‌گیرید",
+targetJapanese: "ژاپنی",
+recommendedDictionariesTitle: "واژه‌نامه‌های پیشنهادی زبان ژاپنی",
+automaticTranslationLabel: "ترجمهٔ خودکار به ⁨{language}⁩",
+dictionaryCountAndSize: "{count, plural, one {# واژه‌نامه} other {# واژه‌نامه}} · ⁨{size}⁩",
+setupProgress: "راه‌اندازی زبان: ⁨{current}⁩ از ⁨{total}⁩",
+continueAction: "ادامه",
+originalDefinitionLabel: "تعریف اصلی به زبان ⁨{language}⁩",
+interfaceRtlVerificationPending: "بررسی چیدمان راست‌به‌چپ هنوز در حال انجام است.",
+interfaceTranslationPending: "ترجمه هنوز در حال انجام است."
+});
+defineLocaleCatalog("fi", "machine-draft", {
+setupTitle: "Ota よむ käyttöön omalla kielelläsi",
+learnerLanguageLabel: "Oma kielesi",
+targetLanguageLabel: "Opiskelemasi kieli",
+targetJapanese: "Japani",
+recommendedDictionariesTitle: "Suositellut japanin kielen sanakirjat",
+automaticTranslationLabel: "Käännä automaattisesti: {language}",
+dictionaryCountAndSize: "{count, plural, one {# sanakirja} other {# sanakirjaa}} · {size}",
+setupProgress: "Kieliasetukset: vaihe {current}/{total}",
+continueAction: "Jatka",
+originalDefinitionLabel: "Alkuperäinen määritelmä ({language})",
+interfaceRtlVerificationPending: "Oikealta vasemmalle -asettelun tarkistukset ovat vielä kesken.",
+interfaceTranslationPending: "Käännös on vielä kesken."
+});
+defineLocaleCatalog("fr", "machine-draft", {
+setupTitle: "Configurez よむ dans votre langue",
+learnerLanguageLabel: "Votre langue",
+targetLanguageLabel: "Langue que vous apprenez",
+targetJapanese: "Japonais",
+recommendedDictionariesTitle: "Dictionnaires de japonais recommandés",
+automaticTranslationLabel: "Traduire automatiquement en {language}",
+dictionaryCountAndSize: "{count, plural, one {# dictionnaire} other {# dictionnaires}} · {size}",
+setupProgress: "Configuration de la langue : {current} sur {total}",
+continueAction: "Continuer",
+originalDefinitionLabel: "Définition originale en {language}",
+interfaceRtlVerificationPending: "Les vérifications de la mise en page de droite à gauche sont en cours.",
+interfaceTranslationPending: "La traduction est en cours."
+});
+defineLocaleCatalog("grc", "machine-draft", {
+setupTitle: "Παρασκεύαζε τὸ よむ κατὰ τὴν σὴν γλῶτταν",
+learnerLanguageLabel: "Ἡ σὴ γλῶττα",
+targetLanguageLabel: "Ἡ γλῶττα ἣν μανθάνεις",
+targetJapanese: "Ἰαπωνική",
+recommendedDictionariesTitle: "Τὰ αἱρετὰ λεξικὰ τῆς Ἰαπωνικῆς",
+automaticTranslationLabel: "Μεθερμήνευε αὐτομάτως εἰς {language}",
+dictionaryCountAndSize: "{count, plural, one {# λεξικόν} other {# λεξικά}} · {size}",
+setupProgress: "Ἡ παρασκευὴ τῆς γλώττης· {current} ἐκ {total}",
+continueAction: "Πρόβαινε",
+originalDefinitionLabel: "Τὸ πρωτότυπον ({language})",
+interfaceRtlVerificationPending: "Οἱ ἔλεγχοι τῆς ἐκ δεξιῶν εἰς ἀριστερὰ διατάξεως ἔτι γίγνονται.",
+interfaceTranslationPending: "Ἡ μετάφρασις ἔτι γίγνεται."
+});
+defineLocaleCatalog("hu", "machine-draft", {
+setupTitle: "A よむ beállítása az Ön nyelvén",
+learnerLanguageLabel: "Az Ön nyelve",
+targetLanguageLabel: "A tanult nyelv",
+targetJapanese: "Japán",
+recommendedDictionariesTitle: "Ajánlott japán szótárak",
+automaticTranslationLabel: "Automatikus fordítás {language} nyelvre",
+dictionaryCountAndSize: "{count, plural, one {# szótár} other {# szótár}} · {size}",
+setupProgress: "Nyelvi beállítás: {current}/{total}",
+continueAction: "Folytatás",
+originalDefinitionLabel: "Eredeti meghatározás ({language})",
+interfaceRtlVerificationPending: "A jobbról balra elrendezés ellenőrzése még folyik.",
+interfaceTranslationPending: "A fordítás még folyamatban van."
+});
+defineLocaleCatalog("id", "machine-draft", {
+setupTitle: "Siapkan Yomu dalam bahasa Anda",
+learnerLanguageLabel: "Bahasa Anda",
+targetLanguageLabel: "Bahasa yang sedang Anda pelajari",
+targetJapanese: "Bahasa Jepang",
+recommendedDictionariesTitle: "Kamus bahasa Jepang yang direkomendasikan",
+automaticTranslationLabel: "Terjemahkan secara otomatis ke {language}",
+dictionaryCountAndSize: "{count, plural, one {# kamus} other {# kamus}} · {size}",
+setupProgress: "Penyiapan bahasa {current} dari {total}",
+continueAction: "Lanjutkan",
+originalDefinitionLabel: "Definisi asli dalam {language}",
+interfaceRtlVerificationPending: "Pemeriksaan tata letak kanan ke kiri masih berjalan.",
+interfaceTranslationPending: "Penerjemahan masih berlangsung."
+});
+defineLocaleCatalog("it", "machine-draft", {
+setupTitle: "Configura よむ nella tua lingua",
+learnerLanguageLabel: "La tua lingua",
+targetLanguageLabel: "Lingua che stai imparando",
+targetJapanese: "Giapponese",
+recommendedDictionariesTitle: "Dizionari di giapponese consigliati",
+automaticTranslationLabel: "Traduci automaticamente in {language}",
+dictionaryCountAndSize: "{count, plural, one {# dizionario} other {# dizionari}} · {size}",
+setupProgress: "Configurazione della lingua: {current} di {total}",
+continueAction: "Continua",
+originalDefinitionLabel: "Definizione originale in {language}",
+interfaceRtlVerificationPending: "I controlli del layout da destra a sinistra sono ancora in corso.",
+interfaceTranslationPending: "La traduzione è ancora in corso."
+});
+defineLocaleCatalog("km", "machine-draft", {
+setupTitle: "រៀបចំ よむ ជាភាសារបស់អ្នក",
+learnerLanguageLabel: "ភាសារបស់អ្នក",
+targetLanguageLabel: "ភាសាដែលអ្នកកំពុងរៀន",
+targetJapanese: "ភាសាជប៉ុន",
+recommendedDictionariesTitle: "វចនានុក្រមជប៉ុនដែលបានណែនាំ",
+automaticTranslationLabel: "បកប្រែដោយស្វ័យប្រវត្តិទៅជា {language}",
+dictionaryCountAndSize: "{count, plural, one {វចនានុក្រម #} other {វចនានុក្រម #}} · {size}",
+setupProgress: "ការកំណត់ភាសា៖ {current} នៃ {total}",
+continueAction: "បន្ត",
+originalDefinitionLabel: "និយមន័យដើម ({language})",
+interfaceRtlVerificationPending: "ការពិនិត្យប្លង់ពីស្ដាំទៅឆ្វេងកំពុងដំណើរការ។",
+interfaceTranslationPending: "ការបកប្រែកំពុងដំណើរការ។"
+});
+defineLocaleCatalog("ko", "machine-draft", {
+setupTitle: "내 언어로 よむ 설정하기",
+learnerLanguageLabel: "사용 언어",
+targetLanguageLabel: "학습할 언어",
+targetJapanese: "일본어",
+recommendedDictionariesTitle: "추천 일본어 사전",
+automaticTranslationLabel: "{language}로 자동 번역",
+dictionaryCountAndSize: "{count, plural, one {사전 #개} other {사전 #개}} · {size}",
+setupProgress: "언어 설정: {total}단계 중 {current}단계",
+continueAction: "계속",
+originalDefinitionLabel: "원문({language})",
+interfaceRtlVerificationPending: "오른쪽에서 왼쪽 레이아웃 검사가 아직 진행 중입니다.",
+interfaceTranslationPending: "번역이 아직 진행 중입니다."
+});
+defineLocaleCatalog("la", "machine-draft", {
+setupTitle: "Configura よむ in lingua tua",
+learnerLanguageLabel: "Lingua tua",
+targetLanguageLabel: "Lingua quam discis",
+targetJapanese: "Lingua Iaponica",
+recommendedDictionariesTitle: "Dictionaria linguae Iaponicae commendata",
+automaticTranslationLabel: "Automatice verte in {language}",
+dictionaryCountAndSize: "{count, plural, one {# dictionarium} other {# dictionaria}} · {size}",
+setupProgress: "Configuratio linguae: {current} ex {total}",
+continueAction: "Perge",
+originalDefinitionLabel: "Definitio originalis ({language})",
+interfaceRtlVerificationPending: "Probationes dispositionis a dextra ad sinistram adhuc geruntur.",
+interfaceTranslationPending: "Translatio adhuc geritur."
+});
+defineLocaleCatalog("lo", "machine-draft", {
+setupTitle: "ຕັ້ງຄ່າ よむ ໃນພາສາຂອງທ່ານ",
+learnerLanguageLabel: "ພາສາຂອງທ່ານ",
+targetLanguageLabel: "ພາສາທີ່ທ່ານກຳລັງຮຽນ",
+targetJapanese: "ພາສາຍີ່ປຸ່ນ",
+recommendedDictionariesTitle: "ວັດຈະນານຸກົມພາສາຍີ່ປຸ່ນທີ່ແນະນຳ",
+automaticTranslationLabel: "ແປເປັນ {language} ໂດຍອັດຕະໂນມັດ",
+dictionaryCountAndSize: "{count, plural, one {# ວັດຈະນານຸກົມ} other {# ວັດຈະນານຸກົມ}} · {size}",
+setupProgress: "ການຕັ້ງຄ່າພາສາ: ຂັ້ນຕອນ {current} ຂອງ {total}",
+continueAction: "ສືບຕໍ່",
+originalDefinitionLabel: "ຄຳນິຍາມຕົ້ນສະບັບ ({language})",
+interfaceRtlVerificationPending: "ການກວດສອບການຈັດວາງຈາກຂວາໄປຊ້າຍຍັງດຳເນີນຢູ່.",
+interfaceTranslationPending: "ການແປຍັງດຳເນີນຢູ່."
+});
+defineLocaleCatalog("mn", "machine-draft", {
+setupTitle: "よむ-г өөрийн хэлээр тохируулах",
+learnerLanguageLabel: "Таны хэл",
+targetLanguageLabel: "Таны сурч буй хэл",
+targetJapanese: "Япон хэл",
+recommendedDictionariesTitle: "Санал болгож буй япон хэлний толь бичгүүд",
+automaticTranslationLabel: "{language} хэл рүү автоматаар орчуулах",
+dictionaryCountAndSize: "{count, plural, one {# толь бичиг} other {# толь бичиг}} · {size}",
+setupProgress: "Хэлний тохиргоо: {current}/{total}",
+continueAction: "Үргэлжлүүлэх",
+originalDefinitionLabel: "Эх тайлбар ({language})",
+interfaceRtlVerificationPending: "Баруунаас зүүн тийш байрлалын шалгалт хийгдсээр байна.",
+interfaceTranslationPending: "Орчуулга хийгдсээр байна."
+});
+defineLocaleCatalog("nl", "machine-draft", {
+setupTitle: "Stel よむ in jouw taal in",
+learnerLanguageLabel: "Jouw taal",
+targetLanguageLabel: "Taal die je leert",
+targetJapanese: "Japans",
+recommendedDictionariesTitle: "Aanbevolen Japanse woordenboeken",
+automaticTranslationLabel: "Automatisch vertalen naar {language}",
+dictionaryCountAndSize: "{count, plural, one {# woordenboek} other {# woordenboeken}} · {size}",
+setupProgress: "Taal instellen: {current} van {total}",
+continueAction: "Doorgaan",
+originalDefinitionLabel: "Oorspronkelijke definitie ({language})",
+interfaceRtlVerificationPending: "De controles voor rechts-naar-links-opmaak lopen nog.",
+interfaceTranslationPending: "De vertaling is nog bezig."
+});
+defineLocaleCatalog("pl", "machine-draft", {
+setupTitle: "Skonfiguruj Yomu w swoim języku",
+learnerLanguageLabel: "Twój język",
+targetLanguageLabel: "Język, którego się uczysz",
+targetJapanese: "Japoński",
+recommendedDictionariesTitle: "Polecane słowniki języka japońskiego",
+automaticTranslationLabel: "Tłumacz automatycznie na język {language}",
+dictionaryCountAndSize: "{count, plural, one {# słownik} few {# słowniki} many {# słowników} other {# słownika}} · {size}",
+setupProgress: "Konfiguracja języka: {current} z {total}",
+continueAction: "Kontynuuj",
+originalDefinitionLabel: "Oryginalna definicja ({language})",
+interfaceRtlVerificationPending: "Testy układu od prawej do lewej wciąż trwają.",
+interfaceTranslationPending: "Tłumaczenie wciąż trwa."
+});
+defineLocaleCatalog("pt", "machine-draft", {
+setupTitle: "Configure o Yomu no seu idioma",
+learnerLanguageLabel: "O seu idioma",
+targetLanguageLabel: "Idioma que está a aprender",
+targetJapanese: "Japonês",
+recommendedDictionariesTitle: "Dicionários de japonês recomendados",
+automaticTranslationLabel: "Traduzir automaticamente para {language}",
+dictionaryCountAndSize: "{count, plural, one {# dicionário} other {# dicionários}} · {size}",
+setupProgress: "Configuração do idioma: {current} de {total}",
+continueAction: "Continuar",
+originalDefinitionLabel: "Definição original ({language})",
+interfaceRtlVerificationPending: "As verificações do layout da direita para a esquerda ainda estão em andamento.",
+interfaceTranslationPending: "A tradução ainda está em andamento."
+});
+defineLocaleCatalog("ro", "machine-draft", {
+setupTitle: "Configurează Yomu în limba ta",
+learnerLanguageLabel: "Limba ta",
+targetLanguageLabel: "Limba pe care o înveți",
+targetJapanese: "Japoneză",
+recommendedDictionariesTitle: "Dicționare recomandate pentru limba japoneză",
+automaticTranslationLabel: "Tradu automat în {language}",
+dictionaryCountAndSize: "{count, plural, one {# dicționar} few {# dicționare} other {# de dicționare}} · {size}",
+setupProgress: "Configurarea limbii: {current} din {total}",
+continueAction: "Continuă",
+originalDefinitionLabel: "Definiția originală în {language}",
+interfaceRtlVerificationPending: "Verificările aspectului de la dreapta la stânga sunt încă în curs.",
+interfaceTranslationPending: "Traducerea este încă în curs."
+});
+defineLocaleCatalog("ru", "machine-draft", {
+setupTitle: "Настройте Yomu на своём языке",
+learnerLanguageLabel: "Ваш язык",
+targetLanguageLabel: "Язык, который вы изучаете",
+targetJapanese: "Японский",
+recommendedDictionariesTitle: "Рекомендуемые словари японского языка",
+automaticTranslationLabel: "Автоматически переводить на {language}",
+dictionaryCountAndSize: "{count, plural, one {# словарь} few {# словаря} many {# словарей} other {# словаря}} · {size}",
+setupProgress: "Настройка языка: {current} из {total}",
+continueAction: "Продолжить",
+originalDefinitionLabel: "Оригинал определения ({language})",
+interfaceRtlVerificationPending: "Проверки вёрстки справа налево ещё идут.",
+interfaceTranslationPending: "Перевод ещё выполняется."
+});
+defineLocaleCatalog("sh", "machine-draft", {
+setupTitle: "Podesite Yomu na svom jeziku",
+learnerLanguageLabel: "Vaš jezik",
+targetLanguageLabel: "Jezik koji učite",
+targetJapanese: "Japanski",
+recommendedDictionariesTitle: "Preporučeni japanski rečnici",
+automaticTranslationLabel: "Automatski prevod na jezik {language}",
+dictionaryCountAndSize: "{count, plural, one {# rečnik} few {# rečnika} other {# rečnika}} · {size}",
+setupProgress: "Podešavanje jezika: {current} od {total}",
+continueAction: "Nastavi",
+originalDefinitionLabel: "Originalna definicija ({language})",
+interfaceRtlVerificationPending: "Provjere rasporeda s desna na lijevo još su u toku.",
+interfaceTranslationPending: "Prijevod je još u toku."
+});
+defineLocaleCatalog("sq", "machine-draft", {
+setupTitle: "Konfiguro よむ në gjuhën tënde",
+learnerLanguageLabel: "Gjuha jote",
+targetLanguageLabel: "Gjuha që po mëson",
+targetJapanese: "Japonisht",
+recommendedDictionariesTitle: "Fjalorë të rekomanduar për japonishten",
+automaticTranslationLabel: "Përkthe automatikisht në {language}",
+dictionaryCountAndSize: "{count, plural, one {# fjalor} other {# fjalorë}} · {size}",
+setupProgress: "Konfigurimi i gjuhës: {current} nga {total}",
+continueAction: "Vazhdo",
+originalDefinitionLabel: "Origjinali në {language}",
+interfaceRtlVerificationPending: "Kontrollet e faqosjes nga e djathta në të majtë janë në vazhdim.",
+interfaceTranslationPending: "Përkthimi është në vazhdim."
+});
+defineLocaleCatalog("sv", "machine-draft", {
+setupTitle: "Ställ in よむ på ditt språk",
+learnerLanguageLabel: "Ditt språk",
+targetLanguageLabel: "Språket du lär dig",
+targetJapanese: "Japanska",
+recommendedDictionariesTitle: "Rekommenderade japanska ordböcker",
+automaticTranslationLabel: "Översätt automatiskt till {language}",
+dictionaryCountAndSize: "{count, plural, one {# ordbok} other {# ordböcker}} · {size}",
+setupProgress: "Språkinställning: {current} av {total}",
+continueAction: "Fortsätt",
+originalDefinitionLabel: "Ursprunglig definition på {language}",
+interfaceRtlVerificationPending: "Kontrollerna av höger-till-vänster-layout pågår fortfarande.",
+interfaceTranslationPending: "Översättningen pågår fortfarande."
+});
+defineLocaleCatalog("th", "machine-draft", {
+setupTitle: "ตั้งค่า Yomu ในภาษาของคุณ",
+learnerLanguageLabel: "ภาษาของคุณ",
+targetLanguageLabel: "ภาษาที่คุณกำลังเรียน",
+targetJapanese: "ภาษาญี่ปุ่น",
+recommendedDictionariesTitle: "พจนานุกรมภาษาญี่ปุ่นที่แนะนำ",
+automaticTranslationLabel: "แปลเป็น{language}โดยอัตโนมัติ",
+dictionaryCountAndSize: "{count, plural, other {พจนานุกรม # รายการ}} · {size}",
+setupProgress: "ตั้งค่าภาษา {current} จาก {total}",
+continueAction: "ดำเนินการต่อ",
+originalDefinitionLabel: "คำจำกัดความต้นฉบับ ({language})",
+interfaceRtlVerificationPending: "การตรวจสอบเลย์เอาต์จากขวาไปซ้ายยังดำเนินอยู่",
+interfaceTranslationPending: "การแปลยังดำเนินอยู่"
+});
+defineLocaleCatalog("tl", "machine-draft", {
+setupTitle: "I-set up ang Yomu sa iyong wika",
+learnerLanguageLabel: "Iyong wika",
+targetLanguageLabel: "Wikang pinag-aaralan mo",
+targetJapanese: "Wikang Hapon",
+recommendedDictionariesTitle: "Mga inirerekomendang diksyunaryo ng wikang Hapon",
+automaticTranslationLabel: "Awtomatikong isalin sa {language}",
+dictionaryCountAndSize: "{count, plural, one {# diksyunaryo} other {# diksyunaryo}} · {size}",
+setupProgress: "Pag-set up ng wika: {current} sa {total}",
+continueAction: "Magpatuloy",
+originalDefinitionLabel: "Orihinal na depinisyon ({language})",
+interfaceRtlVerificationPending: "Tumatakbo pa ang mga pagsusuri sa layout mula kanan pakaliwa.",
+interfaceTranslationPending: "Isinasalin pa ito."
+});
+defineLocaleCatalog("tr", "machine-draft", {
+setupTitle: "Yomu'yu dilinizde ayarlayın",
+learnerLanguageLabel: "Diliniz",
+targetLanguageLabel: "Öğrendiğiniz dil",
+targetJapanese: "Japonca",
+recommendedDictionariesTitle: "Önerilen Japonca sözlükler",
+automaticTranslationLabel: "Otomatik olarak {language} diline çevir",
+dictionaryCountAndSize: "{count, plural, one {# sözlük} other {# sözlük}} · {size}",
+setupProgress: "Dil ayarı: {current}/{total}",
+continueAction: "Devam et",
+originalDefinitionLabel: "Orijinal tanım ({language})",
+interfaceRtlVerificationPending: "Sağdan sola yerleşim denetimleri hâlâ sürüyor.",
+interfaceTranslationPending: "Çeviri hâlâ sürüyor."
+});
+defineLocaleCatalog("vi", "machine-draft", {
+setupTitle: "Thiết lập Yomu bằng ngôn ngữ của bạn",
+learnerLanguageLabel: "Ngôn ngữ của bạn",
+targetLanguageLabel: "Ngôn ngữ bạn đang học",
+targetJapanese: "Tiếng Nhật",
+recommendedDictionariesTitle: "Từ điển tiếng Nhật được đề xuất",
+automaticTranslationLabel: "Tự động dịch sang {language}",
+dictionaryCountAndSize: "{count, plural, other {# từ điển}} · {size}",
+setupProgress: "Thiết lập ngôn ngữ: {current} trên {total}",
+continueAction: "Tiếp tục",
+originalDefinitionLabel: "Định nghĩa gốc ({language})",
+interfaceRtlVerificationPending: "Việc kiểm tra bố cục từ phải sang trái vẫn đang diễn ra.",
+interfaceTranslationPending: "Bản dịch vẫn đang được thực hiện."
+});
+defineLocaleCatalog("yue", "machine-draft", {
+setupTitle: "用你嘅語言設定よむ",
+learnerLanguageLabel: "你嘅語言",
+targetLanguageLabel: "你學緊嘅語言",
+targetJapanese: "日文",
+recommendedDictionariesTitle: "推薦嘅日文字典",
+automaticTranslationLabel: "自動翻譯做{language}",
+dictionaryCountAndSize: "{count, plural, one {# 本字典} other {# 本字典}} · {size}",
+setupProgress: "語言設定：第{current}步，共{total}步",
+continueAction: "繼續",
+originalDefinitionLabel: "原文（{language}）",
+interfaceRtlVerificationPending: "由右至左排版檢查仲進行中。",
+interfaceTranslationPending: "翻譯仲進行中。"
+});
+defineLocaleCatalog("zh", "machine-draft", {
+setupTitle: "用您的语言设置よむ",
+learnerLanguageLabel: "您的语言",
+targetLanguageLabel: "您正在学习的语言",
+targetJapanese: "日语",
+recommendedDictionariesTitle: "推荐日语词典",
+automaticTranslationLabel: "自动翻译为{language}",
+dictionaryCountAndSize: "{count, plural, one {#部词典} other {#部词典}} · {size}",
+setupProgress: "语言设置：第{current}步，共{total}步",
+continueAction: "继续",
+originalDefinitionLabel: "{language}原文",
+interfaceRtlVerificationPending: "从右到左的版式检查仍在进行。",
+interfaceTranslationPending: "翻译仍在进行中。"
+});
+const MESSAGE_NAMESPACES = ["chrome", "setup", "errors", "a11y", "docs"];
+new Set(MESSAGE_NAMESPACES);
+const locales = [
+{
+tag: "en",
+reviewStatus: "source-approved",
+rtlVerified: true,
+humanReview: {
+reviewer: "source locale",
+evidence: "English is the source of record for every message ID."
+},
+available: true,
+blockers: []
+},
+{
+tag: "ja",
+reviewStatus: "native-reviewed",
+rtlVerified: true,
+humanReview: {
+reviewer: "owner",
+evidence: "Japanese is a shipped reference locale; tests/reader/i18n.test.ts enforces exact key parity with English and rejects the 未翻訳 placeholder."
+},
+available: true,
+blockers: []
+},
+{
+tag: "ar",
+reviewStatus: "machine-draft",
+rtlVerified: false,
+humanReview: null,
+available: false,
+blockers: [
+"rtl-verification-pending",
+"translation-incomplete",
+"human-review-pending"
+]
+},
+{
+tag: "fa",
+reviewStatus: "machine-draft",
+rtlVerified: false,
+humanReview: null,
+available: false,
+blockers: [
+"rtl-verification-pending",
+"translation-incomplete",
+"human-review-pending"
+]
+},
+{
+tag: "sq",
+reviewStatus: "machine-draft",
+rtlVerified: true,
+humanReview: null,
+available: false,
+blockers: [
+"translation-incomplete",
+"human-review-pending"
+]
+},
+{
+tag: "grc",
+reviewStatus: "machine-draft",
+rtlVerified: true,
+humanReview: null,
+available: false,
+blockers: [
+"translation-incomplete",
+"human-review-pending"
+]
+},
+{
+tag: "yue",
+reviewStatus: "machine-draft",
+rtlVerified: true,
+humanReview: null,
+available: false,
+blockers: [
+"translation-incomplete",
+"human-review-pending"
+]
+},
+{
+tag: "zh",
+reviewStatus: "machine-draft",
+rtlVerified: true,
+humanReview: null,
+available: false,
+blockers: [
+"translation-incomplete",
+"human-review-pending"
+]
+},
+{
+tag: "da",
+reviewStatus: "machine-draft",
+rtlVerified: true,
+humanReview: null,
+available: false,
+blockers: [
+"translation-incomplete",
+"human-review-pending"
+]
+},
+{
+tag: "nl",
+reviewStatus: "machine-draft",
+rtlVerified: true,
+humanReview: null,
+available: false,
+blockers: [
+"translation-incomplete",
+"human-review-pending"
+]
+},
+{
+tag: "fi",
+reviewStatus: "machine-draft",
+rtlVerified: true,
+humanReview: null,
+available: false,
+blockers: [
+"translation-incomplete",
+"human-review-pending"
+]
+},
+{
+tag: "fr",
+reviewStatus: "machine-draft",
+rtlVerified: true,
+humanReview: null,
+available: false,
+blockers: [
+"translation-incomplete",
+"human-review-pending"
+]
+},
+{
+tag: "de",
+reviewStatus: "machine-draft",
+rtlVerified: true,
+humanReview: null,
+available: false,
+blockers: [
+"translation-incomplete",
+"human-review-pending"
+]
+},
+{
+tag: "el",
+reviewStatus: "machine-draft",
+rtlVerified: true,
+humanReview: null,
+available: false,
+blockers: [
+"translation-incomplete",
+"human-review-pending"
+]
+},
+{
+tag: "hu",
+reviewStatus: "machine-draft",
+rtlVerified: true,
+humanReview: null,
+available: false,
+blockers: [
+"translation-incomplete",
+"human-review-pending"
+]
+},
+{
+tag: "id",
+reviewStatus: "machine-draft",
+rtlVerified: true,
+humanReview: null,
+available: false,
+blockers: [
+"translation-incomplete",
+"human-review-pending"
+]
+},
+{
+tag: "it",
+reviewStatus: "machine-draft",
+rtlVerified: true,
+humanReview: null,
+available: false,
+blockers: [
+"translation-incomplete",
+"human-review-pending"
+]
+},
+{
+tag: "km",
+reviewStatus: "machine-draft",
+rtlVerified: true,
+humanReview: null,
+available: false,
+blockers: [
+"translation-incomplete",
+"human-review-pending"
+]
+},
+{
+tag: "ko",
+reviewStatus: "machine-draft",
+rtlVerified: true,
+humanReview: null,
+available: false,
+blockers: [
+"translation-incomplete",
+"human-review-pending"
+]
+},
+{
+tag: "lo",
+reviewStatus: "machine-draft",
+rtlVerified: true,
+humanReview: null,
+available: false,
+blockers: [
+"translation-incomplete",
+"human-review-pending"
+]
+},
+{
+tag: "la",
+reviewStatus: "machine-draft",
+rtlVerified: true,
+humanReview: null,
+available: false,
+blockers: [
+"translation-incomplete",
+"human-review-pending"
+]
+},
+{
+tag: "mn",
+reviewStatus: "machine-draft",
+rtlVerified: true,
+humanReview: null,
+available: false,
+blockers: [
+"translation-incomplete",
+"human-review-pending"
+]
+},
+{
+tag: "pl",
+reviewStatus: "machine-draft",
+rtlVerified: true,
+humanReview: null,
+available: false,
+blockers: [
+"translation-incomplete",
+"human-review-pending"
+]
+},
+{
+tag: "pt",
+reviewStatus: "machine-draft",
+rtlVerified: true,
+humanReview: null,
+available: false,
+blockers: [
+"translation-incomplete",
+"human-review-pending"
+]
+},
+{
+tag: "ro",
+reviewStatus: "machine-draft",
+rtlVerified: true,
+humanReview: null,
+available: false,
+blockers: [
+"translation-incomplete",
+"human-review-pending"
+]
+},
+{
+tag: "ru",
+reviewStatus: "machine-draft",
+rtlVerified: true,
+humanReview: null,
+available: false,
+blockers: [
+"translation-incomplete",
+"human-review-pending"
+]
+},
+{
+tag: "sh",
+reviewStatus: "machine-draft",
+rtlVerified: true,
+humanReview: null,
+available: false,
+blockers: [
+"translation-incomplete",
+"human-review-pending"
+]
+},
+{
+tag: "es",
+reviewStatus: "machine-draft",
+rtlVerified: true,
+humanReview: null,
+available: false,
+blockers: [
+"translation-incomplete",
+"human-review-pending"
+]
+},
+{
+tag: "sv",
+reviewStatus: "machine-draft",
+rtlVerified: true,
+humanReview: null,
+available: false,
+blockers: [
+"translation-incomplete",
+"human-review-pending"
+]
+},
+{
+tag: "tl",
+reviewStatus: "machine-draft",
+rtlVerified: true,
+humanReview: null,
+available: false,
+blockers: [
+"translation-incomplete",
+"human-review-pending"
+]
+},
+{
+tag: "th",
+reviewStatus: "machine-draft",
+rtlVerified: true,
+humanReview: null,
+available: false,
+blockers: [
+"translation-incomplete",
+"human-review-pending"
+]
+},
+{
+tag: "tr",
+reviewStatus: "machine-draft",
+rtlVerified: true,
+humanReview: null,
+available: false,
+blockers: [
+"translation-incomplete",
+"human-review-pending"
+]
+},
+{
+tag: "vi",
+reviewStatus: "machine-draft",
+rtlVerified: true,
+humanReview: null,
+available: false,
+blockers: [
+"translation-incomplete",
+"human-review-pending"
+]
+}
+];
+const rtlGate = {
+items: [
+{
+id: "direction-propagation",
+done: true,
+note: "lang/dir stamped on every reader-owned root, shadow host, overlay, popover, bottom sheet, backdrop, new-tab/study app and the hosted docs document. The host page's own documentElement is deliberately NOT touched: Yomu is injected into pages it does not own, and flipping their dir would rewrite the page a learner is reading."
+},
+{
+id: "logical-css-properties",
+done: false,
+note: "Shared chrome CSS converted from margin/padding-left/right and text-align:left/right to inline logical properties. Deferred: subtitles-youtube.css and youtube-filter.css, whose offsets are computed against video frame geometry, and every `left`/`right`/`inset` used for positioning, which the plan requires to stay physical."
+},
+{
+id: "bidi-isolation",
+done: false,
+note: "HALF DONE, and the half that is missing is the larger one. Substituted values ARE isolated: formatUiText routes through formatIsolated when the interface is RTL, so a term, count, version or source name interpolated into a message cannot reorder the sentence around it. NOT done: systematically wrapping the target terms, definitions, source names, URLs, codes and keyboard shortcuts that chrome renders as their own elements with lang and dir=auto. Those are rendered in dozens of templates and each needs its own decision."
+},
+{
+id: "font-stacks",
+done: true,
+note: "Per-script interface font stacks in the locale manifest."
+},
+{
+id: "geometry-verification",
+done: false,
+note: "Popover collision/flip, selection anchor and arrow, resize/drag handles, pinned HUD, toast, bottom sheet, nested menus, vertical Japanese text and media controls under an RTL interface. Not verified."
+},
+{
+id: "viewport-and-zoom-matrix",
+done: false,
+note: "Arabic, Farsi and a long pseudo-RTL locale at 320/768/1440px, 100%/200% zoom, four anchor edges, keyboard-only navigation and reduced motion. Not run."
+},
+{
+id: "real-app-screenshots",
+done: false,
+note: "Approved real-app screenshots, not fixture-only proof. Only the disabled-with-reason picker state has been captured."
+},
+{
+id: "owner-acceptance",
+done: false,
+note: "Explicit owner acceptance of Arabic/Farsi overlay and popover behaviour."
+}
+]
+};
+const interfaceLocaleLedger = {
+locales,
+rtlGate
+};
+const JAPANESE_INTERFACE_LOCALE = Object.freeze({
+id: "ja",
+runtimeLocale: "ja",
+englishName: "Japanese",
+nativeName: "日本語",
+defaultScript: "Jpan",
+direction: "ltr"
+});
+const RTL_SCRIPTS = new Set(["Arab", "Hebr", "Thaa", "Nkoo", "Adlm", "Syrc"]);
+const SCRIPT_FONT_STACKS = Object.freeze({
+Latn: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
+Grek: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
+Cyrl: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
+Arab: '"SF Arabic", "Geeza Pro", "Segoe UI", Tahoma, "Noto Naskh Arabic", system-ui, sans-serif',
+Jpan: 'system-ui, -apple-system, "Hiragino Sans", "Yu Gothic UI", "Noto Sans JP", sans-serif',
+Hans: 'system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", "Noto Sans SC", sans-serif',
+Hant: 'system-ui, -apple-system, "PingFang TC", "Microsoft JhengHei", "Noto Sans TC", sans-serif',
+Kore: 'system-ui, -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", sans-serif',
+Thai: 'system-ui, -apple-system, "Thonburi", "Leelawadee UI", "Noto Sans Thai", sans-serif',
+Laoo: 'system-ui, -apple-system, "Lao Sangam MN", "Leelawadee UI", "Noto Sans Lao", sans-serif',
+Khmr: 'system-ui, -apple-system, "Khmer Sangam MN", "Leelawadee UI", "Noto Sans Khmer", sans-serif',
+Mong: 'system-ui, -apple-system, "Noto Sans Mongolian", sans-serif'
+});
+const FALLBACK_FONT_STACK = SCRIPT_FONT_STACKS.Latn;
+function scriptFontStack(script) {
+return SCRIPT_FONT_STACKS[script] ?? FALLBACK_FONT_STACK;
+}
+function directionForScript(script) {
+return RTL_SCRIPTS.has(script) ? "rtl" : "ltr";
+}
+const LEDGER_ROWS = new Map(
+interfaceLocaleLedger.locales.map((row) => [row.tag, row])
+);
+function fallbackChainFor(tag, id) {
+const chain = [];
+const push = (value) => {
+if (value !== tag && !chain.includes(value)) chain.push(value);
+};
+const base = tag.split("-")[0];
+push(base);
+push(id);
+if (id === "sh") {
+push("sr");
+push("hr");
+push("bs");
+}
+if (id === "tl") push("fil");
+if (id !== "en") push("en");
+return Object.freeze(chain);
+}
+function buildLocale(source) {
+const ledger = LEDGER_ROWS.get(source.id);
+if (!ledger) throw new Error(`Interface locale ${source.id} has no review-ledger row`);
+return Object.freeze({
+tag: source.runtimeLocale,
+id: source.id,
+fallbacks: fallbackChainFor(source.runtimeLocale, source.id),
+nativeName: source.nativeName,
+englishName: source.englishName,
+script: source.defaultScript,
+direction: directionForScript(source.defaultScript),
+fontStack: scriptFontStack(source.defaultScript),
+reviewStatus: ledger.reviewStatus,
+available: ledger.available,
+blockers: Object.freeze([...ledger.blockers])
+});
+}
+const INTERFACE_LOCALES = Object.freeze(
+[
+...LEARNER_LANGUAGES.map(
+(language) => buildLocale({ ...language, direction: language.direction })
+),
+buildLocale(JAPANESE_INTERFACE_LOCALE)
+].sort((left, right) => {
+const rank = (tag) => tag === "en" ? 0 : tag === "ja" ? 1 : 2;
+return rank(left.tag) - rank(right.tag) || left.englishName.localeCompare(right.englishName, "en");
+})
+);
+const LOCALE_BY_KEY = new Map([
+...INTERFACE_LOCALES.map((locale) => [locale.id, locale]),
+...INTERFACE_LOCALES.map((locale) => [locale.tag, locale])
+]);
+(() => {
+const english = LOCALE_BY_KEY.get("en");
+if (!english) throw new Error("The interface manifest must always contain English");
+return english;
+})();
+Object.freeze(
+INTERFACE_LOCALES.filter((locale) => locale.direction === "rtl")
+);
+Object.freeze(
+interfaceLocaleLedger.rtlGate.items.map(
+(item) => Object.freeze({ ...item })
+)
+);
+const SELECTOR = "[data-definition-translation-text]";
+const TEXT_LIMIT = 1800;
+const FAILURE_RETRY_DELAY_MS = 3e4;
+const states = new WeakMap();
+function installDefinitionTranslationBehaviors(root, settings2, options = {}) {
+return installDefinitionTranslations(root, settings2, options, Array.from(root.querySelectorAll(SELECTOR)));
+}
+async function installDefinitionTranslations(root, settings2, options, elements) {
+const currentSettings = options.getSettings ?? (() => settings2);
+const key = profileKey(settings2);
+const profile = activeLanguageProfile(settings2.languageProfiles, settings2.activeLanguageProfileId);
+const enabled = new Set(profile?.definitionTranslationProviderIds ?? []);
+const outputLanguage = translationOutputLanguage(settings2);
+await Promise.all(elements.map(async (element) => {
+const source = prepareDefinitionTranslation(element, { enabled, outputLanguage, key });
+if (!source) return;
+const { sourceId, sourceLanguage } = source;
+const text2 = source.payload.trim();
+if (!text2) return;
+const state = { key, controller: new AbortController(), display: { kind: "original" } };
+states.set(element, state);
+element.dataset.definitionTranslationState = "loading";
+const isCurrent = () => element.isConnected && root.contains(element) && source.isCurrent() && profileKey(currentSettings()) === key && (options.isCurrentRoot?.() ?? true);
+const cancelStale = () => {
+if (!isCurrent()) state.controller.abort();
+};
+const observer = new MutationObserver(cancelStale);
+observer.observe(element.ownerDocument, { childList: true, subtree: true });
+const unsubscribe = subscribeToSettingsChanges(() => queueMicrotask(cancelStale));
+const abort = () => state.controller.abort();
+options.signal?.addEventListener("abort", abort, { once: true });
+if (options.signal?.aborted || !isCurrent()) state.controller.abort();
+try {
+const translated = [];
+for (const chunk of splitTranslationText(text2)) {
+translated.push(await translateText(chunk, { sourceLanguage, outputLanguage, signal: state.controller.signal }));
+}
+if (!isCurrent() || state.controller.signal.aborted) return;
+renderTranslatedDefinition(element, state, sourceId, outputLanguage, translated.join("\n\n"), settings2);
+element.dataset.definitionTranslationState = "ready";
+} catch {
+showDefinitionFailure({
+element,
+state,
+language: settings2.interfaceLanguage,
+isCurrent,
+retry: () => installDefinitionTranslations(root, currentSettings(), options, [element])
+});
+} finally {
+observer.disconnect();
+unsubscribe();
+options.signal?.removeEventListener("abort", abort);
+if (state.controller.signal.aborted && states.get(element) === state) {
+states.delete(element);
+delete element.dataset.definitionTranslationState;
+}
+}
+}));
+}
+function showDefinitionFailure(context) {
+const { element, state, language, isCurrent, retry } = context;
+if (states.get(element) !== state) return;
+element.dataset.definitionTranslationState = "error";
+if (state.controller.signal.aborted || !isCurrent()) return;
+const notice = renderDefinitionFailure(element, language, () => {
+if (states.get(element) !== state || !isCurrent()) return;
+restoreOriginal(element, state);
+void retry();
+});
+state.display = { kind: "failed", retryAt: Date.now() + FAILURE_RETRY_DELAY_MS, notice };
+}
+function prepareDefinitionTranslation(element, selection) {
+const previous = states.get(element);
+const source = readDefinitionTranslation(element);
+if (!source?.isCurrent()) {
+if (previous) restoreOriginal(element, previous);
+return;
+}
+if (previous?.key === selection.key && !readyToRetry(previous)) return;
+if (previous) restoreOriginal(element, previous);
+if (!selection.enabled.has(source.sourceId) || sameLanguage(source.sourceLanguage, selection.outputLanguage)) return;
+return source;
+}
+function readyToRetry(state) {
+return state.display.kind === "failed" && Date.now() >= state.display.retryAt;
+}
+function profileKey(settings2) {
+const profile = activeLanguageProfile(settings2.languageProfiles, settings2.activeLanguageProfileId);
+return JSON.stringify([profile?.id, translationOutputLanguage(settings2), settings2.interfaceLanguage, profile?.definitionTranslationProviderIds]);
+}
+function restoreOriginal(element, state) {
+state.controller.abort();
+if (state.display.kind === "failed") state.display.notice.remove();
+if (state.display.kind === "translated") {
+state.display.translation.remove();
+if (state.display.original.parentNode) state.display.original.replaceWith(element);
+}
+states.delete(element);
+delete element.dataset.definitionTranslationState;
+}
+function renderDefinitionFailure(element, language, retry) {
+const document2 = element.ownerDocument;
+const notice = document2.createElement("div");
+notice.className = "jpdb-reader-definition-failure";
+notice.setAttribute("role", "status");
+const message = document2.createElement("span");
+message.textContent = uiText(language, "translationUnavailable");
+const button = document2.createElement("button");
+button.type = "button";
+button.className = "jpdb-reader-action-pill";
+button.dataset.definitionTranslationRetry = "";
+button.textContent = uiText(language, "exampleSourceRetry");
+button.addEventListener("click", (event) => {
+if (!isDirectTrustedReaderInteraction(event)) return;
+event.preventDefault();
+event.stopPropagation();
+retry();
+});
+notice.append(message, button);
+element.after(notice);
+return notice;
+}
+function renderTranslatedDefinition(element, state, sourceId, outputLanguage, translated, settings2) {
+const document2 = element.ownerDocument;
+const translation = document2.createElement("div");
+translation.className = "jpdb-reader-definition-translation";
+translation.dataset.definitionTranslation = sourceId;
+const provenance = document2.createElement("small");
+provenance.className = "jpdb-reader-definition-translation-credit";
+provenance.textContent = uiText(settings2.interfaceLanguage, "definitionTranslationCredit");
+const text2 = document2.createElement("div");
+text2.lang = outputLanguage;
+text2.dir = resolveLearnerLanguage(outputLanguage).direction;
+text2.style.whiteSpace = "pre-line";
+text2.textContent = translated;
+translation.append(provenance, text2);
+const original = document2.createElement("details");
+original.className = "jpdb-reader-definition-original";
+const summary = document2.createElement("summary");
+summary.textContent = uiText(settings2.interfaceLanguage, "definitionTranslationOriginal");
+element.before(translation, original);
+original.append(summary, element);
+state.display = { kind: "translated", translation, original };
+}
+function sameLanguage(source, output) {
+if (source === "auto") return false;
+return (slice1LanguageIdForTag(source) ?? source.split("-")[0]?.toLowerCase()) === (slice1LanguageIdForTag(output) ?? output.split("-")[0]?.toLowerCase());
+}
+function splitTranslationText(text2) {
+const chunks = [];
+let remaining = text2;
+while (remaining.length > TEXT_LIMIT) {
+const candidate = remaining.slice(0, TEXT_LIMIT);
+const boundary = Math.max(candidate.lastIndexOf("\n"), candidate.lastIndexOf("。"), candidate.lastIndexOf(". "));
+const end = boundary >= TEXT_LIMIT / 2 ? boundary + 1 : TEXT_LIMIT;
+chunks.push(remaining.slice(0, end).trim());
+remaining = remaining.slice(end).trim();
+}
+if (remaining) chunks.push(remaining);
+return chunks;
+}
+const publicPages = new WeakMap();
+const activeRefreshes = new WeakMap();
+function installJpdbDefinitionTranslation(document2, settings2, options = {}) {
+const profile = activeLanguageProfile(settings2.languageProfiles, settings2.activeLanguageProfileId);
+const url = publicDictionaryUrl(document2);
+const enabled = profile?.definitionTranslationProviderIds.includes(JPDB_DEFINITION_SOURCE_ID) && new Intl.Locale(translationOutputLanguage(settings2)).language !== "en";
+if (!url || !profile || !enabled) return installDefinitionTranslationBehaviors(document2, settings2, options);
+const key = JSON.stringify([url, profile.id, profile.outputLanguage, settings2.interfaceLanguage]);
+const active = activeRefreshes.get(document2);
+if (active?.key === key && active.signal === options.signal && !active.signal?.aborted) return active.pending;
+const pending = translatePublicPage(document2, url, settings2, options);
+activeRefreshes.set(document2, { key, pending, signal: options.signal });
+void pending.finally(() => {
+if (activeRefreshes.get(document2)?.pending === pending) activeRefreshes.delete(document2);
+});
+return pending;
+}
+async function translatePublicPage(document2, url, settings2, options) {
+const pagePath = document2.location.pathname;
+try {
+const page = publicPages.get(document2);
+const html = page?.url === url ? page.html : await requestText(url, {
+credentials: "omit",
+anonymous: true,
+withCredentials: false,
+preferFetch: true,
+allowConfiguredProxy: false,
+allowPublicProxies: false,
+timeoutMs: 8e3,
+signal: options.signal
+});
+if (publicDictionaryUrl(document2) !== url || document2.location.pathname !== pagePath || options.signal?.aborted) return;
+publicPages.set(document2, { url, html });
+const publicDocument = parseHtmlDocument(html);
+const publicText = new Set(publicLexicalElements(publicDocument).map((element) => lexicalText(element)));
+for (const element of publicLexicalElements(document2)) {
+const payload = lexicalText(element);
+if (!payload || !publicText.has(payload)) continue;
+groupNativeKanjiGloss(element);
+bindDefinitionTranslation(
+element,
+{ payload, sourceId: JPDB_DEFINITION_SOURCE_ID, sourceLanguage: "en" },
+() => publicDictionaryUrl(document2) === url && document2.location.pathname === pagePath && lexicalText(element) === payload
+);
+}
+await installDefinitionTranslationBehaviors(document2, settings2, {
+...options,
+isCurrentRoot: () => publicDictionaryUrl(document2) === url && document2.location.pathname === pagePath && (options.isCurrentRoot?.() ?? true)
+});
+} catch {
+}
+}
+function groupNativeKanjiGloss(element) {
+if (!element.matches(".subsection-composed-of-kanji .description")) return;
+if (element.parentElement?.classList.contains("jpdb-reader-native-definition")) return;
+const group = element.ownerDocument.createElement("div");
+group.className = "jpdb-reader-native-definition";
+element.replaceWith(group);
+group.append(element);
+}
+function publicDictionaryUrl(document2) {
+const location2 = document2.location;
+if (location2?.hostname !== "jpdb.io") return null;
+if (!/^\/(?:vocabulary|kanji)\//u.test(location2.pathname)) return null;
+return new URL(location2.pathname, "https://jpdb.io").href;
+}
+function publicLexicalElements(document2) {
+const meanings = Array.from(document2.querySelectorAll(".result.vocabulary .subsection-meanings > .subsection"));
+const kanjiGlosses = Array.from(document2.querySelectorAll(".result.vocabulary .subsection-composed-of-kanji .description"));
+const keywords = Array.from(document2.querySelectorAll(".result.kanji h6.subsection-label")).filter((heading) => heading.textContent?.trim() === "Keyword").flatMap((heading) => {
+const section = heading.nextElementSibling;
+return section instanceof HTMLElement && section.matches(".subsection") ? [section] : [];
+});
+return [...meanings, ...kanjiGlosses, ...keywords].filter((element) => !element.closest("[data-yomu-jpdb-addon], .jpdb-reader-source-card"));
+}
+function lexicalText(element) {
+return element.textContent?.replace(/\s+/gu, " ").trim() ?? "";
 }
 const COMMON_PARTICLES = new Set(["は", "が", "を", "に", "へ", "で", "と", "も", "の", "や", "か", "ね", "よ", "ぞ", "ぜ", "な", "わ", "から", "まで", "だけ", "しか", "より"]);
 function normalizeImmersionSearchQuery(value) {
@@ -31069,6 +32624,9 @@ return Promise.resolve([]);
 isInUserDeckPool() {
 return Promise.resolve(false);
 }
+isCardInDeck() {
+return Promise.reject(new Error("JPDB companion unavailable"));
+}
 removeFromDeck() {
 return Promise.resolve();
 }
@@ -32151,8 +33709,8 @@ const SUBTITLE_SURFACE_SELECTOR = [
 ].join(", ");
 const ANKI_RECOLOR_SCAN_CHUNK_SIZE = 600;
 const JPDB_REVIEW_BLOCKING_STATES = new Set(["blacklisted", "never-forget", "locked"]);
-function hasBlockedJpdbReviewState(states) {
-return states.some((state) => JPDB_REVIEW_BLOCKING_STATES.has(state));
+function hasBlockedJpdbReviewState(states2) {
+return states2.some((state) => JPDB_REVIEW_BLOCKING_STATES.has(state));
 }
 function pickExactTokenForSelection(tokens = [], selected) {
 return tokens.find((token) => token.card.spelling === selected || token.card.reading === selected);
@@ -32467,8 +34025,8 @@ restore();
 if (companion) companion(root, label, renderPreservingDisclosures);
 else renderPreservingDisclosures();
 }
-function mountDeckSelects(root, card, sentence, performAction) {
-yomuKanjiStudyCompanion()?.mountDeckSelects?.(root, card, sentence, performAction);
+function mountDeckSelects(root, card, sentence, performAction, membership) {
+yomuKanjiStudyCompanion()?.mountDeckSelects?.(root, card, sentence, performAction, membership);
 }
 const AUTO_SCAN_OBSERVER_OPTIONS = {
 childList: true,
@@ -34195,7 +35753,11 @@ fourGradeShortcutsHelp	4段階の復習では、最初の4つのショートカ�
 twoPoint	2段階: 失敗 / 合格
 settingsLanguage	設定の表示言語
 translationLanguage	翻訳先の言語
-translationLanguageHelp	文や例文の自動翻訳先の言語を選びます。
+translationLanguageHelp	文・例文や、選択した辞書の自動翻訳先の言語を選びます。
+definitionTranslationTitle	辞書の語義を翻訳
+definitionTranslationHelp	選択したソースの語義と品詞を、翻訳先の言語へGoogleで機械翻訳します（任意）。インポートした辞書には個人的な内容が含まれる場合があります。原文も表示でき、同じ言語の語義はそのまま表示します。
+definitionTranslationCredit	Googleによる機械翻訳
+definitionTranslationOriginal	語義の原文を表示
 theme	テーマ
 auto	自動
 dark	ダーク
@@ -35806,8 +37368,8 @@ function collapseWhitespace(value) {
 return value.replace(/\/\*[\s\S]*?\*\//gu, " ").replace(/\s+/gu, " ").trim();
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"2.2.2"}`;
-const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"2.2.2"}`;
+const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"2.3.0"}`;
+const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"2.3.0"}`;
 const READER_CSS_CACHE_KEY = "yomu:reader-css-cache:v3";
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
@@ -35950,7 +37512,7 @@ try {
 const url = new URL(href);
 if (!isHostedYomuPage(url)) return null;
 const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-return `${new URL(path, url.origin).href}?v=${"2.2.2"}`;
+return `${new URL(path, url.origin).href}?v=${"2.3.0"}`;
 } catch {
 return null;
 }
@@ -38794,6 +40356,7 @@ abortController = new AbortController();
 isDestroyed = false;
 settings = DEFAULT_SETTINGS;
 settingsSurface;
+startupReaderCss;
 hostTheme = new HostThemeController({
 getSettings: () => this.settings,
 adoptTheme: (theme) => {
@@ -38877,7 +40440,10 @@ wanikaniSources = new CompanionBackedWanikaniSourceController(
 new CompanionBackedWanikaniLookupClient(this.wanikani),
 () => this.settings,
 (key, initiallyExpanded) => this.dictionarySourceState.attributes(key, initiallyExpanded),
-() => this.repositionActivePopover()
+(mount) => {
+void installDefinitionTranslationBehaviors(mount, this.settings, { getSettings: () => this.settings });
+this.repositionActivePopover();
+}
 );
 bunproWordStates = this.bunproCompanion && this.bunpro ? new this.bunproCompanion.BunproWordStateStore(this.bunpro) : null;
 yomuLocalSrs = createYomuLocalSrsAdapter(new LocalYomuSrsRepository());
@@ -39376,6 +40942,7 @@ timer = window.setTimeout(check, 0);
 });
 }
 async loadInitialSettings(options) {
+this.startupReaderCss = options?.readerCss;
 const startup = await loadReaderStartupSettings(options).catch(rejectAsReaderSettingsUnavailable);
 if (this.isDestroyed) return false;
 this.factoryReset.bind();
@@ -39527,14 +41094,14 @@ log$1.warnOnce("bunpro-word-state-coloring-failed", "Bunpro word-state coloring 
 async applyBunproWordStatesToRoots(roots) {
 const bunproCompanion = this.bunproCompanion;
 if (!bunproCompanion || !this.bunproWordStates) return;
-const states = await this.bunproWordStates.load();
-if (!states?.size || !this.shouldRunBunproWordStateWork()) return;
+const states2 = await this.bunproWordStates.load();
+if (!states2?.size || !this.shouldRunBunproWordStateWork()) return;
 const now = Date.now();
 const changedWords = [];
 this.pauseAutoScanObserver(() => {
 uniqueParentNodes(roots).forEach((root) => {
 renderedWordsInRoot(root).forEach((word) => {
-const entry = word.dataset.expression ? states.get(word.dataset.expression) : void 0;
+const entry = word.dataset.expression ? states2.get(word.dataset.expression) : void 0;
 const state = entry ? bunproCompanion.effectiveBunproWordState(entry, now) : null;
 if (applyBunproStateToRenderedWord(word, state)) changedWords.push(word);
 });
@@ -39709,12 +41276,13 @@ await clearManagedBrowserCaches();
 await unregisterManagedServiceWorkers();
 }
 installStyles() {
+const readerCss = this.startupReaderCss ?? READER_CSS;
 const hasLinkedReaderCss = Boolean(document.querySelector('link[href$="/yomu.css"], link[href*="/yomu.css?"]'));
 const style = document.createElement("style");
-style.textContent = hasLinkedReaderCss ? "" : initialReaderCss(READER_CSS);
+style.textContent = hasLinkedReaderCss ? "" : initialReaderCss(readerCss);
 appendToDocumentHead(style);
-setShadowReaderCss(initialReaderCss(READER_CSS));
-if (!shouldLoadReaderCssFallback(hasLinkedReaderCss, READER_CSS) || isJsdomRuntime()) return;
+setShadowReaderCss(initialReaderCss(readerCss));
+if (!shouldLoadReaderCssFallback(hasLinkedReaderCss, readerCss) || isJsdomRuntime()) return;
 void loadReaderCssFallback().then((css) => {
 if (!css || this.isDestroyed) return;
 style.textContent = css;
@@ -39879,6 +41447,10 @@ void this.refreshJpdbPageEnhancements();
 }, normalizedDelay);
 }
 async refreshJpdbPageEnhancements() {
+void installJpdbDefinitionTranslation(document, this.settings, {
+getSettings: () => this.settings,
+signal: this.abortController.signal
+});
 const generation = ++this.jpdbPageEnhancementGeneration;
 this.lastEnhancedHref = location.href;
 this.installJpdbReviewExamplesToggleMemory();
@@ -42630,6 +44202,10 @@ return this.parser.getCachedCard(vid, sid);
 isJpdbBackedCard(card) {
 return this.parser.isJpdbBackedCard(card);
 }
+/** First-party desktop text ingress uses the same cards and token list as browser selections. */
+showTextLookup(text2, anchor) {
+return this.lookupText(text2, text2, { anchor, trigger: "modal", focusOnMount: true, userGesture: true, displaySelected: text2 });
+}
 lookupText(text2, sentence = text2, options = {}, scope = this.cardLookup.captureTarget()) {
 return this.cardLookup.lookupText(text2, sentence, options, scope);
 }
@@ -43787,7 +45363,7 @@ miningControlsToggleLabel(expanded) {
 return uiText(this.settings.interfaceLanguage, expanded ? "hideMiningActions" : "showMiningActions");
 }
 mountDeckSelects(popover, card, sentence) {
-mountDeckSelects(popover, card, sentence, (control, actionCard, actionSentence, command) => this.handleCardAction(control, actionCard, actionSentence, command));
+mountDeckSelects(popover, card, sentence, (control, actionCard, actionSentence, command) => this.handleCardAction(control, actionCard, actionSentence, command), { language: this.settings.interfaceLanguage, load: (word, choices) => this.cardActions.loadDeckMembership(word, choices) });
 }
 async showPreviousWord(anchor, trigger = "modal") {
 const previous = this.navigation.popPreviousWord();
@@ -44020,10 +45596,10 @@ return `
 }
 renderKanjiReviewButtons(card) {
 if (!this.settings.enableReviews) return "";
-const states = normalizeCardStates(card.cardState);
+const states2 = normalizeCardStates(card.cardState);
 const ankiNote = this.currentKanjiAnkiReviewNote(card);
 const canReviewWithAnki = Boolean(ankiNote?.primaryCardId);
-const canReviewWithJpdb = this.canReviewKanjiWithJpdb(card, states);
+const canReviewWithJpdb = this.canReviewKanjiWithJpdb(card, states2);
 if (!canReviewWithAnki && !canReviewWithJpdb) return "";
 return renderReviewButtons(this.settings, ankiNote);
 }
@@ -44032,8 +45608,8 @@ if (!this.shouldRunAnkiBackgroundWork()) return null;
 if (!this.lastCard || cardKey(this.lastCard) !== cardKey(card)) return null;
 return this.lastAnkiLookup?.primary ?? null;
 }
-canReviewKanjiWithJpdb(card, states) {
-return !hasBlockedJpdbReviewState(states) && this.isJpdbBackedCard(card) && Boolean(hasJpdbApiCredential(this.settings)) && isApiMiningEnabled(this.settings);
+canReviewKanjiWithJpdb(card, states2) {
+return !hasBlockedJpdbReviewState(states2) && this.isJpdbBackedCard(card) && Boolean(hasJpdbApiCredential(this.settings)) && isApiMiningEnabled(this.settings);
 }
 updateKanjiMiningControls(popover, controls) {
 updateKanjiMiningControlsMount(popover, controls, (button, expanded) => this.setMiningControlsExpanded(button, expanded));
@@ -44283,6 +45859,10 @@ popover,
 );
 }
 async performPopoverJapaneseParse(popover) {
+void installDefinitionTranslationBehaviors(popover, this.settings, {
+getSettings: () => this.settings,
+isCurrentRoot: () => this.isCurrentPopoverRoot(popover)
+});
 installProviderExampleBehaviors(popover, {
 interfaceLanguage: this.settings.interfaceLanguage,
 outputLanguage: translationOutputLanguage(this.settings),
@@ -46351,6 +47931,7 @@ let activeRuntime;
 let storageBootInFlight;
 let retainedStartupSettings;
 let retainedSettingsSurface;
+let retainedReaderCss;
 function bootReaderApp() {
 void requestReaderBoot();
 }
@@ -46368,7 +47949,7 @@ if (!runtime2) return storageBootInFlight;
 return packagedRuntimeRequest(runtime2);
 }
 function packagedRuntimeRequest(runtime2) {
-if (runtime2.startupSettings === retainedStartupSettings && runtime2.settingsSurface === retainedSettingsSurface) return runtime2.initialization;
+if (runtime2.startupSettings === retainedStartupSettings && runtime2.settingsSurface === retainedSettingsSurface && runtime2.readerCss === retainedReaderCss) return runtime2.initialization;
 releaseActiveRuntime(runtime2);
 const gate = storageBootInFlight;
 if (!gate) return void 0;
@@ -46410,6 +47991,7 @@ if (!runtime2) return Promise.resolve(false);
 registerRuntime(context.bootWindow, runtime2, isInstalledRuntime(runtime2.kind));
 runtime2.startupSettings = retainedStartupSettings;
 runtime2.settingsSurface = retainedSettingsSurface;
+runtime2.readerCss = retainedReaderCss;
 runtime2.initialization = startRuntime(runtime2, context.embeddedFrame);
 return runtime2.initialization;
 }
@@ -46511,11 +48093,12 @@ releaseClaims?.();
 };
 }
 function startRuntime(runtime2, embeddedFrame) {
-const { app, ownerId, kind: runtimeKind, startupSettings, settingsSurface } = runtime2;
+const { app, ownerId, kind: runtimeKind, startupSettings, settingsSurface, readerCss } = runtime2;
 const initOptions = {
 embeddedFrame,
 ...startupSettings ? { startupSettings } : {},
-...settingsSurface ? { settingsSurface } : {}
+...settingsSurface ? { settingsSurface } : {},
+...readerCss ? { readerCss } : {}
 };
 return app.init(initOptions).then(() => {
 if (activeRuntime !== runtime2) return false;

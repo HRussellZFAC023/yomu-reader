@@ -4,6 +4,8 @@ import { readCardUiCommandCapability, type CardCommandCapability } from '../dom/
 import { trustedReaderEventHandler } from '../ui/trusted-interaction';
 import { FORM_CONTROL_HOST_ATTRIBUTE } from '../ui/form-control-host';
 import type { DeckChoice } from '../cards/deck-choice';
+import type { DeckPickerMembership } from '../cards/deck-choice-membership';
+import { mountDeckPickerStatus } from './deck-picker-status';
 
 type MiningControlLabel = (expanded: boolean) => string;
 type MiningCardAction = (control: CardActionControl, card: JPDBCard, sentence: string | undefined, command: CardCommandCapability) => Promise<void> | void;
@@ -14,9 +16,13 @@ const MINING_DRAWER_SELECTOR = '[data-action="mining-collapse"]';
 const DECK_SELECT_CLASS = 'jpdb-reader-deck-select';
 // The dropdown lives in a closed shadow root: its deck names never reach the page's DOM (ADR-0020).
 const DECK_SELECT_STYLE = ':host{display:block;min-width:0}'
-    + 'select{box-sizing:border-box;width:100%;min-height:36px;padding:0 10px;border:1px solid var(--jpdb-reader-accent);border-radius:8px;'
+    + 'select{box-sizing:border-box;width:100%;height:36px;padding:0 10px;border:1px solid var(--jpdb-reader-accent);border-radius:8px;'
     + 'background:var(--jpdb-reader-surface);color:var(--jpdb-reader-accent-readable);font:600 13px/1.2 var(--jpdb-reader-font,system-ui);cursor:pointer}'
-    + 'select:focus-visible{outline:2px solid var(--jpdb-reader-accent);outline-offset:2px}select:disabled{opacity:.6;cursor:progress}';
+    + 'select:focus-visible{outline:2px solid var(--jpdb-reader-accent);outline-offset:2px}select:disabled{opacity:.6;cursor:progress}'
+    + '#membership-status{box-sizing:border-box;height:192px;contain:layout size style;overflow:hidden;font:12px/1.5 var(--jpdb-reader-font,system-ui);color:var(--jpdb-reader-text);overflow-wrap:anywhere}'
+    + '#membership-status:not([hidden]){display:grid;grid-template-rows:140px 44px;gap:8px}'
+    + 'ul{list-style:none;padding:0;margin:0;height:140px;overflow:auto}li{height:4.5em;overflow:hidden}'
+    + 'strong{display:block;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font-weight:500}li span{display:block}p{height:44px;margin:0;overflow:auto}';
 
 const deckSelects = new WeakMap<Element, HTMLSelectElement>();
 
@@ -41,14 +47,14 @@ export function setMiningControlsExpanded(button: HTMLButtonElement, expanded: b
  * choosing a deck saves the word there, and nothing is saved before a choice.
  * Mounts every dropdown placeholder in `root` that has none yet.
  */
-export function mountDeckSelects(root: ParentNode, card: JPDBCard, sentence: string | undefined, performAction: MiningCardAction): void {
+export function mountDeckSelects(root: ParentNode, card: JPDBCard, sentence: string | undefined, performAction: MiningCardAction, membership?: DeckPickerMembership): void {
     for (const host of root.querySelectorAll<HTMLElement>(`.${DECK_SELECT_CLASS}`)) {
         const choices = readCardUiCommandCapability(host)?.choices;
-        if (!deckSelects.has(host) && choices?.length) mountDeckSelect(host, choices, card, sentence, performAction);
+        if (!deckSelects.has(host) && choices?.length) mountDeckSelect(host, choices, card, sentence, performAction, membership);
     }
 }
 
-function mountDeckSelect(host: HTMLElement, choices: readonly DeckChoice[], card: JPDBCard, sentence: string | undefined, performAction: MiningCardAction): void {
+function mountDeckSelect(host: HTMLElement, choices: readonly DeckChoice[], card: JPDBCard, sentence: string | undefined, performAction: MiningCardAction, membership?: DeckPickerMembership): void {
     const label = host.textContent?.trim() ?? '';
     // delegatesFocus: focusing the host (a modal's focus trap does) lands on the dropdown.
     const root = host.attachShadow({ mode: 'closed', delegatesFocus: true });
@@ -64,12 +70,15 @@ function mountDeckSelect(host: HTMLElement, choices: readonly DeckChoice[], card
     // Keys typed into the dropdown browse its decks: page shortcuts must not take them.
     host.setAttribute(FORM_CONTROL_HOST_ATTRIBUTE, '');
     deckSelects.set(host, select);
+    const refreshMembership = membership && mountDeckPickerStatus(root, select, card, choices, membership);
     const choose = (): void => {
         const choice = choices[select.selectedIndex - 1];
         select.selectedIndex = 0;
-        if (choice) void addToChosenDeck(host, select, () => performAction(select, card, sentence, {
-            kind: 'card-action', action: 'add', deckSource: choice.source, deckId: choice.id,
-        }));
+        if (choice) void addToChosenDeck(
+            host, select,
+            () => performAction(select, card, sentence, { kind: 'card-action', action: 'add', deckSource: choice.source, deckId: choice.id }),
+            refreshMembership,
+        );
     };
     // A closed dropdown moves to the deck a typed letter or an arrow reaches and reports
     // each move as a change, so a save there would go to whichever deck the first letter
@@ -95,11 +104,14 @@ function mountDeckSelect(host: HTMLElement, choices: readonly DeckChoice[], card
     select.addEventListener('blur', letGo);
 }
 
-async function addToChosenDeck(host: HTMLElement, select: HTMLSelectElement, add: () => Promise<void> | void): Promise<void> {
+async function addToChosenDeck(host: HTMLElement, select: HTMLSelectElement, add: () => Promise<void> | void, refreshMembership?: () => void): Promise<void> {
     // The popup may live in a shadow root (Desktop's OCR layer), so focus is read there.
     const scope = host.getRootNode() as Document | ShadowRoot;
     const focused = scope.activeElement === host;
     await add();
+    // Refresh in this completion turn: another awaited wrapper delays restoring
+    // focus until after the learner can leave, trapping a waiting render again.
+    if (select.isConnected) refreshMembership?.();
     // The save disables the dropdown, which drops focus, and its refresh may replace
     // it: a keyboard learner keeps their place, unless they moved on meanwhile.
     const active = scope.activeElement;

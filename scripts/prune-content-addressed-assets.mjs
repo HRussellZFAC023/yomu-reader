@@ -10,6 +10,7 @@ import {
     contentAddressedRetentionReport,
     isShallowRepository,
     retentionManifestShortfall,
+    restoreRetainedContentAddressedAssets,
 } from './lib/content-addressed-retention.mjs';
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
@@ -21,6 +22,11 @@ if (write === check) {
 }
 
 const shallow = isShallowRepository(ROOT);
+if (write) {
+    for (const asset of restoreRetainedContentAddressedAssets(ROOT)) {
+        console.log(`[content-retention] restored ${asset.path} from ${asset.ref} (${asset.bytes} bytes).`);
+    }
+}
 if (!shallow && write) {
     writeFileSync(
         join(ROOT, RETENTION_MANIFEST_PATH),

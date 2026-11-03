@@ -9,6 +9,7 @@ import { renderProviderExamples, type ProviderExampleView } from '../sources/pro
 import { renderAnnotatedReadingRuby, renderPassiveReference } from '../sources/passive-reference';
 import { privateCommandAttributes, type CardCommandCapability } from '../dom/private-command-capabilities';
 import { renderMoreDisclosure, VISIBLE_SENSE_COUNT } from '../sources/more-disclosure';
+import { definitionTranslationAttributes } from '../sources/definition-translation-markup';
 
 type SourceAttributes = (sourceStateKey: string, initiallyExpanded?: boolean) => string;
 interface JitenMeaningGroup {
@@ -44,7 +45,8 @@ export function renderJitenDefinitionSource(
     const hasDetails = Boolean(meanings || extras);
     if (!hasDetails) return '';
     const headword = renderJitenDefinitionHeadword(card, info);
-    const body = `${headword}${meanings ? `<div class="jpdb-reader-meanings">${meanings}</div>` : ''}${extras}`;
+    const payload = jitenDefinitionMeaningGroups(card, info).flatMap(group => [...group.partsOfSpeech, ...group.meanings]).join('\n');
+    const body = `${headword}${meanings ? `<div class="jpdb-reader-meanings" ${definitionTranslationAttributes(payload, JITEN_DEFINITION_SOURCE_ID, 'en')}>${meanings}</div>` : ''}${extras}`;
     if (!body.trim()) return '';
     return `
         <details class="jpdb-reader-local jpdb-reader-source-card" data-source="jiten" ${cardHighlightScopeAttributes(card)} ${sourceAttributes(definitionSourceStateKey(JITEN_DEFINITION_SOURCE_ID), true)}>

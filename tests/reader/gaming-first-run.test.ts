@@ -1,7 +1,10 @@
 // Settings is the only ordinary desktop window. Native shortcuts and overlay requests share it.
 import { readFileSync } from 'node:fs';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
-import type { YomuGamingBridge, YomuGamingEnvironment } from '../../src/gaming/ipc';
+import type { YomuGamingBridge, YomuGamingEnvironment, YomuGamingShortcutPatch, YomuGamingShortcutUpdate } from '../../src/gaming/ipc';
+import { desktopSettingsExport } from '../../src/gaming/renderer/settings-import';
+import { DEFAULT_SETTINGS } from '../../src/reader/settings';
+import { DEFAULT_TEXT_LOOKUP_SETTINGS } from '../../src/gaming/selected-text-shortcut';
 
 const SETTINGS_KEY = 'yomu-gaming-reader-settings-v1';
 
@@ -11,6 +14,11 @@ let installOverlayEscapeHandler: typeof import('../../src/gaming/renderer/app').
 let createGamingReaderSettingsSurface: typeof import('../../src/gaming/renderer/app').createGamingReaderSettingsSurface;
 // When set, the next shortcut save answers with this environment instead of registering.
 let nextSaveEnvironment: YomuGamingEnvironment | null = null;
+let nextPairKind: YomuGamingShortcutUpdate['kind'] = 'saved';
+let rollbackKind: YomuGamingShortcutUpdate['kind'] | 'throw' = 'saved';
+let pairRevision = 0;
+let environmentUnavailable = false;
+const pairCalls: YomuGamingShortcutPatch[] = [];
 
 function registeredEnvironment(hotkey: string): YomuGamingEnvironment {
     return {
@@ -24,12 +32,16 @@ function registeredEnvironment(hotkey: string): YomuGamingEnvironment {
         hotkeyRegistered: true,
         trayActive: true,
         screenAccess: 'granted',
+        textLookupShortcut: { ...DEFAULT_TEXT_LOOKUP_SETTINGS, registered: false },
     };
 }
 
 function testBridge(): YomuGamingBridge {
     return {
-        getEnvironment: async () => currentEnvironment,
+        getEnvironment: async () => {
+            if (environmentUnavailable) throw new Error('Fixture environment IPC unavailable');
+            return currentEnvironment;
+        },
         getFrozenCapture: async () => {
             throw new Error('capture unavailable in tests');
         },
@@ -42,6 +54,17 @@ function testBridge(): YomuGamingBridge {
         hideOverlay: async () => undefined,
         showApp: async () => undefined,
         hideApp: async () => undefined,
+        getSelectedText: async () => ({ kind: 'empty' }),
+        closeTextLookup: async () => undefined,
+        retryTextLookup: async () => undefined,
+        updateTextLookupShortcut: async () => currentEnvironment,
+        updateDesktopShortcuts: async (shortcuts, expectedRevision) => {
+            pairCalls.push(shortcuts);
+            const kind = expectedRevision === undefined ? nextPairKind : rollbackKind;
+            if (kind === 'throw') throw new Error('Fixture IPC failure');
+            if (kind !== 'saved') return { kind, environment: currentEnvironment };
+            return commitFixturePair(shortcuts);
+        },
         openExternal: async () => undefined,
         updateCaptureShortcut: async (shortcut: string) => {
             currentEnvironment = nextSaveEnvironment ?? registeredEnvironment(shortcut);
@@ -49,6 +72,16 @@ function testBridge(): YomuGamingBridge {
             return currentEnvironment;
         },
     };
+}
+
+function commitFixturePair(shortcuts: YomuGamingShortcutPatch): YomuGamingShortcutUpdate {
+    const previous = { captureShortcut: currentEnvironment.hotkey,
+        textLookupShortcut: currentEnvironment.textLookupShortcut ?? DEFAULT_TEXT_LOOKUP_SETTINGS };
+    currentEnvironment = { ...currentEnvironment,
+        hotkey: shortcuts.captureShortcut ?? currentEnvironment.hotkey,
+        ...(shortcuts.textLookupShortcut ? { textLookupShortcut: { ...shortcuts.textLookupShortcut, registered: shortcuts.textLookupShortcut.enabled } } : {}),
+    };
+    return { kind: 'saved', environment: currentEnvironment, undo: { shortcuts: previous, revision: ++pairRevision } };
 }
 
 function settingsSurfaceFixture(
@@ -88,6 +121,12 @@ function homeStatus(): HTMLElement {
     return settingsForm().querySelector<HTMLElement>('[data-gaming-shell-status]')!;
 }
 
+function nativeInput(name: 'capture-shortcut-input' | 'text-shortcut-input' | 'text-shortcut-enabled'): HTMLInputElement {
+    const input = settingsForm().querySelector<HTMLInputElement>(`[data-${name}]`);
+    if (!input) throw new Error(`Missing native shortcut fixture input ${name}`);
+    return input;
+}
+
 function activePanel(): string {
     return appRoot.querySelector<HTMLElement>('[data-action="settings-panel"][aria-selected="true"]')?.dataset.panel ?? '';
 }
@@ -106,6 +145,43 @@ async function saveShortcut(value: string): Promise<void> {
         expect(input.disabled).toBe(false);
         expect(homeStatus().textContent ?? '').not.toContain('Saving');
     });
+}
+
+async function importBackup(serialized: string): Promise<void> {
+    const form = settingsForm();
+    homeStatus().textContent = '';
+    click(form, '[data-action="settings-panel"][data-panel="backup"]');
+    click(form, '[data-action="import-reader-settings"]');
+    const file = new File([serialized], 'desktop-fixture.json', { type: 'application/json' });
+    Object.defineProperty(file, 'text', { value: async () => serialized });
+    const input = form.querySelector<HTMLInputElement>('input[data-file="settings"]');
+    if (!input) throw new Error('Missing backup picker');
+    Object.defineProperty(input, 'files', { configurable: true, value: [file] });
+    input.dispatchEvent(new Event('change'));
+    await vi.waitFor(() => expect(homeStatus().textContent).toMatch(/imported|invalid desktop shortcut|unavailable|could not be imported|could not be restored/i));
+}
+
+function rejectReaderWrite() {
+    const write = Storage.prototype.setItem;
+    return vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (this: Storage, key, value) {
+        if (key === SETTINGS_KEY) throw new DOMException('Fixture quota exceeded', 'QuotaExceededError');
+        return write.call(this, key, value);
+    });
+}
+
+async function importWithRejectedReaderWrite(serialized: string) {
+    const previousNative = structuredClone(currentEnvironment);
+    const previousReader = localStorage.getItem(SETTINGS_KEY);
+    const previousTheme = new FormData(settingsForm()).get('theme');
+    expect(previousTheme).not.toBeNull();
+    const setItem = rejectReaderWrite();
+    try { await importBackup(serialized); }
+    finally { setItem.mockRestore(); }
+    expect(localStorage.getItem(SETTINGS_KEY)).toBe(previousReader);
+    expect(new FormData(settingsForm()).get('theme')).toBe(previousTheme);
+    expect(homeStatus().textContent).not.toMatch(/unsupported|Settings imported/);
+    expect(homeStatus().dataset.statusTone).toBe('error');
+    return previousNative;
 }
 
 describe('Desktop settings without a home screen', () => {
@@ -203,6 +279,137 @@ describe('Desktop settings without a home screen', () => {
         expect(homeStatus().textContent).toBe('Capture shortcut saved: Ctrl+Shift+K.');
         expect(homeStatus().dataset.statusTone).toBe('success');
         expect(settingsForm().querySelector<HTMLInputElement>('[data-capture-shortcut-input]')?.value).toBe('Ctrl+Shift+K');
+    });
+
+    it.each(['taken', 'save-failed'] as const)('does not import Reader settings or report success after native %s', async kind => {
+        nextPairKind = kind;
+        pairCalls.length = 0;
+        const previous = localStorage.getItem(SETTINGS_KEY);
+        try {
+            await importBackup(desktopSettingsExport({ ...DEFAULT_SETTINGS, theme: 'dark' }, 'Ctrl+Alt+K', { enabled: true, shortcut: 'Ctrl+Shift+Y', language: 'en' }));
+            expect(pairCalls).toHaveLength(1);
+            expect(localStorage.getItem(SETTINGS_KEY)).toBe(previous);
+            expect(homeStatus().dataset.statusTone).toBe('error');
+            expect(homeStatus().textContent).not.toMatch(/unsupported|Settings imported/);
+        } finally { nextPairKind = 'saved'; }
+    });
+
+    it('rejects present platform-invalid shortcut metadata through the actual import button', async () => {
+        pairCalls.length = 0;
+        const previous = localStorage.getItem(SETTINGS_KEY);
+        await importBackup(desktopSettingsExport({ ...DEFAULT_SETTINGS, theme: 'dark' }, 'Ctrl+Alt+K', { enabled: true, shortcut: 'Command+L', language: 'en' }));
+        expect(pairCalls).toHaveLength(0);
+        expect(localStorage.getItem(SETTINGS_KEY)).toBe(previous);
+        expect(homeStatus().textContent).toContain('invalid desktop shortcut');
+        expect(homeStatus().dataset.statusTone).toBe('error');
+    });
+
+    it('restores the previous keyboard behavior when Reader storage rejects the import', async () => {
+        pairCalls.length = 0;
+        currentEnvironment = registeredEnvironment('CommandOrControl+Shift+Y');
+        const previous = await importWithRejectedReaderWrite(desktopSettingsExport({ ...DEFAULT_SETTINGS, theme: 'dark' }, 'Ctrl+Alt+K',
+            { enabled: true, shortcut: 'Ctrl+Shift+Y', language: 'en' }));
+        expect(pairCalls).toHaveLength(2);
+        expect(currentEnvironment).toEqual(previous);
+        expect(homeStatus().textContent).not.toContain('could not be restored');
+    });
+
+    it.each(['taken', 'save-failed', 'changed', 'throw'] as const)('reports partial import with actual shortcuts when undo fails: %s', async kind => {
+        currentEnvironment = registeredEnvironment('CommandOrControl+Shift+Y');
+        rollbackKind = kind;
+        pairCalls.length = 0;
+        try {
+            await importWithRejectedReaderWrite(desktopSettingsExport({ ...DEFAULT_SETTINGS, theme: 'dark' }, 'Ctrl+Alt+K'));
+            expect(pairCalls).toHaveLength(2);
+            expect(currentEnvironment.hotkey).toBe('Control+Alt+K');
+            expect(settingsForm().querySelector<HTMLInputElement>('[data-capture-shortcut-input]')?.value).toBe('Ctrl+Alt+K');
+            expect(activePanel()).toBe('shortcuts');
+            expect(homeStatus().textContent).toContain('could not be restored');
+            expect(homeStatus().textContent).not.toMatch(/unsupported|Settings imported|No settings were imported/);
+            expect(homeStatus().dataset.statusTone).toBe('error');
+        } finally { rollbackKind = 'saved'; }
+    });
+
+    it('leaves native shortcuts untouched when a backup without desktop fields hits Reader quota', async () => {
+        pairCalls.length = 0;
+        const previous = await importWithRejectedReaderWrite(desktopSettingsExport({ ...DEFAULT_SETTINGS, theme: 'dark' }));
+        expect(pairCalls).toHaveLength(0);
+        expect(currentEnvironment).toEqual(previous);
+        expect(homeStatus().textContent).not.toContain('could not be restored');
+    });
+
+    it('shows unconfirmed native shortcuts when both undo and refresh IPC fail', async () => {
+        await saveShortcut('Ctrl+Shift+Y');
+        rollbackKind = 'throw';
+        environmentUnavailable = true;
+        try {
+            await importWithRejectedReaderWrite(desktopSettingsExport({ ...DEFAULT_SETTINGS, theme: 'dark' }, 'Ctrl+Alt+K',
+                { enabled: true, shortcut: 'Ctrl+Shift+Y', language: 'en' }));
+            expect(currentEnvironment.hotkey).toBe('Control+Alt+K');
+            expect(nativeInput('capture-shortcut-input').value).toBe('');
+            expect(nativeInput('capture-shortcut-input').disabled).toBe(true);
+            expect(nativeInput('text-shortcut-input').value).toBe('');
+            expect(nativeInput('text-shortcut-enabled').disabled).toBe(true);
+            expect(nativeInput('text-shortcut-enabled').indeterminate).toBe(true);
+            expect(settingsForm().querySelector<HTMLButtonElement>('[data-action="import-reader-settings"]')?.disabled).toBe(true);
+            expect(homeStatus().textContent).toContain('current state is unavailable');
+            click(settingsForm(), '[data-action="refresh-native-shortcuts"]');
+            await vi.waitFor(() => expect(homeStatus().textContent).toBe('Current shortcuts unavailable'));
+            expect(nativeInput('capture-shortcut-input').disabled).toBe(true);
+            environmentUnavailable = false;
+            click(settingsForm(), '[data-action="refresh-native-shortcuts"]');
+            await vi.waitFor(() => expect(homeStatus().textContent).toBe('Current shortcuts refreshed.'));
+            expect(nativeInput('capture-shortcut-input').value).toBe('Ctrl+Alt+K');
+            expect(nativeInput('capture-shortcut-input').disabled).toBe(false);
+            expect(nativeInput('text-shortcut-input').value).toBe('Ctrl+Shift+Y');
+            expect(nativeInput('text-shortcut-input').disabled).toBe(false);
+            expect(settingsForm().querySelector<HTMLButtonElement>('[data-action="import-reader-settings"]')?.disabled).toBe(false);
+        } finally { rollbackKind = 'saved'; environmentUnavailable = false; }
+    });
+
+    it('preserves OCR fallback history when the primary Reader import write is rejected', async () => {
+        const endpointKey = 'yomu-gaming-ocr-endpoint';
+        const engineKey = 'yomu-gaming-ocr-engine';
+        localStorage.setItem(endpointKey, 'http://127.0.0.1:9876/old');
+        localStorage.setItem(engineKey, 'manga-ocr');
+        await importWithRejectedReaderWrite(desktopSettingsExport({ ...DEFAULT_SETTINGS, ocrProvider: 'local-service',
+            ocrEndpointUrl: 'http://127.0.0.1:9988/new', ocrEngine: 'tesseract' }));
+        expect(localStorage.getItem(endpointKey)).toBe('http://127.0.0.1:9876/old');
+        expect(localStorage.getItem(engineKey)).toBe('manga-ocr');
+    });
+
+    it.each(['yomu-gaming-ocr-endpoint', 'yomu-gaming-ocr-engine'])('commits Reader and native import despite an auxiliary-only cache failure: %s', async failedKey => {
+        pairCalls.length = 0;
+        const write = Storage.prototype.setItem;
+        const setItem = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (this: Storage, key, value) {
+            if (key === failedKey) throw new DOMException('Fixture auxiliary quota', 'QuotaExceededError');
+            return write.call(this, key, value);
+        });
+        try {
+            await importBackup(desktopSettingsExport({ ...DEFAULT_SETTINGS, ocrProvider: 'local-service',
+                ocrEndpointUrl: 'http://127.0.0.1:9988/new', ocrEngine: 'tesseract' }, 'Ctrl+Alt+K'));
+            expect(pairCalls).toHaveLength(1);
+            expect(JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? '{}')).toMatchObject({ ocrEndpointUrl: 'http://127.0.0.1:9988/new', ocrEngine: 'tesseract' });
+            expect(homeStatus().dataset.statusTone).toBe('success');
+            expect(homeStatus().textContent).toBe('Settings imported.');
+        } finally { setItem.mockRestore(); }
+    });
+
+    it('submits a valid backup pair in one native call before reporting import success', async () => {
+        pairCalls.length = 0;
+        await importBackup(desktopSettingsExport({ ...DEFAULT_SETTINGS, theme: 'dark' }, 'Ctrl+Alt+K', { enabled: true, shortcut: 'Ctrl+Shift+Y', language: 'en' }));
+        expect(pairCalls).toEqual([{ captureShortcut: 'Control+Alt+K', textLookupShortcut: { enabled: true, shortcut: 'Control+Shift+Y', language: 'en' } }]);
+        expect(JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? '{}').theme).toBe('dark');
+        expect(homeStatus().dataset.statusTone).toBe('success');
+    });
+
+    it('imports a backup with absent native metadata without touching the active native shortcuts', async () => {
+        pairCalls.length = 0;
+        const previousNative = currentEnvironment.textLookupShortcut;
+        await importBackup(desktopSettingsExport({ ...DEFAULT_SETTINGS, theme: 'light' }));
+        expect(pairCalls).toHaveLength(0);
+        expect(currentEnvironment.textLookupShortcut).toEqual(previousNative);
+        expect(homeStatus().dataset.statusTone).toBe('success');
     });
 
     it('leads its title row with the title and leaves the way out to the window close', () => {

@@ -4,6 +4,7 @@ const appMocks = vi.hoisted(() => ({
     constructionArgs: [] as unknown[][],
     destroy: vi.fn(),
     init: vi.fn(),
+    showTextLookup: vi.fn(async (_text: string, _anchor: HTMLElement) => undefined),
 }));
 
 const settingsMocks = vi.hoisted(() => {
@@ -26,6 +27,7 @@ vi.mock('../../src/reader/app/main', () => ({
         return {
             destroy: appMocks.destroy,
             init: appMocks.init,
+            showTextLookup: appMocks.showTextLookup,
         };
     }),
 }));
@@ -36,7 +38,7 @@ vi.mock('../../src/reader/settings/index', async importOriginal => ({
     subscribeToSettingsStorageChanges: settingsMocks.subscribeToSettingsStorageChanges,
 }));
 
-import { bootReaderApp, bootReaderAppWithStartupSettings, resetReaderBootStateForTests } from '../../src/reader/app/boot';
+import { bootReaderApp, bootReaderAppWithStartupSettings, resetReaderBootStateForTests, showPackagedReaderTextLookup } from '../../src/reader/app/boot';
 import { addWindowEventListener, createWindowCustomEvent, dispatchWindowEvent, normalizedPropertyDescriptor, pageCompartmentDescriptor, removeWindowEventListener, safeWindowPropertyDescriptor, shouldTemporarilyUnshadowWindowProperty } from '../../src/reader/platform/window-events';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
 
@@ -109,6 +111,7 @@ describe('reader boot', () => {
         appMocks.constructionArgs.length = 0;
         appMocks.destroy.mockReset();
         appMocks.init.mockReset();
+        appMocks.showTextLookup.mockClear();
         appMocks.init.mockResolvedValue(undefined);
         settingsMocks.loadSettings.mockReset();
         settingsMocks.loadSettings.mockResolvedValue(DEFAULT_SETTINGS);
@@ -152,6 +155,27 @@ describe('reader boot', () => {
             settingsSurface,
         });
         expect(appMocks.constructionArgs).toEqual([[expect.any(Function), false]]);
+    });
+
+    it('retains the packaged stylesheet for retries without changing ordinary Reader styling', async () => {
+        const startupSettings = packagedSettingsFixture();
+        const readerCss = '.jpdb-reader-popover { color: red; }';
+        await expect(bootReaderAppWithStartupSettings(startupSettings, { readerCss })).resolves.toBe(true);
+        expect(appMocks.init).toHaveBeenLastCalledWith({ embeddedFrame: false, startupSettings, readerCss });
+        document.getElementById('jpdb-reader-runtime-owner')?.remove();
+        appMocks.init.mockClear();
+        bootReaderApp();
+        expect(appMocks.init).toHaveBeenCalledWith({ embeddedFrame: false, startupSettings, readerCss });
+    });
+
+    it('passes exact text only to the initialized packaged Reader', async () => {
+        const anchor = document.createElement('div');
+        document.body.append(anchor);
+        await expect(showPackagedReaderTextLookup('冒険', anchor)).rejects.toThrow('not ready');
+        await bootReaderAppWithStartupSettings(packagedSettingsFixture());
+        const text = '  Chapter 1 冒険\r\n';
+        await showPackagedReaderTextLookup(text, anchor);
+        expect(appMocks.showTextLookup).toHaveBeenCalledWith(text, anchor);
     });
 
     it('replaces an ordinary initialization already in flight with the packaged snapshot', async () => {

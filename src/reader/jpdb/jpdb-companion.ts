@@ -36,6 +36,10 @@ class DisabledJpdbClient {
         return Promise.resolve(false);
     }
 
+    isCardInDeck(): Promise<boolean> {
+        return Promise.reject(new Error('JPDB companion unavailable'));
+    }
+
     removeFromDeck(): Promise<void> {
         return Promise.resolve();
     }

@@ -31,6 +31,7 @@ interface ActiveRuntime {
     ownerId: string;
     startupSettings?: ReaderSettings;
     settingsSurface?: ReaderSettingsSurface;
+    readerCss?: string;
     initialization?: Promise<boolean>;
     release?: () => void;
 }
@@ -54,6 +55,7 @@ let activeRuntime: ActiveRuntime | undefined;
 let storageBootInFlight: Promise<boolean> | undefined;
 let retainedStartupSettings: ReaderSettings | undefined;
 let retainedSettingsSurface: ReaderSettingsSurface | undefined;
+let retainedReaderCss: string | undefined;
 
 // Vitest can deliberately reuse one jsdom module graph across cases. Production
 // gets one graph per document; this reset makes that same ownership boundary
@@ -66,6 +68,7 @@ export function resetReaderBootStateForTests(): void {
     storageBootInFlight = undefined;
     retainedStartupSettings = undefined;
     retainedSettingsSurface = undefined;
+    retainedReaderCss = undefined;
     resetSettingsRecoveryForTests();
 }
 
@@ -80,11 +83,21 @@ export function bootReaderApp(): void {
  */
 export function bootReaderAppWithStartupSettings(
     startupSettings: ReaderSettings,
-    options: Pick<ReaderAppInitOptions, 'settingsSurface'> = {},
+    options: Pick<ReaderAppInitOptions, 'settingsSurface' | 'readerCss'> = {},
 ): Promise<boolean> {
     retainedStartupSettings = startupSettings;
     retainedSettingsSurface = options.settingsSurface;
+    retainedReaderCss = options.readerCss;
     return requestReaderBoot(true);
+}
+
+/** Explicit text lookup in an initialized first-party Reader, without a page event bus. */
+export async function showPackagedReaderTextLookup(text: string, anchor: HTMLElement): Promise<void> {
+    const runtime = activeRuntime;
+    if (!runtime?.startupSettings || !await runtime.initialization || activeRuntime !== runtime) {
+        throw new Error('The packaged reader is not ready.');
+    }
+    await runtime.app.showTextLookup(text, anchor);
 }
 
 function requestReaderBoot(replaceMismatchedRuntime = false): Promise<boolean> {
@@ -106,6 +119,7 @@ function packagedRuntimeRequest(runtime: ActiveRuntime): Promise<boolean> | unde
     if (
         runtime.startupSettings === retainedStartupSettings
         && runtime.settingsSurface === retainedSettingsSurface
+        && runtime.readerCss === retainedReaderCss
     ) return runtime.initialization;
     releaseActiveRuntime(runtime);
     const gate = storageBootInFlight;
@@ -156,6 +170,7 @@ function bootResolvedContext(context: BootContext): Promise<boolean> {
     registerRuntime(context.bootWindow, runtime, isInstalledRuntime(runtime.kind));
     runtime.startupSettings = retainedStartupSettings;
     runtime.settingsSurface = retainedSettingsSurface;
+    runtime.readerCss = retainedReaderCss;
     runtime.initialization = startRuntime(runtime, context.embeddedFrame);
     return runtime.initialization;
 }
@@ -283,11 +298,12 @@ function registerRuntime(bootWindow: YomuBootWindow, runtime: ActiveRuntime, isR
 }
 
 function startRuntime(runtime: ActiveRuntime, embeddedFrame: boolean): Promise<boolean> {
-    const { app, ownerId, kind: runtimeKind, startupSettings, settingsSurface } = runtime;
+    const { app, ownerId, kind: runtimeKind, startupSettings, settingsSurface, readerCss } = runtime;
     const initOptions: ReaderAppInitOptions = {
         embeddedFrame,
         ...(startupSettings ? { startupSettings } : {}),
         ...(settingsSurface ? { settingsSurface } : {}),
+        ...(readerCss ? { readerCss } : {}),
     };
     return app.init(initOptions).then(() => {
         if (activeRuntime !== runtime) return false;

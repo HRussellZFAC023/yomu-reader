@@ -1,6 +1,9 @@
 import type { ReaderSettings } from '../../reader/app/types';
 import { normalizeReaderSettings } from '../../reader/settings';
 import { parseReaderSettingsBackup, READER_SETTINGS_BACKUP_FORMAT, READER_SETTINGS_BACKUP_VERSION } from '../../reader/settings/file-io';
+import type { TextLookupShortcutSettings } from '../selected-text-shortcut';
+import { parseDesktopShortcutPatch } from '../desktop-shortcuts';
+import type { YomuGamingBridge, YomuGamingEnvironment, YomuGamingShortcutPatch, YomuGamingShortcutUpdate } from '../ipc';
 
 // Yomu Gaming keeps its own copy of the reader settings, so a choice made in the browser —
 // Pass/Fail grading, the Jiten key, colours — never reached the popup over a game: the
@@ -47,18 +50,62 @@ function parsedJson(text: string): unknown {
 }
 
 /** A portable desktop backup; the existing browser export remains accepted by Import. */
-export function desktopSettingsExport(settings: ReaderSettings, captureShortcut?: string): string {
+export function desktopSettingsExport(settings: ReaderSettings, captureShortcut?: string, textLookupShortcut?: TextLookupShortcutSettings): string {
     return JSON.stringify({ formatName: READER_SETTINGS_BACKUP_FORMAT, formatVersion: READER_SETTINGS_BACKUP_VERSION,
-        exportedAt: new Date().toISOString(), settings, desktop: captureShortcut ? { captureShortcut } : {} }, null, 2);
+        exportedAt: new Date().toISOString(), settings,
+        desktop: { ...(captureShortcut ? { captureShortcut } : {}), ...(textLookupShortcut ? { textLookupShortcut } : {}) } }, null, 2);
 }
 
-/** Browser exports and older desktop files never change the native capture shortcut. */
-export function desktopCaptureShortcutFromExport(text: string): string | null {
+export function desktopShortcutsFromExport(text: string, platform: string):
+    { kind: 'absent' } | { kind: 'invalid' } | { kind: 'update'; shortcuts: YomuGamingShortcutPatch } {
     const value = parsedJson(text);
-    if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
-    const record = value as Record<string, unknown>;
-    const metadata = parseReaderSettingsBackup(value) ? record.desktop : null;
-    if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) return null;
-    const shortcut = (metadata as Record<string, unknown>).captureShortcut;
-    return typeof shortcut === 'string' && shortcut.trim() ? shortcut.trim() : null;
+    if (!parseReaderSettingsBackup(value)) return { kind: 'invalid' };
+    if (!value || typeof value !== 'object' || !('desktop' in value)) return { kind: 'absent' };
+    const metadata = value.desktop;
+    if (!metadata || typeof metadata !== 'object' || !Object.keys(metadata).length) return { kind: 'absent' };
+    const shortcuts = parseDesktopShortcutPatch(metadata, platform);
+    return shortcuts ? { kind: 'update', shortcuts } : { kind: 'invalid' };
+}
+
+type GamingSettingsImport = { kind: 'imported'; settings: ReaderSettings; environment: YomuGamingEnvironment | null }
+    | { kind: 'unsupported-format' | 'invalid' | 'taken' | 'save-failed'; environment: YomuGamingEnvironment | null }
+    | { kind: 'partial'; environment: YomuGamingEnvironment }
+    | { kind: 'partial-unavailable'; environment: null };
+
+/** A rejected Reader write conditionally undoes only this import's native commit. */
+export async function importGamingSettingsBackup(text: string, current: ReaderSettings, platform: string,
+    bridge: Pick<YomuGamingBridge, 'updateDesktopShortcuts' | 'getEnvironment'>,
+    persist: (settings: ReaderSettings) => void): Promise<GamingSettingsImport> {
+    const settings = gamingSettingsFromBrowserExport(text, current);
+    if (!settings) return { kind: 'unsupported-format', environment: null };
+    const native = desktopShortcutsFromExport(text, platform);
+    if (native.kind === 'invalid') return { kind: 'invalid', environment: null };
+    if (native.kind === 'absent') {
+        try { persist(settings); return { kind: 'imported', settings, environment: null }; }
+        catch { return { kind: 'save-failed', environment: null }; }
+    }
+    return importWithNativeShortcuts(settings, native.shortcuts, bridge, persist);
+}
+
+async function importWithNativeShortcuts(settings: ReaderSettings, shortcuts: YomuGamingShortcutPatch,
+    bridge: Pick<YomuGamingBridge, 'updateDesktopShortcuts' | 'getEnvironment'>,
+    persist: (settings: ReaderSettings) => void): Promise<GamingSettingsImport> {
+    try {
+        const result = await bridge.updateDesktopShortcuts(shortcuts);
+        if (result.kind !== 'saved') return { kind: result.kind === 'changed' ? 'taken' : result.kind, environment: result.environment };
+        try { persist(settings); return { kind: 'imported', settings, environment: result.environment }; }
+        catch { return undoNativeImport(result, bridge); }
+    } catch { return { kind: 'save-failed', environment: null }; }
+}
+
+async function undoNativeImport(commit: Extract<YomuGamingShortcutUpdate, { kind: 'saved' }>,
+    bridge: Pick<YomuGamingBridge, 'updateDesktopShortcuts' | 'getEnvironment'>): Promise<GamingSettingsImport> {
+    try {
+        const restored = await bridge.updateDesktopShortcuts(commit.undo.shortcuts, commit.undo.revision);
+        return { kind: restored.kind === 'saved' ? 'save-failed' : 'partial', environment: restored.environment };
+    } catch {
+        // An IPC failure leaves the result uncertain. Refresh instead of reporting restoration.
+        const environment = await bridge.getEnvironment().catch(() => null);
+        return environment ? { kind: 'partial', environment } : { kind: 'partial-unavailable', environment: null };
+    }
 }

@@ -15,7 +15,16 @@ const config = gamingBuilderConfig({
     outputDir: 'dist-gaming/packages',
 });
 
-describe('Yomu Gaming Linux package', () => {
+describe('Yomu Gaming platform packages', () => {
+    it('explains the user-initiated System Events selection lookup in the Mac permission prompt', () => {
+        expect(config.mac.extendInfo).toMatchObject({
+            NSAppleEventsUsageDescription: expect.stringContaining('when you request a lookup'),
+        });
+        expect(config.mac.extendInfo).toMatchObject({
+            NSAppleEventsUsageDescription: expect.stringContaining('選択テキストを調べるとき'),
+        });
+    });
+
     // "AppImage refuses to open": electron-builder's default AppImage runtime loads
     // libfuse.so.2, which current Ubuntu, Fedora and Mint installs do not ship.
     it('builds the AppImage on the static runtime, which needs no libfuse2', () => {

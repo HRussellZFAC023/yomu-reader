@@ -27,6 +27,7 @@ import {
 } from '../sources/definition-render';
 import { renderDefinitionSourcesStack, type DefinitionSourceStackOptions } from '../sources/definition-stack';
 import { installProviderExampleBehaviors } from '../sources/provider-examples';
+import { installDefinitionTranslationBehaviors } from '../sources/definition-translation';
 import { DictionarySourceStateController } from '../sources/state';
 import { escapeHtml, readerWordSurfaceText, setInnerHtml } from '../dom';
 import { createReaderDictionaryStyleController } from '../sources/styles';
@@ -311,7 +312,10 @@ export class NewTabRuntime {
         new WanikaniLookupClient(this.wanikani),
         () => this.settings,
         (key, initiallyExpanded) => this.dictionarySourceState.attributes(key, initiallyExpanded),
-        () => this.repositionLookupPopover(),
+        mount => {
+            void installDefinitionTranslationBehaviors(mount, this.settings, { getSettings: () => this.settings });
+            this.repositionLookupPopover();
+        },
     );
     private navigation = new PopupNavigationController(() => Boolean(
         this.activeLookupPopover?.isConnected && this.activeLookupPopover.querySelector('.jpdb-reader-kanji-display'),
@@ -1030,7 +1034,9 @@ export class NewTabRuntime {
     ): void {
         clearNestedParseState(popover);
         setReaderPopoverHtml(popover, this.lookupPopoverRenderer.render(card, sentence, 'modal', data));
-        mountDeckSelects(popover, card, sentence, (control, actionCard, actionSentence, command) => this.handleCardAction(control, actionCard, actionSentence, undefined, command));
+        mountDeckSelects(popover, card, sentence, (control, actionCard, actionSentence, command) => this.handleCardAction(control, actionCard, actionSentence, undefined, command), {
+            language: this.settings.interfaceLanguage, load: (word, choices) => this.cardActions.loadDeckMembership(word, choices),
+        });
         this.wanikaniSources.installDefinitionMounts(popover, card);
         this.refreshNewTabLookupHeader(popover, card, data);
     }
@@ -2205,6 +2211,7 @@ export class NewTabRuntime {
     }
 
     private async performNewTabContentParse(root: HTMLElement, options: NewTabParseContentOptions): Promise<void> {
+        void installDefinitionTranslationBehaviors(root, this.settings, { getSettings: () => this.settings });
         if (!this.parser.canParse()) return;
         installProviderExampleBehaviors(root, {
             interfaceLanguage: this.settings.interfaceLanguage,

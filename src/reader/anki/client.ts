@@ -94,6 +94,7 @@ import {
     touchAnkiStatusIndexRebuildLease,
 } from './status-index';
 import { quoteAnkiSearch } from './search-escape';
+import { readAnkiDeckMembership, type AnkiDeckMembership } from './deck-membership';
 import { canUseMobileAnkiHandoff, openMobileAnkiHandoff } from './mobile-handoff';
 import {
     applyMediaFieldClears,
@@ -401,6 +402,14 @@ export class AnkiConnectClient {
     // fallow-ignore-next-line unused-class-member
     async findExistingCards(card: JPDBCard): Promise<AnkiLookupResult> {
         return (await this.findExistingCardsBatch([card]))[0] ?? emptyAnkiLookupResult();
+    }
+
+    // Reader/NewTab mount callback → CardActionController.loadDeckMembership
+    // → the Anki companion facade; the private picker is the production caller.
+    // fallow-ignore-next-line unused-class-member
+    findDeckMembership(card: JPDBCard): Promise<AnkiDeckMembership> {
+        if (this.isDestroyed || !this.getSettings().ankiEnabled) return Promise.reject(new Error('Anki unavailable'));
+        return readAnkiDeckMembership(this, card, this.getSettings());
     }
 
     // Public batched status lookup used by popup, page, and newtab enrichment through the Anki dependency.

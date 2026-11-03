@@ -8,6 +8,7 @@ import { deckChoices, type DeckChoice } from './deck-choice';
 import { renderCardSpellingWithFurigana, renderHeadwordComponentPitchSpans } from './reading-display';
 import { escapeHtml, renderRuby } from '../dom/index';
 import { renderKanjiDefinitions } from '../sources/definition-render';
+import { definitionTranslationAttributes } from '../sources/definition-translation-markup';
 import { cardStateLabel, uiText } from '../app/i18n';
 import { providerStatusText } from '../app/provider-state-label';
 import { speakerIcon } from '../ui/icons';
@@ -131,7 +132,7 @@ export class CardPopoverRenderer {
             <div class="jpdb-reader-popover-body" data-card-popover${bunproDefinitionStatusAttributes(data.bunproDefinitionStatus)}>
                 ${this.dependencies.renderWordHistory(view.language, trigger)}
                 ${this.renderHeader(card, data, view, trigger)}
-                ${this.renderPartOfSpeech(view)}
+                ${this.renderPartOfSpeech(card, view)}
                 ${expressionComponents}
                 ${definitionSources}
                 ${fallbackAnkiSection}
@@ -255,8 +256,11 @@ export class CardPopoverRenderer {
         </div>`;
     }
 
-    private renderPartOfSpeech(view: CardPopoverRenderView): string {
-        return view.cardPos ? `<div class="jpdb-reader-pos" title="${escapeHtml(view.cardPosDetails)}">${escapeHtml(view.cardPos)}</div>` : '';
+    private renderPartOfSpeech(card: JPDBCard, view: CardPopoverRenderView): string {
+        const source = card.source ?? 'jpdb';
+        const translatable = ['jpdb', 'jiten', 'bunpro', 'wanikani'].includes(source);
+        const translation = translatable ? definitionTranslationAttributes(view.cardPos, `__${source}__`, 'en') : '';
+        return view.cardPos ? `<div class="jpdb-reader-pos" ${translation} title="${escapeHtml(view.cardPosDetails)}">${escapeHtml(view.cardPos)}</div>` : '';
     }
 
     private renderExpressionComponents(card: JPDBCard, data: CardRenderData & { loading: boolean }, view: CardPopoverRenderView): string {

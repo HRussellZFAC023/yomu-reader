@@ -45,6 +45,7 @@
 - **Firefox, desktop and Android:** [Firefox Add-ons](https://addons.mozilla.org/en-US/firefox/addon/yomu-reader/). The `.xpi` on GitHub releases is unsigned and won't install.
 - **Safari, iPhone, iPad:** the free Userscripts app plus `https://yomureader.com/yomu.user.js`. [Steps](https://yomureader.com/install#safari).
 - **Games and desktop apps:** [よむ Desktop](https://yomureader.com/desktop) for Windows, macOS and Linux.
+- **Selected text in desktop apps:** enable and configure **Selected-text shortcut** in Desktop Settings → Shortcuts, then select Japanese text in Word, a text PDF, or another app and press your shortcut. The tray also offers this lookup without enabling a global shortcut. Compatible apps on Windows, macOS, and Linux X11 expose their selected text directly; other apps and Wayland offer a paste field. Your clipboard stays unchanged; screen OCR keeps its separate Ctrl+Shift+Y shortcut.
 
 Store versions can lag a GitHub release by a few days while the stores review it.
 
@@ -56,11 +57,15 @@ Store versions can lag a GitHub release by a few days while the stores review it
 
 Hold a word in a link or button to look it up. A quick tap keeps the website’s action.
 
-Words saved without a connected service go to the Default deck in Study.
+Words saved without a connected service go to the よむ deck in Study.
+
+Open Add to deck… to see each deck’s saved status. JPDB, Jiten, Anki and the よむ deck are checked when you open it. A failed check or Bunpro shows Status unknown. Saved decks remain selectable and keep their usual save behavior.
 
 If a word cannot be saved, open Study to see its last save error. Check the destination in Settings, then try again. Dismiss removes the notice.
 
-Choose **Settings → Sources → Translation language** for automatic sentence translations. This choice is separate from the settings language.
+Choose **Settings → Sources → Translation language** for automatic sentence and example translations. To translate dictionary definitions and part-of-speech text too, open **Translate dictionary definitions**, select sources, then Save. This optional Google machine translation shows its origin and keeps the original definition available. New installs send no definition text for translation. The settings language stays separate.
+
+The JPDB choice also translates matching public definitions on native JPDB vocabulary and kanji pages. It checks an anonymous public copy first. Private notes, review pages, deck pages and account progress are excluded. Imported dictionaries may contain personal text, so select them only if you want their definitions sent to Google.
 
 In Study, open Stats to check your review progress. Refresh keeps the current figures visible while loading.
 

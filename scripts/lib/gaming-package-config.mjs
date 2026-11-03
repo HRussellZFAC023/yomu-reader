@@ -57,6 +57,9 @@ export function gamingBuilderConfig({ electronVersion, iconPng, iconIcns, appDir
         mac: {
             category: 'public.app-category.education',
             artifactName: GAMING_ARTIFACT_NAME,
+            extendInfo: {
+                NSAppleEventsUsageDescription: 'Yomu uses System Events to read the text you select in another app when you request a lookup. Your clipboard stays unchanged.\nよむで選択テキストを調べるとき、System Eventsを使ってほかのアプリの選択テキストを読み取ります。クリップボードは変更しません。',
+            },
             // Prebuilt icns (scripts/generate-gaming-icon.mjs): app-builder's own
             // PNG→icns downscaler corrupts the 16/32px representations.
             icon: iconIcns,

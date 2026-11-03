@@ -13,6 +13,11 @@ export const YOMU_GAMING_CHANNELS = {
     hideApp: 'yomu-gaming:hide-app',
     openExternal: 'yomu-gaming:open-external',
     updateCaptureShortcut: 'yomu-gaming:update-capture-shortcut',
+    getSelectedText: 'yomu-gaming:get-selected-text',
+    closeTextLookup: 'yomu-gaming:close-text-lookup',
+    retryTextLookup: 'yomu-gaming:retry-text-lookup',
+    updateTextLookupShortcut: 'yomu-gaming:update-text-lookup-shortcut',
+    updateDesktopShortcuts: 'yomu-gaming:update-desktop-shortcuts',
 } as const;
 
 export type YomuGamingScreenAccess = 'granted' | 'denied' | 'restricted' | 'not-determined' | 'unknown' | 'unsupported';
@@ -31,7 +36,29 @@ export interface YomuGamingEnvironment {
     // capture shortcut working — after its window is closed.
     trayActive: boolean;
     screenAccess: YomuGamingScreenAccess;
+    textLookupShortcut?: YomuGamingTextLookupShortcut;
 }
+
+export type YomuGamingSelectedText = { kind: 'text'; text: string }
+    | { kind: 'empty' | 'permission' | 'unsupported' | 'unavailable' | 'too-long' | 'expired' };
+
+export interface YomuGamingTextLookupShortcut {
+    enabled: boolean;
+    shortcut: string;
+    language: 'en' | 'ja';
+    registered: boolean;
+    error?: 'invalid' | 'taken';
+}
+
+export interface YomuGamingShortcutPatch {
+    captureShortcut?: string;
+    textLookupShortcut?: Pick<YomuGamingTextLookupShortcut, 'enabled' | 'shortcut' | 'language'>;
+}
+
+export type YomuGamingShortcutPair = Required<YomuGamingShortcutPatch>;
+export type YomuGamingShortcutUpdate =
+    { kind: 'saved'; environment: YomuGamingEnvironment; undo: { shortcuts: YomuGamingShortcutPair; revision: number } }
+    | { kind: 'invalid' | 'taken' | 'save-failed' | 'changed'; environment: YomuGamingEnvironment };
 
 export interface YomuGamingImageSize {
     width: number;
@@ -90,4 +117,9 @@ export interface YomuGamingBridge {
     hideApp(): Promise<void>;
     openExternal(url: string): Promise<void>;
     updateCaptureShortcut(shortcut: string): Promise<YomuGamingEnvironment>;
+    getSelectedText(session: number): Promise<YomuGamingSelectedText>;
+    closeTextLookup(): Promise<void>;
+    retryTextLookup(): Promise<void>;
+    updateTextLookupShortcut(settings: unknown): Promise<YomuGamingEnvironment>;
+    updateDesktopShortcuts(shortcuts: YomuGamingShortcutPatch, expectedRevision?: number): Promise<YomuGamingShortcutUpdate>;
 }

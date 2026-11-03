@@ -49,6 +49,7 @@ import { recommendedDictionaryActionKey } from './recommended-dictionary-card';
 import { localizeAppearanceQuickRow, renderAppearanceQuickRow } from './appearance-quick-row';
 import { localizeReviewServices, renderReviewServicesPanel, reviewServiceControlLabels } from './review-services-panel';
 import { renderTranslationLanguageControl } from './translation-language-control';
+import { renderDefinitionTranslationControls } from './definition-translation-control';
 
 export { readDictionaryLookupLinks, readFormSettings } from './form-read';
 export { syncSubtitlePreview } from './subtitle-preview';
@@ -937,6 +938,7 @@ function renderDictionariesSettingsPanel(
                     <div class="jpdb-reader-dictionary-priorities" data-source-editor data-definition-source-editor>
                         ${renderDictionarySourceRows(settings)}
                     </div>`, ' data-help-key="popupOrderTitle"')}
+                ${renderDefinitionTranslationControls(settings)}
                 <div class="jpdb-reader-dictionary-status" data-dictionary-status role="status" aria-live="polite">${escapedUiText(language, 'checkingDictionaries')}</div>
                 <div class="jpdb-reader-recommended-dictionaries" data-recommended-dictionaries>
                     ${renderRecommendedDictionaries([], 'en', includeCatalogBrowse, 'ja', expandCatalogBrowse)}

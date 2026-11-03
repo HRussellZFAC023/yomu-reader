@@ -6,6 +6,7 @@ import { formatPartOfSpeech } from '../lookup/pos';
 import { definitionSourceStateKey } from '../sources/definition-render';
 import { renderProviderExamples, type ProviderCollection, type ProviderExampleView } from '../sources/provider-examples';
 import { renderPassiveReference } from '../sources/passive-reference';
+import { definitionTranslationAttributes } from '../sources/definition-translation-markup';
 import { BunproApiError, type BunproClient } from './bunpro';
 import { LruCache } from '../core/lru-cache';
 import { httpStatusFromError } from '../network/error-status';
@@ -466,9 +467,11 @@ export function renderBunproDefinitionSource(
             <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore>${escapeHtml(title)}</summary>
             <article class="jpdb-reader-local-entry jpdb-reader-local-term">
                 ${renderBunproHeadword(card, info, language)}
-                ${details ? `<div class="jpdb-reader-local-tags">${details}</div>` : ''}
-                ${glosses.meaning ? `<div class="jpdb-reader-local-senses"><div class="jpdb-reader-local-sense"><span>${escapeHtml(glosses.meaning)}</span></div></div>` : ''}
-                ${glosses.nuance.length ? `<div class="jpdb-reader-local-glossary"><strong>${escapeHtml(nuanceLabel)}</strong><div>${glosses.nuance.map(renderBunproGlossText).join('')}</div></div>` : ''}
+                <div ${definitionTranslationAttributes([...info.partOfSpeech, glosses.meaning, ...glosses.nuance].filter(Boolean).join('\n'), BUNPRO_DEFINITION_SOURCE_ID, 'auto')}>
+                    ${details ? `<div class="jpdb-reader-local-tags">${details}</div>` : ''}
+                    ${glosses.meaning ? `<div class="jpdb-reader-local-senses"><div class="jpdb-reader-local-sense"><span>${escapeHtml(glosses.meaning)}</span></div></div>` : ''}
+                    ${glosses.nuance.length ? `<div class="jpdb-reader-local-glossary"><strong>${escapeHtml(nuanceLabel)}</strong><div>${glosses.nuance.map(renderBunproGlossText).join('')}</div></div>` : ''}
+                </div>
                 ${accepted.length ? `<div class="jpdb-reader-local-glossary"><strong>${escapeHtml(uiText(language, 'acceptedInputs'))}</strong><div>${accepted.map(escapeHtml).join(' · ')}</div></div>` : ''}
                 ${renderBunproStructures(info, language)}
                 ${info.caution ? `<div class="jpdb-reader-local-glossary"><strong>${escapeHtml(uiText(language, 'bunproCaution'))}</strong><div>${escapeHtml(info.caution)}</div></div>` : ''}

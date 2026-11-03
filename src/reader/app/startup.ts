@@ -10,6 +10,7 @@ export interface ReaderAppInitOptions {
     embeddedFrame?: boolean;
     startupSettings?: ReaderSettings;
     settingsSurface?: ReaderSettingsSurface;
+    readerCss?: string;
 }
 
 /**

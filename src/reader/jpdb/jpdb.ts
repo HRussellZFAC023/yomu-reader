@@ -3,6 +3,8 @@ import { jpdbParseResultToTokens, jpdbVocabularyToCards, splitJapaneseSentences 
 import { ConcurrencyGate, delay as wait, runLimited } from '../core/async-utils';
 import { LruCache } from '../core/lru-cache';
 import { Logger } from '../app/logger';
+import { isRecord } from '../core/object-utils';
+import { providerReadingIndex, providerWordId } from '../core/provider-word-identity';
 import type { JPDBCard, JPDBDeck, JPDBGrade, JPDBParseResult, JPDBRawVocabulary, JPDBToken } from '../app/types';
 
 const TOKEN_FIELDS = ['vocabulary_index', 'position', 'length', 'furigana'];
@@ -153,6 +155,22 @@ export class JpdbClient {
         if (!isDeckMembershipCard(card)) return false;
         const pool = await this.cachedUserDeckPool();
         return pool.has(vocabularyPairKey(card.vid, card.sid));
+    }
+
+    /** Explicit private picker read: no pooled cache or failure-as-absence fallback. */
+    // Reader/NewTab mount callback → CardActionController.loadDeckMembership
+    // → the JPDB companion facade; never a passive render-data request.
+    async isCardInDeck(deckId: string, card: JPDBCard): Promise<boolean> {
+        if (!isDeckMembershipCard(card)) throw new Error('No JPDB word identity');
+        const response = await this.api.request<unknown>('deck/list-vocabulary', {
+            id: normalizeDeckRequestId(deckId), fetch_occurences: false,
+        });
+        if (!isRecord(response) || !Array.isArray(response.vocabulary)) throw new Error('Invalid JPDB deck vocabulary');
+        const pairs = response.vocabulary.map((value: unknown): [number, number] => {
+            if (!Array.isArray(value) || value.length !== 2) throw new Error('Invalid JPDB deck vocabulary');
+            return [providerWordId(value[0]), providerReadingIndex(value[1])];
+        });
+        return pairs.some(([vid, sid]) => vid === card.vid && sid === card.sid);
     }
 
     // Used by mining controls to toggle JPDB deck membership.
