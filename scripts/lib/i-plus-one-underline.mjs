@@ -69,7 +69,7 @@ export async function checkIPlusOneUnderline(browser, root, cssPath, scriptPath)
             if (url.origin !== 'https://yomureader.com' || !url.pathname.startsWith('/study/')) return route.abort();
             const relative = url.pathname.slice('/study/'.length) || 'index.html';
             const file = path.resolve(root, 'dist/newtab', relative);
-            if (!file.startsWith(`${path.resolve(root, 'dist/newtab')}/`)) return route.abort();
+            if (!file.startsWith(`${path.resolve(root, 'dist/newtab')}${path.sep}`)) return route.abort();
             const contentType = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css' }[path.extname(file)] ?? 'application/octet-stream';
             try { return route.fulfill({ contentType, body: readFileSync(file) }); }
             catch { return route.fulfill({ status: 404, body: '' }); }
