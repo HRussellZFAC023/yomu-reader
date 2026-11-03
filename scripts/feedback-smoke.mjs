@@ -1057,7 +1057,9 @@ async function readHostedThemeState(page) {
 async function readHostedThemeResponsivenessState(page) {
     return page.evaluate(async settingsKey => {
         await new Promise(resolve => setTimeout(resolve, 0));
+        const start = performance.now();
         await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+        const frameDelayMs = performance.now() - start;
         const root = document.documentElement;
         const line = document.querySelector('.jpdb-subtitle-lines');
         const themeToggle = document.querySelector('[data-theme-toggle]');
@@ -1066,6 +1068,7 @@ async function readHostedThemeResponsivenessState(page) {
         const sharedSettings = await globalThis.GM_getValue(settingsKey, {});
         return {
             timerAndFramesReturned: true,
+            frameDelayMs,
             light: root.classList.contains('yomu-page-theme-light'),
             dark: root.classList.contains('yomu-page-theme-dark'),
             readerLight: root.classList.contains('jpdb-reader-theme-light'),
@@ -1109,6 +1112,7 @@ async function readHostedThemeResponsivenessState(page) {
 function hostedThemeToggleResponsive(state) {
     const expectedTheme = state.light ? 'light' : 'dark';
     return state.timerAndFramesReturned
+        && state.frameDelayMs < 1000
         && state.light !== state.dark
         && state.readerLight === state.light
         && state.readerDark === state.dark
