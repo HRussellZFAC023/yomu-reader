@@ -83,6 +83,8 @@ import {
 } from '../sources/definition-render';
 import { renderDefinitionSourceImmersionMount, renderDefinitionSourcesStack, type DefinitionSourceStackOptions } from '../sources/definition-stack';
 import { installProviderExampleBehaviors } from '../sources/provider-examples';
+import { installDefinitionTranslationBehaviors } from '../sources/definition-translation';
+import { installJpdbDefinitionTranslation } from '../jpdb/jpdb-definition-translation';
 import { isUsefulImmersionPreloadQuery } from '../immersion/query';
 import type { ImmersionSearchOptions } from '../immersion/popover-controller';
 import { waitForIdle as waitForBrowserIdle } from '../platform/idle';
@@ -578,7 +580,10 @@ export class ReaderApp {
         new WanikaniLookupClient(this.wanikani),
         () => this.settings,
         (key, initiallyExpanded) => this.dictionarySourceState.attributes(key, initiallyExpanded),
-        () => this.repositionActivePopover(),
+        mount => {
+            void installDefinitionTranslationBehaviors(mount, this.settings, { getSettings: () => this.settings });
+            this.repositionActivePopover();
+        },
     );
     private bunproWordStates = this.bunproCompanion && this.bunpro ? new this.bunproCompanion.BunproWordStateStore(this.bunpro) : null;
     private yomuLocalSrs = createYomuLocalSrsAdapter(new LocalYomuSrsRepository());
@@ -1776,6 +1781,10 @@ export class ReaderApp {
     }
 
     private async refreshJpdbPageEnhancements(): Promise<void> {
+        void installJpdbDefinitionTranslation(document, this.settings, {
+            getSettings: () => this.settings,
+            signal: this.abortController.signal,
+        });
         const generation = ++this.jpdbPageEnhancementGeneration;
         this.lastEnhancedHref = location.href;
         this.installJpdbReviewExamplesToggleMemory();
@@ -7623,6 +7632,10 @@ export class ReaderApp {
     }
 
     private async performPopoverJapaneseParse(popover: HTMLElement): Promise<void> {
+        void installDefinitionTranslationBehaviors(popover, this.settings, {
+            getSettings: () => this.settings,
+            isCurrentRoot: () => this.isCurrentPopoverRoot(popover),
+        });
         installProviderExampleBehaviors(popover, {
             interfaceLanguage: this.settings.interfaceLanguage,
             outputLanguage: translationOutputLanguage(this.settings),

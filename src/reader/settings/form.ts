@@ -49,6 +49,7 @@ import { recommendedDictionaryActionKey } from './recommended-dictionary-card';
 import { localizeAppearanceQuickRow, renderAppearanceQuickRow } from './appearance-quick-row';
 import { localizeReviewServices, renderReviewServicesPanel, reviewServiceControlLabels } from './review-services-panel';
 import { renderTranslationLanguageControl } from './translation-language-control';
+import { renderDefinitionTranslationControls } from './definition-translation-control';
 
 export { readDictionaryLookupLinks, readFormSettings } from './form-read';
 export { syncSubtitlePreview } from './subtitle-preview';
@@ -933,6 +934,7 @@ function renderDictionariesSettingsPanel(
                 <legend>${escapedUiText(language, 'sources')}</legend>
                 <div data-target-dictionary-content>
                 ${renderTranslationLanguageControl(settings)}
+                ${renderDefinitionTranslationControls(settings)}
                 ${renderSettingsDisclosure(uiText(language, 'popupOrderTitle'), `
                     <div class="jpdb-reader-dictionary-priorities" data-source-editor data-definition-source-editor>
                         ${renderDictionarySourceRows(settings)}

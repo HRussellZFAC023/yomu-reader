@@ -332,6 +332,11 @@
   unicode-bidi: plaintext;
 }
 
+.jpdb-reader-native-definition {
+  flex: 1;
+  min-width: 0;
+}
+
 .jpdb-reader-definition-original {
   margin: 0.25rem 0.65rem 0.65rem;
   border: 0;

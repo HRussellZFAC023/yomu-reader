@@ -27,6 +27,7 @@ import {
 } from '../sources/definition-render';
 import { renderDefinitionSourcesStack, type DefinitionSourceStackOptions } from '../sources/definition-stack';
 import { installProviderExampleBehaviors } from '../sources/provider-examples';
+import { installDefinitionTranslationBehaviors } from '../sources/definition-translation';
 import { DictionarySourceStateController } from '../sources/state';
 import { escapeHtml, readerWordSurfaceText, setInnerHtml } from '../dom';
 import { createReaderDictionaryStyleController } from '../sources/styles';
@@ -311,7 +312,10 @@ export class NewTabRuntime {
         new WanikaniLookupClient(this.wanikani),
         () => this.settings,
         (key, initiallyExpanded) => this.dictionarySourceState.attributes(key, initiallyExpanded),
-        () => this.repositionLookupPopover(),
+        mount => {
+            void installDefinitionTranslationBehaviors(mount, this.settings, { getSettings: () => this.settings });
+            this.repositionLookupPopover();
+        },
     );
     private navigation = new PopupNavigationController(() => Boolean(
         this.activeLookupPopover?.isConnected && this.activeLookupPopover.querySelector('.jpdb-reader-kanji-display'),
@@ -2207,6 +2211,7 @@ export class NewTabRuntime {
     }
 
     private async performNewTabContentParse(root: HTMLElement, options: NewTabParseContentOptions): Promise<void> {
+        void installDefinitionTranslationBehaviors(root, this.settings, { getSettings: () => this.settings });
         if (!this.parser.canParse()) return;
         installProviderExampleBehaviors(root, {
             interfaceLanguage: this.settings.interfaceLanguage,

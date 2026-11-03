@@ -112,7 +112,11 @@ const COPY = {
         twoPoint: 'Two point: FAIL / PASS',
         settingsLanguage: 'Settings language',
         translationLanguage: 'Translation language',
-        translationLanguageHelp: 'Choose the language for automatic sentence and example translations.',
+        translationLanguageHelp: 'Choose the language for automatic sentence, example and opted-in dictionary translations.',
+        definitionTranslationTitle: 'Translate dictionary definitions',
+        definitionTranslationHelp: 'Optional Google machine translation into your translation language. Only definitions and part-of-speech text from selected sources are sent. Imported dictionary text may contain personal content. Originals stay available; sources already in that language are unchanged.',
+        definitionTranslationCredit: 'Google machine translation',
+        definitionTranslationOriginal: 'Show original definition',
         automatic: 'Automatic',
         english: 'English',
         japanese: '日本語',
@@ -1657,7 +1661,11 @@ fourGradeShortcutsHelp	4段階の復習では、最初の4つのショートカ�
 twoPoint	2段階: 失敗 / 合格
 settingsLanguage	設定の表示言語
 translationLanguage	翻訳先の言語
-translationLanguageHelp	文や例文の自動翻訳先の言語を選びます。
+translationLanguageHelp	文・例文や、選択した辞書の自動翻訳先の言語を選びます。
+definitionTranslationTitle	辞書の語義を翻訳
+definitionTranslationHelp	選択したソースの語義と品詞を、翻訳先の言語へGoogleで機械翻訳します（任意）。インポートした辞書には個人的な内容が含まれる場合があります。原文も表示でき、同じ言語の語義はそのまま表示します。
+definitionTranslationCredit	Googleによる機械翻訳
+definitionTranslationOriginal	語義の原文を表示
 theme	テーマ
 auto	自動
 dark	ダーク

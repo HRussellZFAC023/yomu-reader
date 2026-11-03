@@ -7,6 +7,7 @@ import { formatMetaFrequency, groupTermEntriesByHeadword, summarizeLearnerGlossa
 import type { InterfaceLanguage, ReaderSettings } from '../app/types';
 import { glossaryToHtml, glossaryToText, type YomitanKanjiEntry, type YomitanMetaEntry, type YomitanTermEntry } from '../dictionaries/yomitan';
 import { renderWithMoreDisclosure, VISIBLE_SENSE_COUNT } from './more-disclosure';
+import { definitionTranslationAttributes } from './definition-translation-markup';
 
 export { renderJpdbDefinitionSource } from '../jpdb/jpdb-definition-source-render';
 
@@ -56,6 +57,7 @@ export function renderKanjiDefinitions(
                     <div
                         class="jpdb-reader-local-glossary jpdb-reader-parseable"
                         data-dictionary="${escapeHtml(entry.dictionary)}"
+                        ${definitionTranslationAttributes(entry.meanings.slice(0, 6).join('\n'), entry.dictionary)}
                     >
                         ${entry.meanings.slice(0, 6).map(meaning => `<div>${escapeHtml(meaning)}</div>`).join('')}
                     </div>
@@ -104,7 +106,9 @@ function renderLocalTermGroup(dictionary: string, group: LearnerTermGroup, dicti
         <article class="jpdb-reader-local-entry jpdb-reader-local-term" data-more-entry-key="${escapeHtml(JSON.stringify([group.expression, group.reading]))}">
             ${renderLocalTermHead(group, reference)}
             ${renderLocalTermTags(dictionary, group, dictionaryLabel, options.showDictionaryTag ?? true, language)}
-            ${renderLocalTermMeaning(dictionary, group, language)}
+            <div ${definitionTranslationAttributes(group.entries.flatMap(entry => entry.glossary.map(glossaryToText)).join('\n'), dictionary)}>
+                ${renderLocalTermMeaning(dictionary, group, language)}
+            </div>
         </article>
     `;
 }
@@ -145,7 +149,7 @@ function renderLocalTermTags(dictionary: string, group: LearnerTermGroup, dictio
         showDictionaryTag ? `<span class="jpdb-reader-dict-tag jpdb-reader-source-tag">${escapeHtml(dictionaryLabel(dictionary))}</span>` : '',
         ...localTermTags(group.entries, language).map(tag => `<span class="jpdb-reader-dict-tag" data-tag="${escapeHtml(tag)}">${escapeHtml(tag)}</span>`),
     ].filter(Boolean);
-    return tagItems.length ? `<div class="jpdb-reader-local-tags">${tagItems.join('')}</div>` : '';
+    return tagItems.length ? `<div class="jpdb-reader-local-tags" ${definitionTranslationAttributes(localTermTags(group.entries, 'en').join(', '), dictionary, 'en')}>${tagItems.join('')}</div>` : '';
 }
 
 function renderLocalTermMeaning(dictionary: string, group: LearnerTermGroup, language: InterfaceLanguage): string {

@@ -4,6 +4,8 @@ import { jpdbKanjiActionClass, visibleJpdbKanjiActions, type JpdbKanjiAction, ty
 import type { InterfaceLanguage } from '../app/types';
 import { sourceStateAttribute } from './source-state';
 import { privateCommandAttributes } from '../dom/private-command-capabilities';
+import { JPDB_DEFINITION_SOURCE_ID } from '../app/constants';
+import { definitionTranslationAttributes } from '../sources/definition-translation-markup';
 
 export function renderJpdbKanjiInfo(info: JpdbKanjiInfo | null, language: InterfaceLanguage, initiallyExpanded = true, sourceStateKey?: string, title = uiText(language, 'readingsComponents')): string {
     if (!info) return '';
@@ -15,7 +17,7 @@ export function renderJpdbKanjiInfo(info: JpdbKanjiInfo | null, language: Interf
         ['Heisig', info.heisig],
         [uiText(language, 'factOldForms'), info.oldForms.join(', ')],
     ].filter(([, value]) => Boolean(value?.trim()));
-    const factSection = renderJpdbKanjiFactSection(facts);
+    const factSection = renderJpdbKanjiFactSection(facts, info.keyword);
     const readingsSection = renderJpdbKanjiReadings(info);
     const componentSection = renderJpdbKanjiComponents(info, language);
     const vocabularySection = renderJpdbKanjiVocabulary(info, language);
@@ -38,10 +40,10 @@ function expandedAttribute(initiallyExpanded: boolean): string {
     return initiallyExpanded ? 'open' : '';
 }
 
-function renderJpdbKanjiFactSection(facts: string[][]): string {
+function renderJpdbKanjiFactSection(facts: string[][], keyword: string): string {
     if (!facts.length) return '';
     return `<div class="jpdb-reader-kanji-facts">
-        ${facts.map(([label, value]) => `<span title="${escapeHtml(`JPDB · ${label}: ${value}`)}"><strong>${escapeHtml(label)}</strong><span class="jpdb-reader-kanji-fact-value">${escapeHtml(value)}</span></span>`).join('')}
+        ${facts.map(([label, value]) => `<span title="${escapeHtml(`JPDB · ${label}: ${value}`)}"><strong>${escapeHtml(label)}</strong><span class="jpdb-reader-kanji-fact-value" ${value && value === keyword ? definitionTranslationAttributes(value, JPDB_DEFINITION_SOURCE_ID, 'en') : ''}>${escapeHtml(value)}</span></span>`).join('')}
     </div>`;
 }
 

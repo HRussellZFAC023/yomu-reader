@@ -4,6 +4,8 @@ import { privateCommandAttributes } from '../dom/private-command-capabilities';
 import { cardStateLabel, uiText } from '../app/i18n';
 import { renderKanjiKeywordChips } from '../popup/kanji-keyword-line';
 import { kanjiSourceStateKey } from '../sources/definition-render';
+import { JITEN_DEFINITION_SOURCE_ID } from '../app/constants';
+import { definitionTranslationAttributes } from '../sources/definition-translation-markup';
 import { KANJI_JPDB_SOURCE_ID } from '../sources/sections';
 import type { CardState, InterfaceLanguage } from '../app/types';
 import type { JitenKanjiInfo, JitenKanjiWordsPage, JitenVocabularyWordSummary } from '../dictionaries/jiten';
@@ -240,7 +242,7 @@ export function jitenKanjiReadingRows(info: JitenKanjiInfo | null): string[] {
 function renderJitenKanjiFacts(info: JitenKanjiInfo, language: InterfaceLanguage): string {
     const facts = jitenKanjiFactRows(info, language);
     return facts.length ? `<div class="jpdb-reader-kanji-facts">
-        ${facts.map(([label, value]) => `<span title="${escapeHtml(`Jiten · ${label}: ${value}`)}"><strong>${escapeHtml(label)}</strong><span class="jpdb-reader-kanji-fact-value">${escapeHtml(value)}</span></span>`).join('')}
+        ${facts.map(([label, value]) => `<span title="${escapeHtml(`Jiten · ${label}: ${value}`)}"><strong>${escapeHtml(label)}</strong><span class="jpdb-reader-kanji-fact-value" ${label === uiText(language, 'factMeaning') ? definitionTranslationAttributes((info.meanings ?? []).join('\n'), JITEN_DEFINITION_SOURCE_ID, 'en') : ''}>${escapeHtml(value)}</span></span>`).join('')}
     </div>` : '';
 }
 

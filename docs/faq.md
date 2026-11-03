@@ -128,6 +128,12 @@ Settings → Sources → Popup order. Move it up, then press Save.
 
 Choose **Settings → Sources → Translation language**, then press Save. Automatic sentence and provider-example translations use that language. The settings language and Japanese lookup stay separate.
 
+For dictionary definitions, open **Translate dictionary definitions** in the same tab, select the providers or imported dictionaries you want, then Save. Definitions and their source-owned part-of-speech text use Google machine translation. Each result says so and offers **Show original definition**. Japanese headwords, readings and source names stay visible. A failed request leaves the original visible, and definitions already in your translation language need no request. The feature is off until you select a source; previous explicit selections are retained.
+
+Selecting JPDB also covers public definitions and kanji keywords on native JPDB vocabulary and kanji pages. Yomu fetches a copy without account cookies and translates only text that matches it. It excludes private notes, review and deck pages, and progress. Imported dictionary definitions can include personal content; selecting one permits its definition text to be sent to Google. This choice does not send WaniKani notes, synonyms or account progress.
+
+**日本語:** 設定 → ソース → 翻訳先の言語で翻訳先を選びます。「辞書の語義を翻訳」を開き、翻訳したいソースを選んで保存すると、語義とそのソースの品詞がGoogleで機械翻訳されます。翻訳元の表示と原文の開閉があり、見出し語・読み・ソース名はそのままです。初期状態では無効で、失敗した場合は原文を表示します。JPDBを選ぶと、JPDBの単語・漢字ページでも公開語義を翻訳します。アカウントのCookieを送らずに取得した公開ページと一致する内容だけを対象にし、個人メモ・復習・デッキ・進捗は対象外です。インポート辞書の語義には個人的な内容が含まれる場合があるため、Googleへの送信を許可する辞書だけを選んでください。
+
 Translations supplied by Immersion Kit or Nadeshiko keep the language supplied by that source.
 
 ## Can I use my own audio? {#audio}

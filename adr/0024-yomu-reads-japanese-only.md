@@ -32,3 +32,13 @@ The bugs that prompted it all came from the target choice:
 ## Automatic translation destinations, 3 November 2026
 
 The Japanese-only learning target and removal of automatic definition translation remain in effect. Settings → Sources offers a separate destination for automatic sentence and provider-example translations. The active profile's stored `outputLanguage` selects that destination. The interface language, dictionary recommendations, and secondary-subtitle defaults retain their existing choices. This restores the translation choice requested by users without restoring other learning targets.
+
+## Optional definition translation, 3 November 2026
+
+The user-requested restoration supersedes the removal of definition translation in decision 4 only for explicitly selected sources. The active profile retains its existing `definitionTranslationProviderIds`, with an empty default, and its `outputLanguage` selects the destination. Japanese remains the only lookup target. Interface copy follows `uiLocale`, independently of translated dictionary data.
+
+JPDB, Jiten, Bunpro, public WaniKani meanings and imported term/kanji dictionaries can translate definitions and source-owned POS text. Renderers bind frozen semantic payloads through the private Element-state registry before insertion. Live DOM attributes and generated translations cannot authorize or change a request. Readings, headwords, source labels and controls remain outside translated content. Every result identifies Google machine translation and preserves an expandable original. Errors leave the original visible. Popup removal, cancellation and a changed profile prevent stale output.
+
+Native JPDB vocabulary and kanji pages reuse the same opt-in and translator. A cookie-free public copy must contain an exact match for each eligible lexical block before it can be privately bound. URLs are restricted to JPDB vocabulary/kanji paths with query and hash removed. Review, search, deck and account pages are excluded. WaniKani account notes, synonyms, mnemonics and progress are never translation payloads. Imported dictionary text is opt-in because users may import personal material. Existing translation transport, cache, abort handling and deadlines are reused; this introduces no backend or new permission.
+
+This restores a reported community workflow, independently of its unlicensed userscript. The earlier MIT implementation in this repository provides the basis for the shared renderer behavior. It does not restore other learning targets or change subtitle defaults.

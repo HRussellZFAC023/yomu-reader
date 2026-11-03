@@ -11,6 +11,7 @@ import { renderProviderExamples, type ProviderExampleView } from '../sources/pro
 import { renderedWordPrivateAttributesForState } from '../dom/rendered-word-private-state';
 import { privateCommandAttributes } from '../dom/private-command-capabilities';
 import { renderWithMoreDisclosure, VISIBLE_SENSE_COUNT } from '../sources/more-disclosure';
+import { definitionTranslationAttributes } from '../sources/definition-translation-markup';
 
 type SourceAttributes = (sourceStateKey: string, initiallyExpanded?: boolean) => string;
 
@@ -25,7 +26,7 @@ export function renderJpdbDefinitionSource(card: JPDBCard, sourceAttributes: Sou
     return `
         <details class="jpdb-reader-local jpdb-reader-source-card" data-source="jpdb" ${cardHighlightScopeAttributes(card)} ${sourceAttributes(definitionSourceStateKey(JPDB_DEFINITION_SOURCE_ID), true)}>
             <summary class="jpdb-reader-local-title">${escapeHtml(title)}</summary>
-            ${meanings ? `<div class="jpdb-reader-meanings">${meanings}</div>` : ''}
+            ${meanings ? `<div class="jpdb-reader-meanings" ${definitionTranslationAttributes(jpdbDefinitionMeanings(card, info).join('\n'), JPDB_DEFINITION_SOURCE_ID, 'en')}>${meanings}</div>` : ''}
             ${extras}
         </details>
     `;

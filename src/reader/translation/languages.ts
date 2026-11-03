@@ -17,7 +17,7 @@ export function isSupportedTranslationLanguage(language: string): boolean {
     }
 }
 
-/** Sentence/example translation is independent of Japanese lookup and UI copy. */
+/** Translation output is independent of Japanese lookup and UI copy. */
 export function translationOutputLanguage(settings: Pick<ReaderSettings, 'languageProfiles' | 'activeLanguageProfileId'>): string {
     const saved = activeLanguageProfile(settings.languageProfiles, settings.activeLanguageProfileId)?.outputLanguage;
     return saved && isSupportedTranslationLanguage(saved) ? saved : 'en';
