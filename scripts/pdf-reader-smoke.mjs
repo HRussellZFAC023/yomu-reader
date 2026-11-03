@@ -574,10 +574,25 @@ async function readState(page) {
 }
 
 async function waitForOcrText(page, text, label, context = {}) {
-    await page.waitForFunction(expected => [...document.querySelectorAll('.jpdb-ocr-line')]
-        .some(line => (line.getAttribute('data-ocr-text') || line.getAttribute('aria-label') || '')
-            .replace(/\s+/g, '')
-            .includes(expected)), text, { timeout: 25000 })
+    await page.waitForFunction(expected => {
+        // Retained answers can have semantic text while their page's overlay is hidden.
+        return [...document.querySelectorAll('.jpdb-ocr-line')]
+            .filter(line => semanticText(line).includes(expected))
+            .some(lineIsVisible);
+
+        function semanticText(line) {
+            return (line.getAttribute('data-ocr-text') || line.getAttribute('aria-label') || '').replace(/\s+/g, '');
+        }
+
+        function lineIsVisible(line) {
+            const rect = line.getBoundingClientRect();
+            const style = getComputedStyle(line);
+            return [rect.width > 0, rect.height > 0,
+                rect.bottom > 0, rect.top < innerHeight, rect.right > 0, rect.left < innerWidth,
+                style.display !== 'none', style.visibility !== 'hidden', Number(style.opacity || '1') > 0,
+                !line.closest('[hidden]')].every(Boolean);
+        }
+    }, text, { timeout: 25000 })
         .catch(async error => {
             const state = await readState(page);
             throw new Error(`${label}: ${error.message}\n${JSON.stringify({ ocrRequests, ocrPayloads, state, context }, null, 2)}`);
