@@ -124,6 +124,98 @@ describe('private deck picker membership', () => {
 });
 
 describe('authoritative provider reads', () => {
+    it('never identifies an Anki word from sentence context or an ambiguous model', async () => {
+        const settings = { ...DEFAULT_SETTINGS, ankiEnabled: true, apiKey: '' };
+        const client = new AnkiConnectClient(() => settings);
+        const controller = testCardActionController({ getSettings: () => settings, anki: client });
+        const choices: DeckChoice[] = [{ source: 'anki', id: 'Private A', label: 'Anki: Private A' }];
+        let fields = { Expression: { value: '犬' }, Reading: { value: 'いぬ' }, Sentence: { value: '猫' } };
+        const invoke = vi.spyOn(client, 'invoke').mockImplementation(async action => {
+            if (action === 'findNotes') return [17];
+            if (action === 'notesInfo') return [{ noteId: 17, modelName: 'Imported words', fields, cards: [18], tags: [] }];
+            if (action === 'cardsInfo') return [{ cardId: 18, deckName: 'Private A', queue: 0, type: 0 }];
+            throw new Error('Unexpected action');
+        });
+        const target = { ...card, spelling: '猫', reading: 'ねこ' };
+        try {
+            expect(await Promise.all(controller.loadDeckMembership(target, choices))).toEqual([{ kind: 'not-saved' }]);
+            fields = { Expression: { value: '猫' }, Reading: { value: 'ねこ' }, Sentence: { value: '犬' } };
+            expect(await Promise.all(controller.loadDeckMembership(target, choices))).toEqual([{ kind: 'saved' }]);
+            fields = { Expression: { value: '猫' }, Reading: { value: 'びょう' }, Sentence: { value: '犬' } };
+            expect(await Promise.all(controller.loadDeckMembership(target, choices))).toEqual([{ kind: 'not-saved' }]);
+            fields = { Expression: { value: '猫' }, Reading: { value: '' }, Sentence: { value: '犬' } };
+            expect(await Promise.all(controller.loadDeckMembership(target, choices))).toEqual([{ kind: 'unknown', reason: 'unavailable' }]);
+            fields = { Expression: { value: '猫 / 犬' }, Reading: { value: 'ねこ' }, Sentence: { value: '犬' } };
+            expect(await Promise.all(controller.loadDeckMembership(target, choices))).toEqual([{ kind: 'unknown', reason: 'unavailable' }]);
+            fields = { Expression: { value: '猫' }, Reading: { value: 'ねこ / びょう' }, Sentence: { value: '犬' } };
+            expect(await Promise.all(controller.loadDeckMembership(target, choices))).toEqual([{ kind: 'unknown', reason: 'unavailable' }]);
+            fields = { Expression: { value: '' }, Reading: { value: 'ねこ' }, Sentence: { value: '猫' } };
+            expect(await Promise.all(controller.loadDeckMembership(target, choices))).toEqual([{ kind: 'unknown', reason: 'unavailable' }]);
+            invoke.mockImplementation(async action => action === 'findNotes' ? [17] : action === 'notesInfo'
+                ? [{ noteId: 17, modelName: 'Unmapped cards', fields: { Front: { value: '猫' }, Back: { value: 'dog' } }, cards: [18], tags: [] }]
+                : [{ cardId: 18, deckName: 'Private A', queue: 0, type: 0 }]);
+            expect(await Promise.all(controller.loadDeckMembership(target, choices))).toEqual([{ kind: 'unknown', reason: 'unavailable' }]);
+        } finally { client.destroy(); }
+    });
+
+    it('uses configured lexical fields and keeps proven saved notes when another candidate is ambiguous', async () => {
+        const settings = { ...DEFAULT_SETTINGS, ankiEnabled: true, apiKey: '', ankiFieldMappings: { 'Custom words': { expression: 'Question', reading: 'Answer', sentence: 'Context' } } };
+        const client = new AnkiConnectClient(() => settings);
+        let ambiguousDeck = 'Private B';
+        vi.spyOn(client, 'invoke').mockImplementation(async action => {
+            if (action === 'findNotes') return [17, 19];
+            if (action === 'notesInfo') return [
+                { noteId: 17, modelName: 'Custom words', fields: { Question: { value: '猫' }, Answer: { value: 'ねこ' }, Context: { value: '犬' } }, cards: [18], tags: [] },
+                { noteId: 19, modelName: 'Unmapped', fields: { Front: { value: '猫' }, Back: { value: 'context' } }, cards: [20], tags: [] },
+            ];
+            if (action === 'cardsInfo') return [{ cardId: 18, deckName: 'Private A' }, { cardId: 20, deckName: ambiguousDeck }];
+            throw new Error('Unexpected action');
+        });
+        const controller = testCardActionController({ getSettings: () => settings, anki: client });
+        const choices: DeckChoice[] = ['Private A', 'Private B', 'Private C'].map(id => ({ source: 'anki', id, label: `Anki: ${id}` }));
+        try {
+            const target = { ...card, spelling: '猫', reading: 'ねこ' };
+            expect(await Promise.all(controller.loadDeckMembership(target, choices))).toEqual([{ kind: 'saved' }, { kind: 'unknown', reason: 'unavailable' }, { kind: 'not-saved' }]);
+            ambiguousDeck = 'Private A';
+            expect(await Promise.all(controller.loadDeckMembership(target, choices))).toEqual([{ kind: 'saved' }, { kind: 'not-saved' }, { kind: 'not-saved' }]);
+            settings.ankiFieldMappings['Custom words'].expression = 'Missing';
+            expect((await Promise.all(controller.loadDeckMembership(target, choices)))[0]).toEqual({ kind: 'unknown', reason: 'unavailable' });
+            settings.ankiFieldMappings['Custom words'].expression = 'Context';
+            expect((await Promise.all(controller.loadDeckMembership(target, choices)))[0]).toEqual({ kind: 'unknown', reason: 'unavailable' });
+            settings.ankiFieldMappings['Custom words'].expression = 'Question';
+            settings.ankiFieldMappings['Custom words'].reading = 'Missing';
+            expect((await Promise.all(controller.loadDeckMembership(target, choices)))[0]).toEqual({ kind: 'unknown', reason: 'unavailable' });
+            settings.ankiFieldMappings['Custom words'].reading = 'Question';
+            expect((await Promise.all(controller.loadDeckMembership(target, choices)))[0]).toEqual({ kind: 'unknown', reason: 'unavailable' });
+        } finally { client.destroy(); }
+    });
+
+    it.each([[null, null], ['', ''], [0, 1], [9, -1], [9, null], [9, '']])('rejects malformed JPDB membership pair %j rather than claiming absence', async (vid, sid) => {
+        vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ vocabulary: [[vid, sid]] }), { status: 200 })));
+        const client = new JpdbClient(() => 'deterministic-key');
+        const controller = testCardActionController({ getSettings: () => ({ ...DEFAULT_SETTINGS, apiKey: 'deterministic-key', jpdbMiningEnabled: true }), jpdb: client });
+        expect(await Promise.all(controller.loadDeckMembership({ ...card, vid: 9, sid: 1 }, [{ source: 'jpdb', id: '123', label: 'JPDB: Private' }]))).toEqual([{ kind: 'unknown', reason: 'unavailable' }]);
+    });
+
+    it.each([null, '', -1, 'garbage'])('rejects malformed Jiten readingIndex %j rather than claiming membership', async readingIndex => {
+        const client = new JitenApiClient(() => 'deterministic-key', { requestImpl: async () => [{ wordId: 9, readingIndex }] });
+        const controller = testCardActionController({ getSettings: () => ({ ...DEFAULT_SETTINGS, apiKey: '', jitenApiKey: 'deterministic-key', jpdbMiningEnabled: true }), jiten: client });
+        const target: JPDBCard = { ...card, source: 'jiten', vid: 9, sid: 0, jitenWordId: 9, jitenReadingIndex: 0 };
+        expect(await Promise.all(controller.loadDeckMembership(target, [{ source: 'jiten', id: '123', label: 'Jiten: Private' }]))).toEqual([{ kind: 'unknown', reason: 'unavailable' }]);
+    });
+
+    it('accepts decimal string IDs in strict reads and retains the legacy Study word-key fallback', async () => {
+        vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ vocabulary: [['9', '0']] }), { status: 200 })));
+        expect(await new JpdbClient(() => 'key').isCardInDeck('123', { ...card, vid: 9, sid: 0 })).toBe(true);
+        let response: unknown = [{ wordId: '9', readingIndex: '0' }];
+        const client = new JitenApiClient(() => 'key', { requestImpl: async () => response });
+        expect(await client.isCardInStudyDeck(123, { wordId: 9, readingIndex: 0 })).toBe(true);
+        response = [{ wordId: 9, readingIndex: null }];
+        await expect(client.isCardInStudyDeck(123, { wordId: 9, readingIndex: 0 })).rejects.toThrow('Invalid provider');
+        expect(await client.studyDeckWordKeys(123)).toEqual(new Set(['9:0']));
+        response = null;
+        expect(await client.studyDeckWordKeys(123)).toEqual(new Set());
+    });
     it('checks Jiten word-list IDs and reading indices, and refuses malformed membership evidence', async () => {
         const request = vi.fn(async (url: string): Promise<unknown> => url.includes('/31/') ? [{ wordId: 123, readingIndex: 2 }] : []);
         const client = new JitenApiClient(() => 'deterministic-key', { requestImpl: request });
@@ -156,7 +248,7 @@ describe('authoritative provider reads', () => {
         const invoke = vi.spyOn(client, 'invoke');
         invoke.mockImplementation(async action => {
             if (action === 'findNotes') return [17];
-            if (action === 'notesInfo') return [{ noteId: 17, modelName: 'よむ Japanese', fields: { Expression: { value: card.spelling } }, cards: [18], tags: [] }];
+            if (action === 'notesInfo') return [{ noteId: 17, modelName: 'よむ Japanese', fields: { Expression: { value: card.spelling }, Reading: { value: card.reading } }, cards: [18], tags: [] }];
             if (action === 'cardsInfo') return [{ cardId: 18, deckName: 'Private A', queue: 0, type: 0 }];
             throw new Error('Unexpected action');
         });

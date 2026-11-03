@@ -8,6 +8,8 @@ import { getPitchClass } from '../jpdb/jpdb-parser-pitch';
 import { pitchPatternFromPosition } from '../lookup/pitch-accent';
 import type { CardState, JPDBCard, JPDBGrade, JPDBRuby, JPDBToken, ReviewGradeInterval, ReviewGradeIntervals } from '../app/types';
 import { attempt, parseJson } from '../core/attempt';
+import { isRecord } from '../core/object-utils';
+import { providerReadingIndex, providerWordId } from '../core/provider-word-identity';
 
 export const JITEN_API_BASE_URL = 'https://api.jiten.moe/api';
 
@@ -635,14 +637,26 @@ export class JitenApiClient {
     async studyDeckWordKeys(deckId: number): Promise<Set<string>> {
         const response = await this.requestEndpoint<unknown>(`srs/study-decks/${Math.floor(deckId)}/word-keys`, undefined, { method: 'GET' });
         const keys = new Set<string>();
-        if (!Array.isArray(response)) throw new Error('Invalid Jiten deck word keys');
+        if (!Array.isArray(response)) return keys;
         for (const row of response) {
             const record = row as { wordId?: unknown; readingIndex?: unknown };
             const wordId = Number(record?.wordId);
-            if (!Number.isInteger(wordId) || wordId <= 0 || !Number.isInteger(Number(record?.readingIndex ?? 0))) throw new Error('Invalid Jiten deck word key');
+            if (!Number.isFinite(wordId)) continue;
             keys.add(`${wordId}:${Number(record?.readingIndex) || 0}`);
         }
         return keys;
+    }
+
+    /** Strict membership evidence; Study's legacy word-key fallback stays unchanged. */
+    async isCardInStudyDeck(deckId: number, reference: JitenCardReference): Promise<boolean> {
+        const id = normalizeJitenStudyDeckId(deckId);
+        const response = await this.requestEndpoint<unknown>(`srs/study-decks/${id}/word-keys`, undefined, { method: 'GET' });
+        if (!Array.isArray(response)) throw new Error('Invalid Jiten deck word keys');
+        const keys = response.map((value: unknown) => {
+            if (!isRecord(value)) throw new Error('Invalid Jiten deck word key');
+            return `${providerWordId(value.wordId)}:${providerReadingIndex(value.readingIndex)}`;
+        });
+        return keys.includes(`${reference.wordId}:${reference.readingIndex}`);
     }
 
     // Jiten Cards parity: the new-tab Search browser needs the full deck, not

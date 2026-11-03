@@ -1,20 +1,28 @@
 import type { JPDBCard, ReaderSettings } from '../app/types';
 import type { AnkiConnectClient } from './index';
-import { lookupKeyTermsForCard, noteLooksLikeCard } from './field-mapping';
+import { lookupKeyTermsForCard } from './field-mapping';
+import { ankiMembershipIdentity } from './membership-note';
 import { quoteAnkiSearch } from './search-escape';
 import { isRecord } from '../core/object-utils';
 import type { AnkiNoteInfo } from './types';
 
+export type AnkiDeckMembership = ReadonlyMap<string, 'saved' | 'unknown'>;
+
 /** Fresh, strict read for an explicitly opened private picker. Errors stay unknown. */
-export async function readAnkiDeckMembership(client: Pick<AnkiConnectClient, 'invoke'>, card: JPDBCard, settings: ReaderSettings): Promise<ReadonlySet<string>> {
+export async function readAnkiDeckMembership(client: Pick<AnkiConnectClient, 'invoke'>, card: JPDBCard, settings: ReaderSettings): Promise<AnkiDeckMembership> {
     const terms = lookupKeyTermsForCard(card);
     if (!terms.length) throw new Error('No Anki lookup identity');
     const ids = positiveIds(await client.invoke<unknown>('findNotes', { query: terms.map(quoteAnkiSearch).join(' OR ') }));
-    if (!ids.length) return new Set();
+    if (!ids.length) return new Map();
     const notes = membershipNotes(await client.invoke<unknown>('notesInfo', { notes: ids }), ids);
-    const cardIds = [...new Set(notes.filter(note => noteLooksLikeCard(note, card, settings)).flatMap(note => note.cards))];
-    if (!cardIds.length) return new Set();
-    return membershipDecks(await client.invoke<unknown>('cardsInfo', { cards: cardIds }), cardIds);
+    const evidence = new Map<number, 'saved' | 'unknown'>();
+    for (const note of notes) {
+        const identity = ankiMembershipIdentity(note, card, settings);
+        if (identity !== 'different') note.cards.forEach(id => evidence.set(id, identity));
+    }
+    const cardIds = [...evidence.keys()];
+    if (!cardIds.length) return new Map();
+    return membershipDecks(await client.invoke<unknown>('cardsInfo', { cards: cardIds }), evidence);
 }
 
 function positiveIds(value: unknown): number[] {
@@ -37,15 +45,16 @@ function membershipNotes(value: unknown, expected: readonly number[]): AnkiNoteI
     return notes;
 }
 
-function membershipDecks(value: unknown, expected: readonly number[]): ReadonlySet<string> {
+function membershipDecks(value: unknown, expected: ReadonlyMap<number, 'saved' | 'unknown'>): AnkiDeckMembership {
     if (!Array.isArray(value)) throw new Error('Invalid Anki cards');
     const ids = new Set<number>();
-    const decks = new Set<string>();
+    const decks = new Map<string, 'saved' | 'unknown'>();
     for (const item of value) {
-        if (!isRecord(item) || typeof item.cardId !== 'number' || !expected.includes(item.cardId) || typeof item.deckName !== 'string' || !item.deckName.trim()) throw new Error('Invalid Anki card');
+        if (!isRecord(item) || typeof item.cardId !== 'number' || !expected.has(item.cardId) || typeof item.deckName !== 'string' || !item.deckName.trim()) throw new Error('Invalid Anki card');
         ids.add(item.cardId);
-        decks.add(item.deckName);
+        const state = expected.get(item.cardId);
+        if (state && decks.get(item.deckName) !== 'saved') decks.set(item.deckName, state);
     }
-    if (ids.size !== expected.length) throw new Error('Incomplete Anki cards');
+    if (ids.size !== expected.size) throw new Error('Incomplete Anki cards');
     return decks;
 }

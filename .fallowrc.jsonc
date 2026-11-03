@@ -88,6 +88,8 @@
     "scripts/manual/youtube-fullscreen-smoke.mjs",
     "scripts/yt-live-harness.mjs",
     "scripts/manual/extension-boot-smoke.mjs",
+    // Direct browser fixture for the closed picker's public geometry boundary.
+    "scripts/private-deck-status-smoke.mjs",
     // Documented check-performance profiler; invoked directly when capturing
     // timing baselines rather than from an npm script.
     "scripts/measure-check.mjs",

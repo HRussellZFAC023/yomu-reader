@@ -16,12 +16,13 @@ const MINING_DRAWER_SELECTOR = '[data-action="mining-collapse"]';
 const DECK_SELECT_CLASS = 'jpdb-reader-deck-select';
 // The dropdown lives in a closed shadow root: its deck names never reach the page's DOM (ADR-0020).
 const DECK_SELECT_STYLE = ':host{display:block;min-width:0}'
-    + 'select{box-sizing:border-box;width:100%;min-height:36px;padding:0 10px;border:1px solid var(--jpdb-reader-accent);border-radius:8px;'
+    + 'select{box-sizing:border-box;width:100%;height:36px;padding:0 10px;border:1px solid var(--jpdb-reader-accent);border-radius:8px;'
     + 'background:var(--jpdb-reader-surface);color:var(--jpdb-reader-accent-readable);font:600 13px/1.2 var(--jpdb-reader-font,system-ui);cursor:pointer}'
     + 'select:focus-visible{outline:2px solid var(--jpdb-reader-accent);outline-offset:2px}select:disabled{opacity:.6;cursor:progress}'
-    + '#membership-status{font:12px/1.5 var(--jpdb-reader-font,system-ui);color:var(--jpdb-reader-text);overflow-wrap:anywhere}'
-    + 'ul{list-style:none;padding:0;margin:6px 0;max-height:140px;overflow:auto}li{height:4.5em;overflow:hidden}'
-    + 'strong{display:block;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font-weight:500}li span{display:block}p{margin:4px 0}';
+    + '#membership-status{box-sizing:border-box;height:192px;contain:layout size style;overflow:hidden;font:12px/1.5 var(--jpdb-reader-font,system-ui);color:var(--jpdb-reader-text);overflow-wrap:anywhere}'
+    + '#membership-status:not([hidden]){display:grid;grid-template-rows:140px 44px;gap:8px}'
+    + 'ul{list-style:none;padding:0;margin:0;height:140px;overflow:auto}li{height:4.5em;overflow:hidden}'
+    + 'strong{display:block;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font-weight:500}li span{display:block}p{height:44px;margin:0;overflow:auto}';
 
 const deckSelects = new WeakMap<Element, HTMLSelectElement>();
 

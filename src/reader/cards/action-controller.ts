@@ -98,6 +98,12 @@ interface PopoverReviewTargetSelection {
 }
 type ResolvedAnkiWordAudio = Awaited<ReturnType<typeof resolveAnkiWordAudio>>;
 
+const ANKI_DECK_MEMBERSHIP = {
+    saved: { kind: 'saved' },
+    'not-saved': { kind: 'not-saved' },
+    unknown: { kind: 'unknown', reason: 'unavailable' },
+} satisfies Record<'saved' | 'not-saved' | 'unknown', DeckChoiceMembership>;
+
 interface SelectedDeckChoice {
     source: SrsDeckSource;
     id: string;
@@ -128,7 +134,8 @@ export class CardActionController {
             try {
                 let member: boolean;
                 if (choice.source === 'anki' && ankiDecks) {
-                    member = (await ankiDecks).has(choice.id);
+                    const state = (await ankiDecks).get(choice.id);
+                    return ANKI_DECK_MEMBERSHIP[state ?? 'not-saved'];
                 } else if (choice.source === 'yomu-local' && settings.yomuLocalSrsEnabled && this.options.srsAdapters?.['yomu-local']?.lookupCards) {
                     const cards = await this.options.srsAdapters['yomu-local'].lookupCards([{ expression: card.spelling, reading: card.reading, language: card.language ?? activeLearningTargetLanguage() }]);
                     member = cards.length > 0;
@@ -139,7 +146,7 @@ export class CardActionController {
                     if (choice.source === 'jpdb') member = await this.options.jpdb.isCardInDeck(choice.id, word);
                     else if (this.options.jiten) {
                         const reference = jitenCardReference(word);
-                        member = (await this.options.jiten.studyDeckWordKeys(Number(choice.id))).has(`${reference.wordId}:${reference.readingIndex}`);
+                        member = await this.options.jiten.isCardInStudyDeck(Number(choice.id), reference);
                     } else return { kind: 'unknown', reason: 'unavailable' };
                 } else return { kind: 'unknown', reason: 'unsupported' };
                 return { kind: member ? 'saved' : 'not-saved' };

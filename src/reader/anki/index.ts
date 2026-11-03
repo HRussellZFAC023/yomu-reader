@@ -3,6 +3,7 @@ import { yomuAnkiCompanion } from '../companions/registry';
 import { getUserscriptHttpRequest } from '../userscript/index';
 export { canDirectFetchAnkiConnectFrom } from './connection-origin';
 import type { AnkiWordAudioMedia } from './audio';
+import type { AnkiDeckMembership } from './deck-membership';
 import type {
     AnkiAudioMergeMode,
     AnkiCardContext,
@@ -45,7 +46,7 @@ export interface AnkiConnectClient {
     addMissingYomuModelFields(expectedModelName: string): Promise<string[]>;
     warmStatusIndex(): Promise<AnkiStatusIndex | null>;
     findExistingCards(card: JPDBCard): Promise<AnkiLookupResult>;
-    findDeckMembership(card: JPDBCard): Promise<ReadonlySet<string>>;
+    findDeckMembership(card: JPDBCard): Promise<AnkiDeckMembership>;
     findCachedStatusBatch(cards: JPDBCard[]): Promise<AnkiLookupResult[]>;
     findExistingCardsBatch(cards: JPDBCard[]): Promise<AnkiLookupResult[]>;
     rebuildStatusIndex(cardIds?: number[], now?: number, rebuildLeaseOwner?: string): Promise<AnkiStatusIndex | null>;
