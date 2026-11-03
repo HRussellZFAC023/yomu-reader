@@ -3333,6 +3333,17 @@ class LruCache {
   this.map.clear();
   }
 }
+function providerInteger(value, minimum) {
+  const numeric = typeof value === "string" && /^\d+$/.test(value.trim()) ? Number(value) : value;
+  if (typeof numeric !== "number" || !Number.isSafeInteger(numeric) || numeric < minimum) throw new Error("Invalid provider word identity");
+  return numeric;
+}
+function providerWordId(value) {
+  return providerInteger(value, 1);
+}
+function providerReadingIndex(value) {
+  return providerInteger(value, 0);
+}
 const TOKEN_FIELDS = ["vocabulary_index", "position", "length", "furigana"];
 const VOCABULARY_FIELDS = [
   "vid",
@@ -3444,6 +3455,22 @@ class JpdbClient {
   if (!isDeckMembershipCard(card)) return false;
   const pool = await this.cachedUserDeckPool();
   return pool.has(vocabularyPairKey(card.vid, card.sid));
+  }
+  /** Explicit private picker read: no pooled cache or failure-as-absence fallback. */
+  // Reader/NewTab mount callback → CardActionController.loadDeckMembership
+  // → the JPDB companion facade; never a passive render-data request.
+  async isCardInDeck(deckId, card) {
+  if (!isDeckMembershipCard(card)) throw new Error("No JPDB word identity");
+  const response = await this.api.request("deck/list-vocabulary", {
+    id: normalizeDeckRequestId(deckId),
+    fetch_occurences: false
+  });
+  if (!isRecord(response) || !Array.isArray(response.vocabulary)) throw new Error("Invalid JPDB deck vocabulary");
+  const pairs = response.vocabulary.map((value) => {
+    if (!Array.isArray(value) || value.length !== 2) throw new Error("Invalid JPDB deck vocabulary");
+    return [providerWordId(value[0]), providerReadingIndex(value[1])];
+  });
+  return pairs.some(([vid, sid]) => vid === card.vid && sid === card.sid);
   }
   // Used by mining controls to toggle JPDB deck membership.
   async removeFromDeck(deckId, card) {
@@ -3791,11 +3818,11 @@ function isDeckId(value) {
 }
 function sandboxSharedState(key, create) {
   const realm = globalThis;
-  const slot = Symbol.for(key);
-  const existing = realm[slot];
+  const slot2 = Symbol.for(key);
+  const existing = realm[slot2];
   if (existing && typeof existing === "object") return existing;
   const created = create();
-  Object.defineProperty(realm, slot, {
+  Object.defineProperty(realm, slot2, {
   configurable: true,
   enumerable: false,
   value: created,
@@ -3841,44 +3868,44 @@ const { valuesByElement, pendingValues, replayableBlueprints, domainSlots } = sa
   domainSlots: /* @__PURE__ */ new Map()
 }));
 function createPrivateElementStateSlot(domain, snapshot, options = {}) {
-  const slot = domainSlot(domain);
+  const slot2 = domainSlot(domain);
   return {
   attributes(value) {
-    const token = registerPendingValue(slot, snapshot(value), options.replayable === true);
+    const token = registerPendingValue(slot2, snapshot(value), options.replayable === true);
     return ` ${TOKEN_ATTRIBUTE}="${token}"`;
   },
   prepareSerialization(element, value) {
-    const token = registerPendingValue(slot, snapshot(value), options.replayable === true);
+    const token = registerPendingValue(slot2, snapshot(value), options.replayable === true);
     const current = element.getAttribute(TOKEN_ATTRIBUTE)?.trim();
     element.setAttribute(TOKEN_ATTRIBUTE, current ? `${current} ${token}` : token);
   },
   bind(element, value) {
     element.removeAttribute(TOKEN_ATTRIBUTE);
-    setPrivateValue(element, slot, snapshot(value));
+    setPrivateValue(element, slot2, snapshot(value));
   },
   read(element) {
-    return element ? valuesByElement.get(element)?.get(slot) : void 0;
+    return element ? valuesByElement.get(element)?.get(slot2) : void 0;
   }
   };
 }
 function domainSlot(domain) {
   const existing = domainSlots.get(domain);
   if (existing) return existing;
-  const slot = Symbol(`yomu-private-element-state:${domain}`);
-  domainSlots.set(domain, slot);
-  return slot;
+  const slot2 = Symbol(`yomu-private-element-state:${domain}`);
+  domainSlots.set(domain, slot2);
+  return slot2;
 }
-function registerPendingValue(slot, value, replayable) {
+function registerPendingValue(slot2, value, replayable) {
   const token = privateStateToken();
-  const pending = { slot, value };
+  const pending = { slot: slot2, value };
   pendingValues.set(token, pending);
   if (replayable) replayableBlueprints.set(token, pending);
   prunePendingValues();
   return token;
 }
-function setPrivateValue(element, slot, value) {
+function setPrivateValue(element, slot2, value) {
   const values = valuesByElement.get(element) ?? /* @__PURE__ */ new Map();
-  values.set(slot, value);
+  values.set(slot2, value);
   valuesByElement.set(element, values);
 }
 function prunePendingValues() {
@@ -7371,7 +7398,13 @@ const EN = {
   yomuLocalSrsSaveInterrupted: `Your ${YOMU_DECK_LABEL} was not saved because saving was interrupted. Try again.`,
   addedToYomuLocal: `Added to your ${YOMU_DECK_LABEL}.`,
   // A よむ deck word kept without a schedule (Library, Stats and the popups).
-  savedWord: "Saved"
+  savedWord: "Saved",
+  deckPickerSaved: "Saved in this deck",
+  deckPickerNotSaved: "Not saved in this deck",
+  deckPickerChecking: "Checking…",
+  deckPickerUnsupported: "Status unknown: this destination cannot check saved words",
+  deckPickerUnavailable: "Status unknown: could not check this deck",
+  deckPickerStatusHelp: "Checked when opened. Saved decks remain selectable; sentence updates depend on the destination."
 };
 const JA = {
   collectNoDestination: "この単語を追加できるデッキがありません。設定でデッキを有効にしてください。",
@@ -7396,7 +7429,13 @@ const JA = {
   yomuLocalSrsStorageFailed: "よむデッキを保存できませんでした。ブラウザーの保存容量が不足している可能性があります。サイトの保存容量を空けてから、もう一度お試しください。",
   yomuLocalSrsSaveInterrupted: "保存が中断されたため、よむデッキに保存されませんでした。もう一度お試しください。",
   addedToYomuLocal: "よむデッキに追加しました。",
-  savedWord: "保存済み"
+  savedWord: "保存済み",
+  deckPickerSaved: "このデッキに保存済み",
+  deckPickerNotSaved: "このデッキには未保存",
+  deckPickerChecking: "確認中…",
+  deckPickerUnsupported: "保存状況不明：この保存先では保存済みの単語を確認できません",
+  deckPickerUnavailable: "保存状況不明：このデッキを確認できませんでした",
+  deckPickerStatusHelp: "開くたびに確認します。保存済みのデッキも選択できます。例文の更新は保存先の対応によります。"
 };
 const COLLECTION_COPY = { en: EN, ja: JA };
 const EN_OCR_STATUS_COPY = {
@@ -7501,8 +7540,79 @@ const REVIEW_SERVICES_COPY = {
   en: EN_REVIEW_SERVICES_COPY,
   ja: JA_REVIEW_SERVICES_COPY
 };
+const SELECTED_TEXT_COPY = {
+  en: {
+  desktopShortcutImportInvalid: "This backup contains an invalid desktop shortcut. No settings were imported.",
+  desktopShortcutImportTaken: "A desktop shortcut is unavailable. No settings were imported. Choose another shortcut and try again.",
+  desktopShortcutImportSaveFailed: "Settings could not be imported. Check storage access and try again.",
+  desktopShortcutImportPartial: "Reader settings could not be saved. Desktop shortcuts could not be restored and may have changed. Check the shortcuts below before trying again.",
+  desktopShortcutImportUnconfirmed: "Reader settings could not be saved. Desktop shortcuts may have changed, but their current state is unavailable. Refresh shortcuts before editing them.",
+  desktopShortcutsUnavailable: "Current shortcuts unavailable",
+  desktopShortcutsRefresh: "Refresh shortcuts",
+  desktopShortcutsRefreshed: "Current shortcuts refreshed.",
+  desktopSelectedText: "Selected text",
+  desktopSelectedTextHelp: "Select Japanese text in Word, a PDF, or another app, then press the shortcut. No screenshot or OCR is used. Your clipboard stays unchanged.",
+  desktopSelectedTextShortcut: "Selected-text shortcut",
+  desktopSelectedTextEnabled: "Enable selected-text shortcut",
+  desktopSelectedTextShortcutHelp: "Focus the field and press a shortcut. Keep it different from Screen capture.",
+  desktopSelectedTextReady: "Shortcut ready",
+  desktopSelectedTextDisabled: "Shortcut disabled. The tray action remains available.",
+  desktopSelectedTextTaken: "That shortcut is unavailable. Choose another key combination.",
+  desktopSelectedTextInvalid: "Use a letter or function key with Ctrl, Alt, Shift, or Command.",
+  desktopSelectedTextUnavailable: "This app does not expose its selection. Copy the text yourself, then paste it below, or use Read screen for OCR.",
+  desktopSelectedTextEmpty: "No selected text was found. Select text in your source app and try again, or paste text below.",
+  desktopSelectedTextPermission: "Selection access was denied. On macOS, allow Accessibility and System Events automation for よむ Desktop in System Settings, then try again. You can also paste text below.",
+  desktopSelectedTextUnsupported: "Direct selection is available on Windows, macOS, and Linux X11. On Wayland, copy the text yourself and paste it below, or use Read screen.",
+  desktopSelectedTextTooLong: "Select at most 20,000 characters, or paste a shorter passage below.",
+  desktopSelectedTextExpired: "This selection has expired. Return to your source app and use the shortcut again.",
+  desktopSelectedTextRetry: "Try again in 3 seconds",
+  desktopSelectedTextRetryHelp: "After clicking, return to your source app and select the text within 3 seconds.",
+  desktopSelectedTextPaste: "Paste text",
+  desktopSelectedTextLookUp: "Look up text",
+  desktopSelectedTextLookingUp: "Looking up text…",
+  desktopSelectedTextReaderFailed: "The dictionary could not start. Try again or open Settings.",
+  desktopSelectedTextNoJapanese: "Select Japanese text to look it up.",
+  desktopSelectedTextTray: "Look up selected text (in 3 seconds)",
+  desktopSelectedTextClose: "Close"
+  },
+  ja: {
+  desktopShortcutImportInvalid: "このバックアップには無効なデスクトップ用ショートカットがあります。設定はインポートされていません。",
+  desktopShortcutImportTaken: "デスクトップ用ショートカットを利用できません。設定はインポートされていません。別のキーを選んで再試行してください。",
+  desktopShortcutImportSaveFailed: "設定をインポートできませんでした。保存先へのアクセスを確認して再試行してください。",
+  desktopShortcutImportPartial: "Readerの設定を保存できませんでした。デスクトップ用ショートカットを元に戻せず、変更が残っている可能性があります。下のショートカットを確認してから再試行してください。",
+  desktopShortcutImportUnconfirmed: "Readerの設定を保存できませんでした。デスクトップ用ショートカットが変更された可能性がありますが、現在の状態を確認できません。編集する前にショートカットの状態を更新してください。",
+  desktopShortcutsUnavailable: "現在のショートカットを確認できません",
+  desktopShortcutsRefresh: "ショートカットの状態を更新",
+  desktopShortcutsRefreshed: "現在のショートカットを確認しました。",
+  desktopSelectedText: "選択テキスト",
+  desktopSelectedTextHelp: "Word、PDF、ほかのアプリで日本語を選択してショートカットを押すと調べられます。スクリーンショットやOCRは使わず、クリップボードも変更しません。",
+  desktopSelectedTextShortcut: "選択テキストのショートカット",
+  desktopSelectedTextEnabled: "選択テキストのショートカットを有効にする",
+  desktopSelectedTextShortcutHelp: "入力欄でキーを押して設定します。画面読み取りとは別のキーにしてください。",
+  desktopSelectedTextReady: "ショートカットを利用できます",
+  desktopSelectedTextDisabled: "ショートカットは無効です。トレイからは引き続き使えます。",
+  desktopSelectedTextTaken: "このショートカットは使えません。別のキーに変更してください。",
+  desktopSelectedTextInvalid: "文字キーまたはファンクションキーとCtrl、Alt、Shift、Commandを組み合わせてください。",
+  desktopSelectedTextUnavailable: "このアプリから選択テキストを取得できません。自分でコピーして下に貼り付けるか、画面読み取りのOCRをお使いください。",
+  desktopSelectedTextEmpty: "選択テキストが見つかりません。元のアプリで選択して再試行するか、下に貼り付けてください。",
+  desktopSelectedTextPermission: "選択テキストへのアクセスが許可されていません。macOSではシステム設定でよむDesktopのアクセシビリティとSystem Eventsの操作を許可して再試行してください。下に貼り付けることもできます。",
+  desktopSelectedTextUnsupported: "直接取得はWindows、macOS、Linux X11に対応しています。Waylandでは自分でコピーして下に貼り付けるか、画面読み取りをお使いください。",
+  desktopSelectedTextTooLong: "2万文字以内を選択するか、短い文章を下に貼り付けてください。",
+  desktopSelectedTextExpired: "選択テキストの有効期限が切れました。元のアプリに戻り、ショートカットを押してください。",
+  desktopSelectedTextRetry: "3秒後に再試行",
+  desktopSelectedTextRetryHelp: "押したら元のアプリに戻り、3秒以内にテキストを選択してください。",
+  desktopSelectedTextPaste: "テキストを貼り付ける",
+  desktopSelectedTextLookUp: "テキストを調べる",
+  desktopSelectedTextLookingUp: "検索中…",
+  desktopSelectedTextReaderFailed: "辞書を起動できませんでした。再試行するか設定を開いてください。",
+  desktopSelectedTextNoJapanese: "調べたい日本語を選択してください。",
+  desktopSelectedTextTray: "選択テキストを調べる（3秒後）",
+  desktopSelectedTextClose: "閉じる"
+  }
+};
 const COPY = {
   en: {
+  ...SELECTED_TEXT_COPY.en,
   ...PRACTICE_SESSION_COPY.en,
   ...COLLECTION_COPY.en,
   ...SITE_INTERACTION_COPY.en,
@@ -7602,7 +7712,11 @@ const COPY = {
   twoPoint: "Two point: FAIL / PASS",
   settingsLanguage: "Settings language",
   translationLanguage: "Translation language",
-  translationLanguageHelp: "Choose the language for automatic sentence and example translations.",
+  translationLanguageHelp: "Choose the language for automatic sentence, example and opted-in dictionary translations.",
+  definitionTranslationTitle: "Translate dictionary definitions",
+  definitionTranslationHelp: "Optional Google machine translation into your translation language. Only definitions and part-of-speech text from selected sources are sent. Imported dictionary text may contain personal content. Originals stay available; sources already in that language are unchanged.",
+  definitionTranslationCredit: "Google machine translation",
+  definitionTranslationOriginal: "Show original definition",
   automatic: "Automatic",
   english: "English",
   japanese: "日本語",
@@ -8593,6 +8707,7 @@ function parseUiCopyTable(rows) {
   return copy;
 }
 const JA_COPY = {
+  ...SELECTED_TEXT_COPY.ja,
   ...SITE_INTERACTION_COPY.ja,
   ...parseUiCopyTable(String.raw`
 settingsTitle	{APP_NAME} 設定
@@ -9125,7 +9240,11 @@ fourGradeShortcutsHelp	4段階の復習では、最初の4つのショートカ�
 twoPoint	2段階: 失敗 / 合格
 settingsLanguage	設定の表示言語
 translationLanguage	翻訳先の言語
-translationLanguageHelp	文や例文の自動翻訳先の言語を選びます。
+translationLanguageHelp	文・例文や、選択した辞書の自動翻訳先の言語を選びます。
+definitionTranslationTitle	辞書の語義を翻訳
+definitionTranslationHelp	選択したソースの語義と品詞を、翻訳先の言語へGoogleで機械翻訳します（任意）。インポートした辞書には個人的な内容が含まれる場合があります。原文も表示でき、同じ言語の語義はそのまま表示します。
+definitionTranslationCredit	Googleによる機械翻訳
+definitionTranslationOriginal	語義の原文を表示
 theme	テーマ
 auto	自動
 dark	ダーク
@@ -11667,6 +11786,43 @@ function finiteInteger(value, minimum) {
 function classes(...values) {
   return values.map((value) => value?.trim() ?? "").filter(Boolean).join(" ");
 }
+const OFFICIAL_DICTIONARY_LANGUAGE_BY_NAME = Object.freeze({
+  dutch: "nl",
+  english: "en",
+  french: "fr",
+  german: "de",
+  hungarian: "hu",
+  portuguese: "pt",
+  russian: "ru",
+  spanish: "es",
+  swedish: "sv"
+});
+function dictionaryDefinitionLanguage(dictionary) {
+  const normalized = dictionary.normalize("NFKC");
+  const pair = normalized.match(/\[(?:JA|JP)-([A-Z]{2,3})(?:\s|\])/u);
+  if (pair?.[1]) return dictionaryLanguageCode(pair[1]);
+  const officialTitle = normalized.match(/\b(?:JMdict|JMnedict|KANJIDIC(?:2)?)\s*\(([A-Z]{2,3}(?:-[A-Z]{2,4})?)\)/iu);
+  if (officialTitle?.[1]) return dictionaryLanguageCode(officialTitle[1]);
+  const officialArchive = normalized.match(/\b(?:JMdict|KANJIDIC(?:2)?)[_ -](dutch|english|french|german|hungarian|portuguese|russian|spanish|swedish)(?:\.zip)?$/iu);
+  if (officialArchive?.[1]) return OFFICIAL_DICTIONARY_LANGUAGE_BY_NAME[officialArchive[1].toLowerCase()] ?? "auto";
+  if (/\b(?:jitendex|jmnedict(?:\.zip)?|dojg|new saitou)\b/iu.test(normalized) || /新和英|斎藤和英/u.test(normalized)) return "en";
+  if (/\bJapanese-Mongolian\b/iu.test(normalized)) return "mn";
+  if (/\bJapanese-German\b/iu.test(normalized)) return "de";
+  if (/\bJapanese-Portuguese\b/iu.test(normalized)) return "pt";
+  if (/\bFrench-Japanese\b/iu.test(normalized)) return "fr";
+  if (/\bEnglish\b/iu.test(normalized)) return "en";
+  return "auto";
+}
+function dictionaryLanguageCode(value) {
+  const code = value.toLowerCase();
+  if (code === "jp") return "ja";
+  if (code === "cn") return "zh";
+  return code;
+}
+const slot = createPrivateElementStateSlot("definition-translation", (value) => Object.freeze({ ...value }), { replayable: true });
+function definitionTranslationAttributes(payload, sourceId, sourceLanguage = dictionaryDefinitionLanguage(sourceId)) {
+  return `data-definition-translation-text${slot.attributes({ payload, sourceId, sourceLanguage, isCurrent: () => true })}`;
+}
 function renderJpdbDefinitionSource(card, sourceAttributes, info = null, language = "en", title = "JPDB") {
   const meanings = renderWithMoreDisclosure(
   jpdbDefinitionMeanings(card, info).map((meaning) => `<div class="jpdb-reader-meaning">${escapeHtml(meaning)}</div>`),
@@ -11678,7 +11834,7 @@ function renderJpdbDefinitionSource(card, sourceAttributes, info = null, languag
   return `
         <details class="jpdb-reader-local jpdb-reader-source-card" data-source="jpdb" ${cardHighlightScopeAttributes(card)} ${sourceAttributes(definitionSourceStateKey(JPDB_DEFINITION_SOURCE_ID), true)}>
             <summary class="jpdb-reader-local-title">${escapeHtml(title)}</summary>
-            ${meanings ? `<div class="jpdb-reader-meanings">${meanings}</div>` : ""}
+            ${meanings ? `<div class="jpdb-reader-meanings" ${definitionTranslationAttributes(jpdbDefinitionMeanings(card, info).join("\n"), JPDB_DEFINITION_SOURCE_ID, "en")}>${meanings}</div>` : ""}
             ${extras}
         </details>
     `;
