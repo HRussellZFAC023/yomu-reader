@@ -17,6 +17,7 @@ const HASHED_COMPANION = /^yomu-[a-z0-9-]+\.[0-9a-f]{12}\.user\.js$/;
 const HASHED_READER_CSS = /^yomu\.[0-9a-f]{12}\.css$/;
 const COMPANION_URL = /^https:\/\/yomureader\.com\/greasyfork\/(yomu-[a-z0-9-]+\.[0-9a-f]{12}\.user\.js)(?:#|$)/;
 const CSS_URL = /^https:\/\/yomureader\.com\/(yomu\.[0-9a-f]{12}\.css)(?:#|$)/;
+const CURRENT_HEADER_PATHS = ['dist/yomu.user.js', 'docs/public/yomu.user.js'];
 
 export function pinnedArtifactPaths(header) {
     const pinned = new Set();
@@ -50,42 +51,32 @@ function contentAddressedArtifacts(root) {
 }
 
 function retainedArtifactPaths(root) {
-    if (isShallowRepository(root)) {
-        const retained = retainedArtifactPathsFromManifest(root);
-        for (const relativePath of ['dist/yomu.user.js', 'docs/public/yomu.user.js']) {
-            const committed = gitShow(root, `HEAD:${relativePath}`);
-            if (committed) for (const path of pinnedArtifactPaths(committed)) retained.add(path);
-            const absolutePath = join(root, relativePath);
-            if (!existsSync(absolutePath)) continue;
-            for (const path of pinnedArtifactPaths(readFileSync(absolutePath, 'utf8'))) retained.add(path);
-        }
-        return retained;
-    }
-    return retainedArtifactPathsFromHistory(root);
+    if (!isShallowRepository(root)) return retainedArtifactPathsFromHistory(root);
+    const headers = [...workingHeaders(root), ...CURRENT_HEADER_PATHS.flatMap(path => gitHeader(root, 'HEAD', path))];
+    return new Set([...retainedArtifactPathsFromManifest(root), ...headers.flatMap(header => [...pinnedArtifactPaths(header.code)])]);
 }
 
 /** Restore immutable pins removed by an earlier build, before any pruning. */
 export function restoreRetainedContentAddressedAssets(root) {
-    const refs = ['HEAD', ...supportedHeaders(root).flatMap(header => header.ref ? [header.ref] : [])];
-    const restored = [];
-    for (const path of retainedArtifactPaths(root)) {
-        if (existsSync(join(root, path))) continue;
-        const match = path.match(/^docs\/public\/(?:greasyfork\/yomu-[a-z0-9-]+\.([a-f0-9]{12})\.user\.js|yomu\.([a-f0-9]{12})\.css)$/);
-        if (!match) throw new Error(`Cannot restore an invalid content-addressed path: ${path}`);
-        const hash = match[1] ?? match[2];
-        let recovered;
-        for (const ref of new Set(refs)) {
-            const bytes = gitArtifact(root, `${ref}:${path}`);
-            if (bytes && createHash('sha256').update(bytes).digest('hex').startsWith(hash)) {
-                recovered = { ref, bytes }; break;
-            }
-        }
-        if (!recovered) throw new Error(`Cannot recover required content-addressed asset from Git: ${path}`);
+    const refs = new Set(['HEAD', ...supportedHeaders(root).flatMap(header => header.ref ? [header.ref] : [])]);
+    const missing = [...retainedArtifactPaths(root)].filter(path => !existsSync(join(root, path)));
+    return missing.map(path => {
+        const recovered = recoverGitArtifact(root, path, refs);
         mkdirSync(dirname(join(root, path)), { recursive: true });
         writeFileSync(join(root, path), recovered.bytes);
-        restored.push({ path, ref: recovered.ref, bytes: recovered.bytes.length });
+        return { path, ref: recovered.ref, bytes: recovered.bytes.length };
+    });
+}
+
+function recoverGitArtifact(root, path, refs) {
+    const match = path.match(/^docs\/public\/(?:greasyfork\/yomu-[a-z0-9-]+\.([a-f0-9]{12})\.user\.js|yomu\.([a-f0-9]{12})\.css)$/);
+    if (!match) throw new Error(`Cannot restore an invalid content-addressed path: ${path}`);
+    const hash = match[1] ?? match[2];
+    for (const ref of refs) {
+        const bytes = gitArtifact(root, `${ref}:${path}`);
+        if (bytes && createHash('sha256').update(bytes).digest('hex').startsWith(hash)) return { ref, bytes };
     }
-    return restored;
+    throw new Error(`Cannot recover required content-addressed asset from Git: ${path}`);
 }
 
 export function contentAddressedRetentionManifest(root) {
@@ -201,22 +192,12 @@ export function contentAddressedRetentionReport(root) {
 }
 
 function supportedHeaders(root) {
-    const headers = [];
-    const currentHeaderCodes = new Set();
-    for (const relativePath of ['dist/yomu.user.js', 'docs/public/yomu.user.js']) {
-        const absolutePath = join(root, relativePath);
-        if (existsSync(absolutePath)) {
-            const code = readFileSync(absolutePath, 'utf8');
-            headers.push({ label: relativePath, code });
-            currentHeaderCodes.add(code.trim());
-        }
-    }
-
+    const headers = workingHeaders(root);
+    const currentHeaderCodes = new Set(headers.map(header => header.code.trim()));
     const releaseTags = reachableReleaseTags(root).slice(0, RELEASE_RETENTION_COUNT);
     for (const ref of new Set([...releaseTags, ...SUPPORTED_RELEASE_REFS])) {
         if (!hasGitRef(root, ref)) continue;
-        const code = gitShow(root, `${ref}:dist/yomu.user.js`);
-        if (code != null) headers.push({ label: ref, ref, code });
+        headers.push(...gitHeader(root, ref, 'dist/yomu.user.js'));
     }
 
     // Tags identify releases, but generated-asset commits can carry a newer
@@ -228,6 +209,18 @@ function supportedHeaders(root) {
         headers.push(header);
     }
     return headers;
+}
+
+function workingHeaders(root) {
+    return CURRENT_HEADER_PATHS.flatMap(path => {
+        const absolute = join(root, path);
+        return existsSync(absolute) ? [{ label: path, code: readFileSync(absolute, 'utf8') }] : [];
+    });
+}
+
+function gitHeader(root, ref, path) {
+    const code = gitShow(root, `${ref}:${path}`);
+    return code === null ? [] : [{ label: ref, ref, code }];
 }
 
 function reachableReleaseTags(root) {

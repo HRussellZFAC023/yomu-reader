@@ -6,7 +6,7 @@ import { dirname, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { afterEach, describe, expect, it } from 'vitest';
 // @ts-expect-error plain .mjs script module without type declarations
-import { RELEASE_RETENTION_COUNT, SUPPORTED_RELEASE_REFS, contentAddressedRetentionManifest, contentAddressedRetentionReport, isShallowRepository, pinnedArtifactPaths, retentionManifestIsCurrent, retentionManifestShortfall } from '../../scripts/lib/content-addressed-retention.mjs';
+import { RELEASE_RETENTION_COUNT, SUPPORTED_RELEASE_REFS, contentAddressedRetentionManifest, contentAddressedRetentionReport, isShallowRepository, pinnedArtifactPaths, restoreRetainedContentAddressedAssets, retentionManifestIsCurrent, retentionManifestShortfall } from '../../scripts/lib/content-addressed-retention.mjs';
 
 const repositories: string[] = [];
 
@@ -64,6 +64,26 @@ function installPruner(root: string): string {
 
 function git(root: string, ...args: string[]): void {
     execFileSync('git', args, { cwd: root, stdio: 'pipe' });
+}
+
+function cloneRepository(source: string, options: string[]): string {
+    const clone = mkdtempSync(join(tmpdir(), 'yomu-retention-clone-'));
+    repositories.push(clone);
+    execFileSync('git', ['-c', 'core.autocrlf=false', 'clone', '--quiet', ...options, pathToFileURL(source).href, clone], { stdio: 'pipe' });
+    return clone;
+}
+
+function writeNextBuild(root: string): void {
+    const next = header('555555555555', '666666666666');
+    write(root, 'dist/yomu.user.js', next); write(root, 'docs/public/yomu.user.js', next);
+    write(root, 'docs/public/greasyfork/yomu-runtime.555555555555.user.js');
+    write(root, 'docs/public/yomu.666666666666.css');
+}
+
+function expectPriorReleaseBytes(root: string): void {
+    for (const pin of PRIOR_RELEASE_PINS) {
+        expect(createHash('sha256').update(readFileSync(join(root, pin.path))).digest('base64')).toBe(pin.integrity);
+    }
 }
 
 function repository(): string {
@@ -209,9 +229,7 @@ describe('content-addressed artifact retention', () => {
         git(source, 'commit', '--quiet', '-m', 'retention manifest');
         expect(retentionManifestIsCurrent(source)).toBe(true);
 
-        const clone = mkdtempSync(join(tmpdir(), 'yomu-retention-shallow-'));
-        repositories.push(clone);
-        execFileSync('git', ['clone', '--quiet', '--depth', '1', pathToFileURL(source).href, clone], { stdio: 'pipe' });
+        const clone = cloneRepository(source, ['--depth', '1']);
 
         expect(isShallowRepository(clone)).toBe(true);
         const report = contentAddressedRetentionReport(clone);
@@ -222,14 +240,9 @@ describe('content-addressed artifact retention', () => {
 
     it('retains the immediately previous release pins when a shallow build replaces both current headers', () => {
         const source = releasedRepository();
-        const clone = mkdtempSync(join(tmpdir(), 'yomu-retention-upgrade-'));
-        repositories.push(clone);
-        execFileSync('git', ['clone', '--quiet', '--depth', '1', pathToFileURL(source).href, clone], { stdio: 'pipe' });
+        const clone = cloneRepository(source, ['--depth', '1']);
         expect(isShallowRepository(clone)).toBe(true);
-        const next = header('555555555555', '666666666666');
-        write(clone, 'dist/yomu.user.js', next); write(clone, 'docs/public/yomu.user.js', next);
-        write(clone, 'docs/public/greasyfork/yomu-runtime.555555555555.user.js');
-        write(clone, 'docs/public/yomu.666666666666.css');
+        writeNextBuild(clone);
         const report = contentAddressedRetentionReport(clone);
         for (const pin of PRIOR_RELEASE_PINS) {
             expect(report.retained, pin.path).toContain(pin.path);
@@ -239,16 +252,11 @@ describe('content-addressed artifact retention', () => {
 
     it('repairs already-pruned previous release pins from a blob-filtered release history before pruning again', () => {
         const source = releasedRepository();
-        const next = header('555555555555', '666666666666');
-        write(source, 'dist/yomu.user.js', next); write(source, 'docs/public/yomu.user.js', next);
-        write(source, 'docs/public/greasyfork/yomu-runtime.555555555555.user.js');
-        write(source, 'docs/public/yomu.666666666666.css');
+        writeNextBuild(source);
         for (const pin of PRIOR_RELEASE_PINS) rmSync(join(source, pin.path));
         git(source, 'add', '.'); git(source, 'commit', '--quiet', '-m', 'previous shallow build pruned published pins');
         git(source, 'config', 'uploadpack.allowFilter', 'true');
-        const clone = mkdtempSync(join(tmpdir(), 'yomu-retention-filtered-'));
-        repositories.push(clone);
-        execFileSync('git', ['-c', 'core.autocrlf=false', 'clone', '--quiet', '--filter=blob:none', pathToFileURL(source).href, clone], { stdio: 'pipe' });
+        const clone = cloneRepository(source, ['--filter=blob:none']);
         git(clone, 'config', 'protocol.file.allow', 'always');
         expect(isShallowRepository(clone)).toBe(false);
         expect(contentAddressedRetentionReport(clone).missing).toEqual(PRIOR_RELEASE_PINS.map(pin => pin.path));
@@ -256,10 +264,18 @@ describe('content-addressed artifact retention', () => {
         const log = execFileSync(process.execPath, [pruner, '--write'], { encoding: 'utf8', maxBuffer: 20 * 1024 * 1024 });
         for (const pin of PRIOR_RELEASE_PINS) {
             expect(log).toContain(`restored ${pin.path} from v2.2.2`);
-            expect(createHash('sha256').update(readFileSync(join(clone, pin.path))).digest('base64')).toBe(pin.integrity);
         }
+        expectPriorReleaseBytes(clone);
         expect(contentAddressedRetentionReport(clone).missing).toEqual([]);
         expect(retentionManifestShortfall(clone).ok).toBe(true);
+        // Child CLI execution is a separate entrypoint proof. Exercise the actual
+        // imported recovery API too so Istanbul measures these verified writes.
+        for (const pin of PRIOR_RELEASE_PINS) rmSync(join(clone, pin.path));
+        expect(restoreRetainedContentAddressedAssets(clone)).toEqual(PRIOR_RELEASE_PINS.map(pin => ({
+            path: pin.path, ref: 'v2.2.2', bytes: Buffer.byteLength(pin.data),
+        })));
+        expectPriorReleaseBytes(clone);
+        expect(restoreRetainedContentAddressedAssets(clone)).toEqual([]);
         execFileSync(process.execPath, [pruner, '--write'], { stdio: 'pipe' });
         expect(contentAddressedRetentionReport(clone).missing).toEqual([]);
     });
@@ -276,6 +292,7 @@ describe('content-addressed artifact retention', () => {
         const pruner = installPruner(root);
         expect(() => execFileSync(process.execPath, [pruner, '--write'], { stdio: 'pipe' }))
             .toThrow('Cannot recover required content-addressed asset from Git');
+        expect(() => restoreRetainedContentAddressedAssets(root)).toThrow('Cannot recover required content-addressed asset from Git');
         expect(existsSync(join(root, pin))).toBe(false);
         expect(existsSync(join(root, 'docs/public/yomu.222222222222.css'))).toBe(true);
     });
@@ -283,9 +300,7 @@ describe('content-addressed artifact retention', () => {
     it('stops before manifest changes or pruning when a historical blob cannot be fetched', () => {
         const source = releasedRepository();
         git(source, 'config', 'uploadpack.allowFilter', 'true');
-        const clone = mkdtempSync(join(tmpdir(), 'yomu-retention-unavailable-blob-'));
-        repositories.push(clone);
-        execFileSync('git', ['-c', 'core.autocrlf=false', 'clone', '--quiet', '--filter=blob:none', pathToFileURL(source).href, clone], { stdio: 'pipe' });
+        const clone = cloneRepository(source, ['--filter=blob:none']);
         const oldHeader = execFileSync('git', ['rev-parse', 'v1.8.43:dist/yomu.user.js'], { cwd: clone, encoding: 'utf8' }).trim();
         const missing = execFileSync('git', ['rev-list', '--objects', '--all', '--missing=print'], { cwd: clone, encoding: 'utf8' });
         expect(missing).toContain(`?${oldHeader}`);

@@ -12,7 +12,7 @@ const tempDir = path.join(workDir, 'quality-coverage-temp');
 mkdirSync(tempDir, { recursive: true });
 const scopes = {
     reader: {
-        include: ['src/reader/**/*.ts', 'docs/public/hosted-reader-worker.js'],
+        include: ['src/reader/**/*.ts', 'docs/public/hosted-reader-worker.js', 'scripts/lib/content-addressed-retention.mjs'],
         directory: 'fallow-coverage',
         tests: [
             'reading-media-boundary', 'detached-reading-overlay', 'reading-lane-layout',
@@ -25,7 +25,7 @@ const scopes = {
             'definition-translation', 'definition-translation-lifecycle', 'jpdb-definition-translation',
             'google-translation', 'private-deck-status', 'private-deck-status-legacy-study',
             'popover-collect-action', 'offhost-account-data-privacy', 'jiten-word-list-mining',
-            'jpdb/01-jpdb-api-deck-parse',
+            'jpdb/01-jpdb-api-deck-parse', 'content-addressed-retention',
         ],
         directories: ['subtitles-controller'],
     },
