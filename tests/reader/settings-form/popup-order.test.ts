@@ -34,13 +34,13 @@ describe('the popup order in Settings → Sources', () => {
         expect(parser?.closest('[hidden]')).toBeNull();
     });
 
-    it('opens the Sources tab, titled as the popup order, above storage and the parser', () => {
+    it('titles the first Sources disclosure as the popup order, above storage and the parser', () => {
         const form = renderSettingsTestForm(DEFAULT_SETTINGS);
-        const first = sourcesContent(form).firstElementChild!;
+        const order = sourcesContent(form).querySelector('details')!;
 
-        expect(first.querySelector('[data-help-key="popupOrderTitle"]')?.textContent).toBe('Popup order');
-        expect(first.querySelector('[data-help-key="popupOrderHelp"]')).toBeNull();
-        expect(first.querySelector('[data-definition-source-editor] [data-source-row]')).not.toBeNull();
+        expect(order.querySelector('[data-help-key="popupOrderTitle"]')?.textContent).toBe('Popup order');
+        expect(order.querySelector('[data-help-key="popupOrderHelp"]')).toBeNull();
+        expect(order.querySelector('[data-definition-source-editor] [data-source-row]')).not.toBeNull();
         const editor = form.querySelector('[data-definition-source-editor]')!;
         for (const later of ['[data-dictionary-status]', '[data-local-dictionary-storage]', 'select[name="parserProvider"]']) {
             expect(editor.compareDocumentPosition(form.querySelector(later)!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
@@ -73,10 +73,10 @@ describe('the popup order in Settings → Sources', () => {
         localizeSettingsForm(switched, 'ja');
 
         for (const form of [japanese, switched]) {
-            const first = sourcesContent(form).firstElementChild!;
-            expect(first.querySelector('[data-help-key="popupOrderTitle"]')?.textContent).toBe('ポップアップの順序');
-            expect(first.textContent).not.toContain('未翻訳');
-            expect(first.textContent).not.toContain('Popup order');
+            const order = sourcesContent(form).querySelector('details')!;
+            expect(order.querySelector('[data-help-key="popupOrderTitle"]')?.textContent).toBe('ポップアップの順序');
+            expect(order.textContent).not.toContain('未翻訳');
+            expect(order.textContent).not.toContain('Popup order');
             expect(sourcesFoundBy(form, 'ポップアップ')).toBe(true);
             expect(sourcesFoundBy(form, 'ポップアップの順序')).toBe(true);
         }
