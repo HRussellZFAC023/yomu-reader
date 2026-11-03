@@ -1,6 +1,7 @@
 import type { ReaderSettings } from '../../reader/app/types';
 import { normalizeReaderSettings } from '../../reader/settings';
 import { parseReaderSettingsBackup, READER_SETTINGS_BACKUP_FORMAT, READER_SETTINGS_BACKUP_VERSION } from '../../reader/settings/file-io';
+import { parseTextLookupShortcutSettings, type TextLookupShortcutSettings } from '../selected-text-shortcut';
 
 // Yomu Gaming keeps its own copy of the reader settings, so a choice made in the browser —
 // Pass/Fail grading, the Jiten key, colours — never reached the popup over a game: the
@@ -47,9 +48,18 @@ function parsedJson(text: string): unknown {
 }
 
 /** A portable desktop backup; the existing browser export remains accepted by Import. */
-export function desktopSettingsExport(settings: ReaderSettings, captureShortcut?: string): string {
+export function desktopSettingsExport(settings: ReaderSettings, captureShortcut?: string, textLookupShortcut?: TextLookupShortcutSettings): string {
     return JSON.stringify({ formatName: READER_SETTINGS_BACKUP_FORMAT, formatVersion: READER_SETTINGS_BACKUP_VERSION,
-        exportedAt: new Date().toISOString(), settings, desktop: captureShortcut ? { captureShortcut } : {} }, null, 2);
+        exportedAt: new Date().toISOString(), settings,
+        desktop: { ...(captureShortcut ? { captureShortcut } : {}), ...(textLookupShortcut ? { textLookupShortcut } : {}) } }, null, 2);
+}
+
+export function desktopTextLookupShortcutFromExport(text: string, platform: string): TextLookupShortcutSettings | null {
+    const value = parsedJson(text);
+    if (!parseReaderSettingsBackup(value) || !value || typeof value !== 'object' || !('desktop' in value)) return null;
+    const metadata = value.desktop;
+    return metadata && typeof metadata === 'object' && 'textLookupShortcut' in metadata
+        ? parseTextLookupShortcutSettings(metadata.textLookupShortcut, platform) : null;
 }
 
 /** Browser exports and older desktop files never change the native capture shortcut. */

@@ -3,7 +3,7 @@ import type { JPDBCard, ReaderSettings } from '../../src/reader/app/types';
 import { reviewGradeProfile, reviewGradeScale } from '../../src/reader/cards/grade-scale';
 import { DEFAULT_SETTINGS, normalizeReaderSettings } from '../../src/reader/settings';
 import { READER_SETTINGS_BACKUP_FORMAT, READER_SETTINGS_BACKUP_VERSION, parseReaderSettingsBackup } from '../../src/reader/settings/file-io';
-import { gamingSettingsFromBrowserExport, desktopSettingsExport, desktopCaptureShortcutFromExport } from '../../src/gaming/renderer/settings-import';
+import { gamingSettingsFromBrowserExport, desktopSettingsExport, desktopCaptureShortcutFromExport, desktopTextLookupShortcutFromExport } from '../../src/gaming/renderer/settings-import';
 
 const JITEN_CARD = { vid: 1234, sid: 0, source: 'jiten', jitenWordId: 1234, jitenReadingIndex: 0 } as unknown as JPDBCard;
 
@@ -117,4 +117,16 @@ it('rejects invalid desktop metadata before attempting a native shortcut restore
     expect(parseReaderSettingsBackup(exported)).toBeNull();
     expect(gamingSettingsFromBrowserExport(JSON.stringify(exported), DEFAULT_SETTINGS)).toBeNull();
     expect(desktopCaptureShortcutFromExport(JSON.stringify(exported))).toBeNull();
+});
+
+it('round-trips selected-text shortcut settings without resetting them from older or browser backups', () => {
+    const selection = { shortcut: 'Control+Alt+L', enabled: false, language: 'ja' } as const;
+    const exported = desktopSettingsExport(DEFAULT_SETTINGS, 'Control+Shift+Y', selection);
+    expect(desktopTextLookupShortcutFromExport(exported, 'win32')).toEqual(selection);
+    expect(gamingSettingsFromBrowserExport(exported, DEFAULT_SETTINGS)).toEqual(DEFAULT_SETTINGS);
+    expect(desktopTextLookupShortcutFromExport(desktopSettingsExport(DEFAULT_SETTINGS, 'Control+Shift+Y'), 'win32')).toBeNull();
+    expect(desktopTextLookupShortcutFromExport(browserExport({}), 'win32')).toBeNull();
+    const invalid = JSON.parse(exported);
+    invalid.desktop.textLookupShortcut.enabled = 'yes';
+    expect(parseReaderSettingsBackup(invalid)).toBeNull();
 });

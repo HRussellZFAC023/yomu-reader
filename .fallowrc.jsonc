@@ -83,6 +83,7 @@
     "scripts/build-gaming-electron.mjs",
     "scripts/dev-gaming-app.mjs",
     "scripts/gaming-app-smoke.mjs",
+    "scripts/manual/gaming-selected-text-proof.mjs",
     "scripts/package-gaming-electron.mjs",
     "scripts/manual/youtube-fullscreen-smoke.mjs",
     "scripts/yt-live-harness.mjs",

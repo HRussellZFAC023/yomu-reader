@@ -42,6 +42,10 @@ function testBridge(): YomuGamingBridge {
         hideOverlay: async () => undefined,
         showApp: async () => undefined,
         hideApp: async () => undefined,
+        getSelectedText: async () => ({ kind: 'empty' }),
+        closeTextLookup: async () => undefined,
+        retryTextLookup: async () => undefined,
+        updateTextLookupShortcut: async () => currentEnvironment,
         openExternal: async () => undefined,
         updateCaptureShortcut: async (shortcut: string) => {
             currentEnvironment = nextSaveEnvironment ?? registeredEnvironment(shortcut);

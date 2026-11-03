@@ -13,12 +13,14 @@ import { COLLECTION_COPY } from './collection-copy';
 import { OCR_STATUS_COPY } from './ocr-status-copy';
 import { APPEARANCE_QUICK_COPY } from './appearance-quick-copy';
 import { REVIEW_SERVICES_COPY } from './review-services-copy';
+import { SELECTED_TEXT_COPY } from '../../gaming/selected-text-copy';
 import type { AudioSourceType, InterfaceLanguage } from './types';
 export { academyCopyHasMissingJapanese, academyText } from './academy-copy';
 export type { AcademyCopyKey, AcademyLanguage } from './academy-copy';
 type UiLanguage = 'en' | 'ja';
 const COPY = {
     en: {
+        ...SELECTED_TEXT_COPY.en,
         ...PRACTICE_SESSION_COPY.en, ...COLLECTION_COPY.en, ...SITE_INTERACTION_COPY.en,
         settingsTitle: `${APP_NAME} Settings`,
         manualPageScanShortcut: 'Manual page scan shortcut',
@@ -1136,6 +1138,7 @@ export function parseUiCopyTable(rows: string): Partial<Record<UiCopyKey, string
     return copy;
 }
 const JA_COPY: Partial<Record<UiCopyKey, string>> = {
+    ...SELECTED_TEXT_COPY.ja,
     ...SITE_INTERACTION_COPY.ja,
     ...parseUiCopyTable(String.raw`
 settingsTitle	{APP_NAME} 設定

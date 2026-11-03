@@ -13,6 +13,10 @@ export const YOMU_GAMING_CHANNELS = {
     hideApp: 'yomu-gaming:hide-app',
     openExternal: 'yomu-gaming:open-external',
     updateCaptureShortcut: 'yomu-gaming:update-capture-shortcut',
+    getSelectedText: 'yomu-gaming:get-selected-text',
+    closeTextLookup: 'yomu-gaming:close-text-lookup',
+    retryTextLookup: 'yomu-gaming:retry-text-lookup',
+    updateTextLookupShortcut: 'yomu-gaming:update-text-lookup-shortcut',
 } as const;
 
 export type YomuGamingScreenAccess = 'granted' | 'denied' | 'restricted' | 'not-determined' | 'unknown' | 'unsupported';
@@ -31,6 +35,18 @@ export interface YomuGamingEnvironment {
     // capture shortcut working — after its window is closed.
     trayActive: boolean;
     screenAccess: YomuGamingScreenAccess;
+    textLookupShortcut?: YomuGamingTextLookupShortcut;
+}
+
+export type YomuGamingSelectedText = { kind: 'text'; text: string }
+    | { kind: 'empty' | 'permission' | 'unsupported' | 'unavailable' | 'too-long' | 'expired' };
+
+export interface YomuGamingTextLookupShortcut {
+    enabled: boolean;
+    shortcut: string;
+    language: 'en' | 'ja';
+    registered: boolean;
+    error?: 'invalid' | 'taken';
 }
 
 export interface YomuGamingImageSize {
@@ -90,4 +106,8 @@ export interface YomuGamingBridge {
     hideApp(): Promise<void>;
     openExternal(url: string): Promise<void>;
     updateCaptureShortcut(shortcut: string): Promise<YomuGamingEnvironment>;
+    getSelectedText(session: number): Promise<YomuGamingSelectedText>;
+    closeTextLookup(): Promise<void>;
+    retryTextLookup(): Promise<void>;
+    updateTextLookupShortcut(settings: unknown): Promise<YomuGamingEnvironment>;
 }

@@ -45,6 +45,7 @@
 - **Firefox, desktop and Android:** [Firefox Add-ons](https://addons.mozilla.org/en-US/firefox/addon/yomu-reader/). The `.xpi` on GitHub releases is unsigned and won't install.
 - **Safari, iPhone, iPad:** the free Userscripts app plus `https://yomureader.com/yomu.user.js`. [Steps](https://yomureader.com/install#safari).
 - **Games and desktop apps:** [よむ Desktop](https://yomureader.com/desktop) for Windows, macOS and Linux.
+- **Selected text in desktop apps:** enable and configure **Selected-text shortcut** in Desktop Settings → Shortcuts, then select Japanese text in Word, a text PDF, or another app and press your shortcut. The tray also offers this lookup without enabling a global shortcut. Compatible apps on Windows, macOS, and Linux X11 expose their selected text directly; other apps and Wayland offer a paste field. Your clipboard stays unchanged; screen OCR keeps its separate Ctrl+Shift+Y shortcut.
 
 Store versions can lag a GitHub release by a few days while the stores review it.
 

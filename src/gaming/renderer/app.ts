@@ -2,6 +2,7 @@ import { dismissDesktopLookup } from './layer-key-events';
 import { dispatchAuthorizedReaderControlClick } from '../../reader/ui/trusted-interaction';
 import '../../reader/styles/base.css';
 import '../../reader/styles/settings.css';
+import desktopReaderCss from '../../reader/styles-reader.css?inline';
 // The overlay's recognized lines are the reader's OCR overlay, so they are styled by
 // the reader's own sheet — the same one that dresses .jpdb-ocr-line and the annotated
 // words inside it on every page Yomu reads.
@@ -12,7 +13,7 @@ import './styles.css';
 // the ADR-0003 registry; populate it like the other self-contained builds.
 import '../../reader/companions/register-build-companions';
 import type { InterfaceLanguage, ReaderSettings } from '../../reader/app/types';
-import { bootReaderAppWithStartupSettings } from '../../reader/app/boot';
+import { bootReaderAppWithStartupSettings, showPackagedReaderTextLookup } from '../../reader/app/boot';
 import type { ReaderSettingsSurface } from '../../reader/app/startup';
 import { uiText } from '../../reader/app/i18n';
 import { escapeHtml } from '../../reader/dom/index';
@@ -46,7 +47,9 @@ import { captureShortcutLabel } from '../capture-shortcut';
 import { activateWordWithPointer, GamepadOverlayController, gamingOcrWordTargets } from './gamepad-overlay';
 import { removeLegacyGamingReaderSettingsCopy } from './legacy-reader-settings-cleanup';
 import { installGamingHttpTransport } from './http-transport';
-import { gamingSettingsFromBrowserExport, desktopSettingsExport, desktopCaptureShortcutFromExport } from './settings-import';
+import { mountSelectedTextLookup } from './selected-text';
+import { installSelectedTextShortcutControls } from './selected-text-shortcut';
+import { gamingSettingsFromBrowserExport, desktopSettingsExport, desktopCaptureShortcutFromExport, desktopTextLookupShortcutFromExport } from './settings-import';
 import {
     layoutOverlayOcrLines,
     suppressDesktopLinePaint,
@@ -146,6 +149,7 @@ const appRoot = requireAppRoot();
 const isOverlay = location.hash.startsWith('#overlay');
 let persistTimer: number | undefined;
 let captureShortcutPersistToken = 0;
+let textShortcutControls: ReturnType<typeof installSelectedTextShortcutControls>;
 
 const shellState: SettingsShellState = {
     environment: null,
@@ -160,6 +164,19 @@ queueMicrotask(() => void boot());
 
 async function boot(): Promise<void> {
     appRoot.dataset.yomuGamingReady = 'true';
+    if (location.hash === '#selected-text') {
+        installGamingHttpTransport(window);
+        // This host is already a compact native window. Keep the Reader's modal
+        // lifetime and keyboard handling, with a card that fits this window.
+        const settings = normalizeReaderSettings({ ...overlayReaderSettings(loadGamingSettings()), popupMode: 'popover', popoverHeightMode: 'available' });
+        applyDocumentTheme(settings);
+        await mountSelectedTextLookup(appRoot, bridge, settings, {
+            boot: startupSettings => bootReaderAppWithStartupSettings(startupSettings, { settingsSurface: gamingReaderSettingsSurface, readerCss: desktopReaderCss }),
+            lookup: showPackagedReaderTextLookup,
+            openSettings: () => gamingReaderSettingsSurface.open(),
+        });
+        return;
+    }
     if (isOverlay) {
         // Before the reader boots: its Jiten/JPDB calls need the overlay's privileged route.
         installGamingHttpTransport(window);
@@ -193,6 +210,8 @@ function renderShell(): void {
     localizeSettingsForm(form, shellState.settings.interfaceLanguage);
     installGamingSettingsHeader(form);
     installGamingCaptureShortcutSection(form);
+    textShortcutControls = installSelectedTextShortcutControls(form, bridge, environment => { shellState.environment = environment; });
+    textShortcutControls?.update(shellState.settings.interfaceLanguage, shellState.environment);
     activateSettingsPanel(form, shellState.settingsPanel);
     scrollToInitialSettingsSection(form);
     installShortcutCapture(form);
@@ -495,7 +514,9 @@ function bindSettingsForm(form: HTMLFormElement): void {
         if (action === 'export-reader-settings') {
             event.preventDefault();
             persistSettingsFromForm(form);
-            downloadBlob(new Blob([desktopSettingsExport(shellState.settings, shellState.environment?.hotkey)], { type: 'application/json' }), `yomu-desktop-settings-${dateStamp()}.json`);
+            const textLookup = shellState.environment?.textLookupShortcut;
+            downloadBlob(new Blob([desktopSettingsExport(shellState.settings, shellState.environment?.hotkey,
+                textLookup ? { enabled: textLookup.enabled, shortcut: textLookup.shortcut, language: textLookup.language } : undefined)], { type: 'application/json' }), `yomu-desktop-settings-${dateStamp()}.json`);
             return;
         }
         if (action === 'import-reader-settings') {
@@ -667,6 +688,8 @@ async function importBrowserSettings(form: HTMLFormElement, button: HTMLButtonEl
             return;
         }
         const captureShortcut = desktopCaptureShortcutFromExport(serialized);
+        const textLookupShortcut = desktopTextLookupShortcutFromExport(serialized, shellState.environment?.platform ?? '');
+        if (textLookupShortcut) shellState.environment = await bridge.updateTextLookupShortcut(textLookupShortcut);
         if (captureShortcut) {
             const environment = await bridge.updateCaptureShortcut(captureShortcut);
             if (!environment.hotkeyRegistered || environment.hotkeyError) {
@@ -752,6 +775,7 @@ function setShellStatus(status: string, tone: SettingsShellState['statusTone'] =
 
 // Reflect the registered native shortcut in Settings.
 function updateCaptureShortcutCopy(): void {
+    textShortcutControls?.update(shellState.settings.interfaceLanguage, shellState.environment);
     appRoot.querySelectorAll<HTMLInputElement>('[data-capture-shortcut-input]').forEach(element => {
         element.value = hotkeyLabel();
     });
@@ -1157,7 +1181,7 @@ function overlayReaderSettings(gaming: ReaderSettings): ReaderSettings {
 
 function bootOverlayReader(settings: ReaderSettings): void {
     void Promise.resolve()
-        .then(() => bootReaderAppWithStartupSettings(settings, { settingsSurface: gamingReaderSettingsSurface }))
+        .then(() => bootReaderAppWithStartupSettings(settings, { settingsSurface: gamingReaderSettingsSurface, readerCss: desktopReaderCss }))
         .then(initialized => {
             overlayReaderBooted = initialized;
             if (!initialized) console.warn('よむ Desktop could not start the inline reader.');
@@ -1325,5 +1349,9 @@ function browserFallbackBridge(): YomuGamingBridge {
             hotkeyError: 'Shortcuts work in the よむ Desktop app.',
             screenAccess: 'unsupported',
         }),
+        getSelectedText: async () => ({ kind: 'unsupported' }),
+        closeTextLookup: async () => undefined,
+        retryTextLookup: async () => undefined,
+        updateTextLookupShortcut: async () => bridge.getEnvironment(),
     };
 }

@@ -10,6 +10,17 @@ export interface ReviewedDocsMessage {
 
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     "Open Add to deck… to see each deck’s saved status. JPDB, Jiten, Anki and the よむ deck are checked when you open it. A failed check or Bunpro shows Status unknown. Saved decks remain selectable and keep their usual save behavior.": "「デッキに追加…」を開くと、各デッキへの保存状況を確認できます。JPDB、Jiten、Anki、よむデッキは、メニューを開くたびに確認します。確認に失敗した場合やBunproの場合は「保存状況不明」と表示します。保存済みのデッキも選択でき、保存先の通常の保存動作を保ちます。",
+    'Look up selected text': '選択テキストを調べる',
+    'Permalink to "Look up selected text"': '「選択テキストを調べる」への固定リンク',
+    'In Settings → Shortcuts, enable Selected-text shortcut and choose keys that are free in your other apps. The shortcut starts disabled, so an upgrade keeps your existing app shortcuts. Then select Japanese text in Word, a PDF with a text layer, or another app and press your chosen keys. The exact selection opens in a compact lookup window with the usual readings, definitions, and deck actions. This works with Image OCR turned off.': '「設定 → ショートカット」で選択テキストのショートカットを有効にし、ほかのアプリで使っていないキーを選びます。初期状態は無効なので、アップグレードで既存のアプリのショートカットを奪いません。Word、テキストレイヤーのあるPDF、ほかのアプリで日本語を選択し、設定したキーを押します。選択した内容が小さな検索ウィンドウに開き、いつもの読み、意味、デッキ操作を使えます。画像OCRが無効でも利用できます。',
+    'Change or disable the selected-text shortcut in Settings → Shortcuts. The screen-reading shortcut stays separate. The tray also offers': '選択テキストのショートカットは「設定 → ショートカット」で変更・無効化できます。画面読み取りのショートカットとは別です。トレイには次の項目もあります：',
+    'Look up selected text (in 3 seconds)': '選択テキストを調べる（3秒後）',
+    ': choose it, then return to your source app and select text within 3 seconds.': '。選ぶと、元のアプリに戻って3秒以内にテキストを選択できます。',
+    'Direct selection works in compatible apps on Windows, macOS, and Linux X11. The source app must expose its selected text. On macOS, allow Accessibility and System Events automation for よむ Desktop when asked. Screen Recording permission is only needed for screen OCR.': 'Windows、macOS、Linux X11の対応アプリでは直接取得できます。元のアプリが選択テキストを公開している必要があります。macOSで求められたら、よむDesktopにアクセシビリティとSystem Eventsの操作を許可してください。画面収録の許可は画面OCRにのみ必要です。',
+    'If selection access is unavailable, copy the text yourself and use': '選択テキストを取得できない場合は、自分でコピーして検索ウィンドウの次の欄を使います：',
+    'Paste text': 'テキストを貼り付ける',
+    'in the lookup window. Wayland uses this fallback too. よむ does not press Copy, change your clipboard, or watch it in the background. Selections are limited to 20,000 characters and are discarded when the lookup window closes.': '。Waylandでもこの方法を使います。よむはコピーのキー操作、クリップボードの変更、バックグラウンドでの監視を行いません。選択は2万文字以内で、検索ウィンドウを閉じると破棄されます。',
+    'Screen reading uses Google Lens and needs a connection. Settings can switch to your own Cloud Vision key or a local OCR server. Selected-text lookup skips OCR; dictionary services follow your saved settings.': '画面読み取りはGoogle Lensを使うため接続が必要です。設定で自分のCloud VisionキーやローカルOCRサーバーに変更できます。選択テキストの検索ではOCRを使わず、辞書サービスは保存した設定に従います。',
     "The tagged 2.2.1 release did not complete. The fixes ship in 2.2.2.": "2.2.1のタグによるリリースは完了しませんでした。修正は2.2.2に含まれます。",
     "Firefox lookup recognizes complete inflected words before question particles, including 決まりました in 決まりましたか. Hovering or clicking opens the full word. (": "Firefoxでも、「決まりましたか」の「決まりました」など、疑問を表す助詞の前にある活用語を正しく認識するようにしました。ホバーまたはクリックすると、単語全体の検索結果が開きます。 (",
     "Opening Settings no longer starts a Study review or flashes a cached card. Closing Settings starts Study normally. (": "設定を開いても学習ページの復習が始まらず、キャッシュ済みのカードも一瞬表示されなくなりました。設定を閉じると、通常どおり学習が始まります。 (",

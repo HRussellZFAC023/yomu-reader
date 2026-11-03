@@ -5,6 +5,47 @@
     font-family: var(--jpdb-reader-font);
 }
 
+.selected-text-lookup {
+    max-width: 760px;
+    padding: 20px;
+    margin: 0 auto;
+}
+
+.selected-text-lookup header,
+.selected-text-lookup footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.selected-text-lookup h1 { font-size: 1.2rem; margin: 0; }
+.selected-text-lookup button {
+    padding: 8px 12px;
+    border: 1px solid var(--jpdb-reader-border);
+    border-radius: 6px;
+    background: var(--jpdb-reader-surface);
+    color: var(--jpdb-reader-text);
+    cursor: pointer;
+}
+.selected-text-status { line-height: 1.5; }
+.selected-text-source {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    font-size: 1.25rem;
+    line-height: 2;
+    padding: 12px;
+    margin: 16px 0;
+    border: 1px solid var(--jpdb-reader-border);
+    border-radius: 8px;
+    max-height: 220px;
+    overflow: auto;
+}
+.selected-text-lookup details { margin: 16px 0; }
+.selected-text-lookup summary { cursor: pointer; }
+.selected-text-lookup textarea { display: block; width: 100%; margin: 8px 0; resize: vertical; }
+.selected-text-lookup :focus-visible { outline: 2px solid var(--jpdb-reader-accent); outline-offset: 3px; }
+
 * {
     box-sizing: border-box;
 }

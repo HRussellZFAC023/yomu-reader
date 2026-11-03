@@ -1,7 +1,7 @@
 import { LayerShortcuts } from './layer-shortcuts';
 import { pointInLayerRegions, layerInputRegions } from './layer-input';
 import { withHiddenCaptureWindows } from './capture-windows';
-import { app, BrowserWindow, desktopCapturer, dialog, globalShortcut, ipcMain, Menu, nativeImage, screen, shell, systemPreferences, Tray, type BrowserWindowConstructorOptions } from 'electron';
+import { app, BrowserWindow, clipboard, desktopCapturer, dialog, globalShortcut, ipcMain, Menu, nativeImage, screen, shell, systemPreferences, Tray, type BrowserWindowConstructorOptions } from 'electron';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -14,6 +14,9 @@ import {
 import { normalizeOcrRequest, requestGamingOcr } from './ocr';
 import { captureShortcutLabel, DEFAULT_CAPTURE_SHORTCUT, normalizeCaptureShortcut } from './capture-shortcut';
 import { settingsFileWriter } from './settings-file';
+import { readSelectedText, runSelectionCommand, SelectedTextSession } from './selected-text';
+import { SELECTED_TEXT_COPY } from './selected-text-copy';
+import { DEFAULT_TEXT_LOOKUP_SETTINGS, parseTextLookupShortcutSettings, sameNativeShortcut, textLookupShortcutStatus, type TextLookupShortcutSettings } from './selected-text-shortcut';
 import {
     createGamingTray,
     overlayDocumentUrl,
@@ -63,6 +66,12 @@ if (!hasSingleInstanceLock) app.quit();
 
 let mainWindow: BrowserWindow | null = null;
 let overlayWindow: BrowserWindow | null = null;
+let textLookupWindow: BrowserWindow | null = null;
+const selectedTextSession = new SelectedTextSession();
+let textLookupSettings: TextLookupShortcutSettings = { ...DEFAULT_TEXT_LOOKUP_SETTINGS };
+let registeredTextLookupShortcut: string | null = null;
+let textLookupShortcutError: 'invalid' | 'taken' | undefined;
+let retryTextLookupTimer: ReturnType<typeof setTimeout> | undefined;
 let tray: GamingTrayController | null = null;
 // Set the moment a real quit starts, so the close handler stops parking windows and lets
 // them go. Without it, hiding on close would silently cancel Cmd+Q and the tray's Quit.
@@ -266,7 +275,7 @@ function applyAppIcon(): void {
     if (process.platform === 'darwin' && !app.isPackaged) app.dock?.setIcon(icon);
 }
 
-function gamingWebPreferences(role: 'main' | 'overlay'): BrowserWindowConstructorOptions['webPreferences'] {
+function gamingWebPreferences(role: 'main' | 'overlay' | 'text-lookup'): BrowserWindowConstructorOptions['webPreferences'] {
     return {
         preload: path.join(__dirname, 'preload.cjs'),
         contextIsolation: true,
@@ -332,6 +341,7 @@ async function requestOverlay(): Promise<void> {
 }
 
 async function showOverlay(): Promise<void> {
+    closeTextLookup();
     const hidMainWindow = await hideMainWindowForCapture();
     try {
         await openOverlayFromFrozenCapture();
@@ -429,6 +439,7 @@ function waitForUncoveredScreen(): Promise<void> {
 }
 
 async function showApp(): Promise<void> {
+    closeTextLookup();
     if (!mainWindow || mainWindow.isDestroyed()) await createMainWindow();
     if (mainWindow?.isMinimized()) mainWindow.restore();
     mainWindow?.show();
@@ -445,6 +456,7 @@ function createTray(): void {
     if (tray) return;
     tray = createGamingTray(electronTrayHost(), {
         readScreen: () => void pressCaptureShortcut(),
+        readSelectedText: () => scheduleTextLookup(),
         openSettings: () => void showApp(),
         quit: () => quitApp(),
     }, trayStatus());
@@ -478,6 +490,11 @@ function trayStatus(): GamingTrayStatus {
     return {
         shortcutLabel: captureShortcutLabel(hotkey, process.platform),
         shortcutRegistered: hotkeyRegistered,
+        textLookup: {
+            shortcutLabel: captureShortcutLabel(textLookupSettings.shortcut, process.platform),
+            registered: Boolean(registeredTextLookupShortcut),
+            language: textLookupSettings.language,
+        },
     };
 }
 
@@ -501,7 +518,7 @@ function registerIpcHandlers(): void {
     ipcMain.handle(YOMU_GAMING_CHANNELS.setLayerShortcuts, (event, keys: unknown) => {
         if (event.sender.id !== overlayWindow?.webContents.id) return [];
         return layerShortcuts.update(Boolean(overlayWindow?.isVisible()), Array.isArray(keys)
-            ? keys.filter((key): key is string => typeof key === 'string' && key !== registeredHotkey) : []);
+            ? keys.filter((key): key is string => typeof key === 'string' && key !== registeredHotkey && key !== registeredTextLookupShortcut) : []);
     });
     ipcMain.handle(YOMU_GAMING_CHANNELS.setLayerRegions, (event, regions: unknown) => {
         if (event.sender.id === overlayWindow?.webContents.id) layerRegions = layerInputRegions(regions);
@@ -512,6 +529,20 @@ function registerIpcHandlers(): void {
     });
     ipcMain.handle(YOMU_GAMING_CHANNELS.openExternal, (_event, url: string) => openAllowedExternalUrl(url));
     ipcMain.handle(YOMU_GAMING_CHANNELS.updateCaptureShortcut, (_event, shortcut: string) => updateCaptureShortcut(shortcut));
+    ipcMain.handle(YOMU_GAMING_CHANNELS.updateTextLookupShortcut, (event, settings: unknown) =>
+        event.sender.id === mainWindow?.webContents.id ? updateTextLookupShortcut(settings) : environmentStatus());
+    ipcMain.handle(YOMU_GAMING_CHANNELS.getSelectedText, (event, session: unknown) => {
+        if (event.sender.id !== textLookupWindow?.webContents.id) return { kind: 'expired' };
+        const url = new URL(event.sender.getURL());
+        if (Number(url.searchParams.get('textSession')) !== session) return { kind: 'expired' };
+        return selectedTextSession.take(session);
+    });
+    ipcMain.handle(YOMU_GAMING_CHANNELS.closeTextLookup, event => {
+        if (event.sender.id === textLookupWindow?.webContents.id) closeTextLookup();
+    });
+    ipcMain.handle(YOMU_GAMING_CHANNELS.retryTextLookup, event => {
+        if (event.sender.id === textLookupWindow?.webContents.id) scheduleTextLookup();
+    });
 }
 
 function captureForOverlay(
@@ -541,6 +572,7 @@ function environmentStatus(): YomuGamingEnvironment {
         hotkeyError: hotkeyError || undefined,
         trayActive: Boolean(tray),
         screenAccess: screenAccessStatus(),
+        textLookupShortcut: textLookupShortcutStatus(textLookupSettings, Boolean(registeredTextLookupShortcut), textLookupShortcutError),
     };
 }
 
@@ -708,6 +740,10 @@ async function updateCaptureShortcut(value: string): Promise<YomuGamingEnvironme
         hotkeyError = normalized.error;
         return environmentStatus();
     }
+    if (textLookupSettings.enabled && sameNativeShortcut(normalized.shortcut, textLookupSettings.shortcut, process.platform)) {
+        hotkeyError = `${normalized.shortcut} is taken here. Try another key.`;
+        return environmentStatus();
+    }
     hotkey = normalized.shortcut;
     registerGlobalShortcuts();
     if (!hotkeyRegistered) {
@@ -759,11 +795,119 @@ function registerGlobalShortcuts(): void {
 // than racing it for the same windows.
 const pressCaptureShortcut = singleFlight(() => requestOverlay().catch(reportOverlayFailure));
 
+function closeTextLookup(): void {
+    if (retryTextLookupTimer) clearTimeout(retryTextLookupTimer);
+    retryTextLookupTimer = undefined;
+    selectedTextSession.cancel();
+    const previous = textLookupWindow;
+    textLookupWindow = null;
+    previous?.destroy();
+}
+
+// Tray menus and a retry button temporarily own focus. Give the learner time to
+// return to their source app; the direct global shortcut has no delay.
+function scheduleTextLookup(): void {
+    closeTextLookup();
+    mainWindow?.hide();
+    hideOverlay();
+    retryTextLookupTimer = setTimeout(() => {
+        retryTextLookupTimer = undefined;
+        void pressTextLookupShortcut();
+    }, 3_000);
+}
+
+const pressTextLookupShortcut = singleFlight(async () => {
+    if (retryTextLookupTimer) clearTimeout(retryTextLookupTimer);
+    retryTextLookupTimer = undefined;
+    // Read before creating, showing, hiding, or focusing any Yomu window.
+    const session = await selectedTextSession.capture(() => readSelectedText({
+        platform: process.platform,
+        displayServer: environmentStatus().displayServer,
+        run: runSelectionCommand,
+        readPrimarySelection: () => clipboard.readText('selection'),
+    }));
+    if (session === null) return;
+    hideOverlay();
+    mainWindow?.hide();
+    const previous = textLookupWindow;
+    textLookupWindow = null;
+    previous?.destroy();
+    const area = activeDisplay().workArea;
+    const window = new BrowserWindow({
+        width: Math.min(640, area.width), height: Math.min(560, area.height), minWidth: 360, minHeight: 320,
+        x: area.x + Math.max(0, Math.round((area.width - 640) / 2)),
+        y: area.y + Math.max(0, Math.round((area.height - 560) / 2)),
+        title: `${APP_NAME} — ${SELECTED_TEXT_COPY[textLookupSettings.language].desktopSelectedText}`,
+        icon: appIconPath(), autoHideMenuBar: true, show: false,
+        webPreferences: gamingWebPreferences('text-lookup'),
+    });
+    textLookupWindow = window;
+    hardenWebContents(window);
+    window.on('closed', () => {
+        if (textLookupWindow !== window) return;
+        textLookupWindow = null;
+        selectedTextSession.cancel();
+    });
+    const url = new URL(rendererUrl('selected-text'));
+    url.searchParams.set('textSession', String(session));
+    try {
+        await window.loadURL(url.toString());
+        if (!window.isDestroyed() && textLookupWindow === window) { window.show(); window.focus(); }
+    } catch {
+        if (textLookupWindow === window) closeTextLookup();
+    }
+});
+
+function textLookupShortcutPath(): string {
+    return path.join(app.getPath('userData'), 'selected-text-shortcut-v1.json');
+}
+
+async function loadTextLookupShortcut(): Promise<void> {
+    try {
+        const parsed: unknown = JSON.parse(await readFile(textLookupShortcutPath(), 'utf8'));
+        textLookupSettings = parseTextLookupShortcutSettings(parsed, process.platform) ?? textLookupSettings;
+    } catch (error) {
+        if (!isNodeErrorCode(error, 'ENOENT') && !(error instanceof SyntaxError)) throw error;
+    }
+}
+
+function registerTextLookupShortcut(): void {
+    if (registeredTextLookupShortcut) globalShortcut.unregister(registeredTextLookupShortcut);
+    registeredTextLookupShortcut = null;
+    textLookupShortcutError = undefined;
+    if (textLookupSettings.enabled) {
+        const available = !sameNativeShortcut(textLookupSettings.shortcut, hotkey, process.platform);
+        const registered = available && (process.env.YOMU_GAMING_TEST_MODE === '1'
+            || globalShortcut.register(textLookupSettings.shortcut, pressTextLookupShortcut));
+        if (registered) registeredTextLookupShortcut = textLookupSettings.shortcut;
+        else textLookupShortcutError = 'taken';
+    }
+    refreshTray();
+}
+
+async function updateTextLookupShortcut(value: unknown): Promise<YomuGamingEnvironment> {
+    const next = parseTextLookupShortcutSettings(value, process.platform);
+    if (!next) { textLookupShortcutError = 'invalid'; return environmentStatus(); }
+    const previous = textLookupSettings;
+    textLookupSettings = next;
+    registerTextLookupShortcut();
+    if (next.enabled && !registeredTextLookupShortcut) {
+        textLookupSettings = previous;
+        registerTextLookupShortcut();
+        textLookupShortcutError = 'taken';
+    } else {
+        await saveSettingsFile(textLookupShortcutPath(), `${JSON.stringify({ version: 1, ...textLookupSettings }, null, 2)}\n`);
+    }
+    refreshTray();
+    return environmentStatus();
+}
+
 // The smoke test has no real global shortcut to press (test mode never registers one), so
 // it presses this instead — the same function the OS shortcut calls.
 if (process.env.YOMU_GAMING_TEST_MODE === '1') {
     (globalThis as typeof globalThis & { __yomuGamingPressCaptureShortcut?: () => Promise<void> })
         .__yomuGamingPressCaptureShortcut = pressCaptureShortcut;
+    Object.assign(globalThis, { __yomuGamingPressSelectedTextShortcut: pressTextLookupShortcut });
 }
 
 app.whenReady().then(async () => {
@@ -771,7 +915,9 @@ app.whenReady().then(async () => {
     applyAppIcon();
     registerIpcHandlers();
     await loadCaptureShortcut();
+    await loadTextLookupShortcut();
     registerGlobalShortcuts();
+    registerTextLookupShortcut();
     createTray();
     await createMainWindow();
 });
@@ -790,6 +936,7 @@ app.on('activate', () => {
 
 app.on('before-quit', () => {
     quitting = true;
+    closeTextLookup();
     layerShortcuts.clear();
     globalShortcut.unregisterAll();
     registeredHotkey = null;

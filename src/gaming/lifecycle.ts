@@ -1,3 +1,5 @@
+import { SELECTED_TEXT_COPY } from './selected-text-copy';
+
 // Yomu Gaming is a hotkey utility: the capture shortcut is the app, and a window is only
 // ever a view onto it. This module owns the policies that keep that coherent — the
 // overlay-only capture boundary, the tray item that stays reachable while every window is
@@ -58,10 +60,12 @@ export async function runOverlayCapture<T>(request: OverlayCaptureRequest<T>): P
 export interface GamingTrayStatus {
     shortcutLabel: string;
     shortcutRegistered: boolean;
+    textLookup?: { shortcutLabel: string; registered: boolean; language: 'en' | 'ja' };
 }
 
 export interface GamingTrayActions {
     readScreen(): void;
+    readSelectedText?(): void;
     openSettings(): void;
     quit(): void;
 }
@@ -147,6 +151,10 @@ export function gamingTrayTooltip(status: GamingTrayStatus): string {
 export function gamingTrayMenuTemplate(actions: GamingTrayActions, status: GamingTrayStatus): GamingTrayMenuItem[] {
     return [
         { label: gamingTrayCaptureLabel(status), click: () => actions.readScreen() },
+        ...(actions.readSelectedText ? [{
+            label: `${SELECTED_TEXT_COPY[status.textLookup?.language ?? 'en'].desktopSelectedTextTray}${status.textLookup?.registered ? ` — ${status.textLookup.shortcutLabel}` : ''}`,
+            click: () => actions.readSelectedText?.(),
+        }] : []),
         { label: 'Settings', click: () => actions.openSettings() },
         { type: 'separator' },
         { label: 'Quit Yomu Gaming', click: () => actions.quit() },
