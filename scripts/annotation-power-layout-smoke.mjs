@@ -36,6 +36,11 @@ for (const [engine, type] of Object.entries({ chromium, webkit })) {
                 contextOptions: { ...(engine === 'webkit' ? devices['iPad Air'] : {}), viewport: { width, height }, hasTouch: true } });
             try {
                 const { page } = run;
+                // The recording froze YouTube's consent dialog open. Its
+                // scripts are absent, so dismiss the inert dialog and scrim as
+                // a visitor must before using the player (also done by the
+                // annotation-power smoke).
+                await page.evaluate(() => document.querySelectorAll('ytd-consent-bump-v2-lightbox, tp-yt-iron-overlay-backdrop').forEach(node => node.remove()));
                 await page.locator('.jpdb-reader-fab').waitFor();
                 // Large-text rendering is independent of full-page browser zoom,
                 // which the compiled-extension gate verifies with tabs.setZoom.
@@ -49,10 +54,15 @@ for (const [engine, type] of Object.entries({ chromium, webkit })) {
                 });
                 assert(await page.locator('.jpdb-reader-popover').count() === 0, 'A lookup opened through the puck menu');
                 const state = await page.evaluate(() => {
-                    const items = [...document.querySelectorAll('[data-radial-id]')].map(node => ({
-                        id: node.dataset.radialId, ...node.getBoundingClientRect().toJSON(),
-                        name: node.getAttribute('aria-label'),
-                    }));
+                    const items = [...document.querySelectorAll('[data-radial-id]')].map(node => {
+                        const rect = node.getBoundingClientRect();
+                        const hit = document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2);
+                        return {
+                            id: node.dataset.radialId, ...rect.toJSON(),
+                            name: node.getAttribute('aria-label'),
+                            hit: hit?.closest('[data-radial-id]')?.getAttribute('data-radial-id'),
+                        };
+                    });
                     const label = document.querySelector('[data-radial-id="power"] .jpdb-reader-fab-radial-label');
                     return { width: innerWidth, height: innerHeight, items, label: label?.getBoundingClientRect().toJSON() };
                 });
@@ -60,6 +70,7 @@ for (const [engine, type] of Object.entries({ chromium, webkit })) {
                 let minGap = Infinity;
                 for (const [index, item] of state.items.entries()) {
                     assert(item.name && !item.name.includes('未翻訳'), 'Missing action name', item);
+                    assert(item.hit === item.id, 'Another element intercepts a puck action', { engine, width, height, item });
                     assert(item.left >= -1 && item.top >= -1 && item.right <= state.width + 1 && item.bottom <= state.height + 1, 'Clipped action', { engine, width, height, item });
                     for (const other of state.items.slice(index + 1)) {
                         minGap = Math.min(minGap, Math.hypot(item.x + item.width / 2 - other.x - other.width / 2,
@@ -72,7 +83,10 @@ for (const [engine, type] of Object.entries({ chromium, webkit })) {
                 for (const item of state.items) assert(label.right <= item.left || label.left >= item.right || label.bottom <= item.top || label.top >= item.bottom, 'Power label covers another control', state);
                 await page.screenshot({ path: path.join(out, `${engine}-${width}x${height}${largeText ? '-large-text' : ''}.png`) });
                 await page.locator('[data-radial-id="furigana"]').tap();
-                await page.waitForFunction(() => window.GM_getValue('jpdb-popup-reader-settings', {}).annotationsPaused === false);
+                await page.waitForFunction(() => {
+                    const settings = window.GM_getValue('jpdb-popup-reader-settings', {});
+                    return settings.annotationsPaused === false && settings.furiganaMode === 'known-status';
+                });
                 await page.keyboard.press('Escape');
                 await page.locator('.jpdb-reader-fab-radial').waitFor({ state: 'hidden' });
                 await page.mouse.move(0, 0);
