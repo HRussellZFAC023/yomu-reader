@@ -13620,7 +13620,7 @@ class AnkiConnectClient {
   }
   buildAnkiNote(card, sentence, settings, options) {
   const note = {
-    deckName: this.ankiDeckName(options, settings),
+    deckName: options.deckName?.trim() || settings.ankiDeck || "よむ",
     modelName: settings.ankiModel || "よむ Japanese",
     fields: buildYomuAnkiFields(card, sentence, this.ankiFieldContext(options, settings)),
     tags: tagsFromString(settings.ankiTags),
@@ -13657,9 +13657,6 @@ class AnkiConnectClient {
       ...picture.length ? { picture } : {}
     }
   };
-  }
-  ankiDeckName(options, settings) {
-  return options.deckName?.trim() || settings.ankiDeck || "よむ";
   }
   ankiFieldContext(options, settings) {
   return {

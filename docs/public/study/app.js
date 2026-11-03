@@ -32187,7 +32187,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     }
     buildAnkiNote(card, sentence, settings2, options) {
       const note = {
-        deckName: this.ankiDeckName(options, settings2),
+        deckName: options.deckName?.trim() || settings2.ankiDeck || "よむ",
         modelName: settings2.ankiModel || "よむ Japanese",
         fields: buildYomuAnkiFields(card, sentence, this.ankiFieldContext(options, settings2)),
         tags: tagsFromString(settings2.ankiTags),
@@ -32224,9 +32224,6 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
           ...picture.length ? { picture } : {}
         }
       };
-    }
-    ankiDeckName(options, settings2) {
-      return options.deckName?.trim() || settings2.ankiDeck || "よむ";
     }
     ankiFieldContext(options, settings2) {
       return {
@@ -83315,7 +83312,7 @@ ${reading}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "2.3.0".trim() ? "2.3.0".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "2.3.1".trim() ? "2.3.1".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record2 = value;
