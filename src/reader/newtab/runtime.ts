@@ -463,9 +463,9 @@ export class NewTabRuntime {
         subtitles: refreshableNoop(),
         ocr: refreshableNoop(),
         youtube: refreshableNoop(),
-        createBackdrop: () => createReaderBackdrop(() => this.dismiss()),
+        createBackdrop: () => createReaderBackdrop(() => this.dismissSettings()),
         mountDialog: (backdrop, form) => this.mountSettingsDialog(backdrop, form),
-        dismiss: () => this.dismiss(),
+        dismiss: () => this.dismissSettings(),
         toast: message => this.toast(message),
         applyTheme: settings => this.applyTheme(settings),
         applyAccentColor: color => this.applyAccentColor(color),
@@ -513,9 +513,8 @@ export class NewTabRuntime {
         void showGradeKeyHintsUntilRetired(this.options.mountHost ?? document.documentElement);
         this.assertSessionVocabularyReadOnly();
         const requestedSettingsPanel = this.consumeRequestedSettingsPanel();
-        this.newTab = this.createNewTabController();
-        await this.newTab.renderPage();
-        this.openRequestedSettingsPanel(requestedSettingsPanel);
+        if (requestedSettingsPanel) this.showSettings(requestedSettingsPanel);
+        else await this.renderStudyPage();
         void this.refreshDictionaryStyles();
         this.scheduleDictionaryIndexPreparation();
         this.scheduleAnkiStatusWarmup();
@@ -789,6 +788,19 @@ export class NewTabRuntime {
     private showSettings(panel?: string): void {
         this.settingsDialog.open(panel);
     }
+
+    private renderStudyPage(): Promise<void> {
+        this.newTab ??= this.createNewTabController();
+        return this.newTab.renderPage();
+    }
+
+    private dismissSettings(): void {
+        this.dismiss();
+        if (!this.newTab && !this.isDestroyed) {
+            void this.renderStudyPage().catch(error => log.error('New tab initialization failed', error));
+        }
+    }
+
     private consumeRequestedSettingsPanel(): SettingsPanelId | null {
         const panel = settingsPanelFromHash(location.hash);
         if (!panel) return null;
@@ -798,10 +810,6 @@ export class NewTabRuntime {
             // A locked-down extension history must not block the settings UI.
         }
         return panel;
-    }
-    private openRequestedSettingsPanel(panel: SettingsPanelId | null): void {
-        if (!panel) return;
-        this.showSettings(panel);
     }
     private activeBunproFrontendApiToken(): string {
         return isBunproFrontendCredentialExpired(this.settings)
@@ -815,7 +823,7 @@ export class NewTabRuntime {
             if (event.target !== backdrop) return;
             event.preventDefault();
             event.stopPropagation();
-            this.dismiss();
+            this.dismissSettings();
         };
         backdrop.addEventListener('pointerdown', dismissFromBackdrop, { capture: true });
         backdrop.addEventListener('mousedown', dismissFromBackdrop, { capture: true });
