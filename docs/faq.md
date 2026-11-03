@@ -40,11 +40,13 @@ Readings stay visible until a study source tells よむ which words you know. Kn
 
 The i+1 wash marks the only unknown word in a sentence; choosing Pitch or Off under Underline hides it without changing the coverage count.
 
+If you enable status highlights, Learning uses yellow by default. You can change that colour in Settings → Appearance.
+
 Readings follow the page’s typeface and scale with its text, with stronger contrast for small kana.
 
 Ignored words keep the page’s text colour and full contrast by default. To show their state markings, untick Ignored under Settings → Appearance → Hide color for.
 
-On another website, the Settings action opens Study settings directly. If a reading would cover nearby text, open that word’s lookup to see it.
+On another website, the Settings action opens Study settings directly without starting a review. With the extension or userscript installed, an open Study tab receives settings changes saved on another page. If a reading would cover nearby text, open that word’s lookup to see it.
 
 ## How do I hide furigana or turn よむ back on? {#furigana-power}
 
@@ -57,6 +59,12 @@ The puck’s power button turns よむ on or off without changing your furigana 
 To Study → Library. Press Add to review there and they come back for review.
 
 Words saved without a connected service go to the よむ deck in Study.
+
+## Why did a word fail to save? {#save-error}
+
+Open Study to see the last word that could not be saved and its error. Check the destination in Settings, then try saving the word again. A successful save of that word clears its old error. Press Dismiss save error to remove the notice.
+
+If error details could not be stored, the popup says so instead of sending you to Study for missing details.
 
 ## Do I need Anki? {#anki}
 
@@ -111,6 +119,12 @@ The よむ button and its menu keep their screen size during pinch zoom. The men
 ## How do I put my dictionary first in the popup? {#popup-order}
 
 Settings → Sources → Popup order. Move it up, then press Save.
+
+## How do I change the translation language? {#translation-language}
+
+Choose **Settings → Sources → Translation language**, then press Save. Automatic sentence and provider-example translations use that language. The settings language and Japanese lookup stay separate.
+
+Translations supplied by Immersion Kit or Nadeshiko keep the language supplied by that source.
 
 ## Can I use my own audio? {#audio}
 
