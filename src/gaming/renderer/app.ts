@@ -50,6 +50,7 @@ import { installGamingHttpTransport } from './http-transport';
 import { mountSelectedTextLookup } from './selected-text';
 import { installSelectedTextShortcutControls } from './selected-text-shortcut';
 import { desktopSettingsExport, importGamingSettingsBackup } from './settings-import';
+import { persistGamingReaderSettings, GAMING_SETTINGS_STORAGE_KEY, PREVIOUS_OCR_ENDPOINT_STORAGE_KEY, PREVIOUS_OCR_ENGINE_STORAGE_KEY } from './settings-storage';
 import {
     layoutOverlayOcrLines,
     suppressDesktopLinePaint,
@@ -108,13 +109,10 @@ interface PreparedGamingCapture {
     capture: YomuGamingCaptureSource;
 }
 
-const GAMING_SETTINGS_STORAGE_KEY = 'yomu-gaming-reader-settings-v1';
 const GAMING_PENDING_VIEW_STORAGE_KEY = 'yomu-gaming-pending-view-v1';
 const GAMING_PENDING_VIEW_ACK_STORAGE_KEY = 'yomu-gaming-pending-view-ack-v1';
 const GAMING_PENDING_VIEW_MAX_AGE_MS = 15_000;
 const GAMING_PENDING_VIEW_ACK_TIMEOUT_MS = 10_000;
-const PREVIOUS_OCR_ENDPOINT_STORAGE_KEY = 'yomu-gaming-ocr-endpoint';
-const PREVIOUS_OCR_ENGINE_STORAGE_KEY = 'yomu-gaming-ocr-engine';
 // Capture is what this app does, so its own shortcut is the first thing Settings shows.
 // Media (audio sources, text-to-speech, proxy URL) is the deepest reader tab there is.
 const DEFAULT_SETTINGS_PANEL = 'shortcuts';
@@ -188,7 +186,7 @@ async function boot(): Promise<void> {
     applyDocumentTheme(shellState.settings);
     renderShell();
     watchForRequestedView();
-    shellState.environment = await bridge.getEnvironment();
+    shellState.environment = await bridge.getEnvironment().catch(() => null);
     updateCaptureShortcutCopy();
 }
 
@@ -210,8 +208,7 @@ function renderShell(): void {
     localizeSettingsForm(form, shellState.settings.interfaceLanguage);
     installGamingSettingsHeader(form);
     installGamingCaptureShortcutSection(form);
-    textShortcutControls = installSelectedTextShortcutControls(form, bridge, environment => { shellState.environment = environment; });
-    textShortcutControls?.update(shellState.settings.interfaceLanguage, shellState.environment);
+    textShortcutControls = installSelectedTextShortcutControls(form, bridge, environment => { if (form.isConnected) shellState.environment = environment; });
     activateSettingsPanel(form, shellState.settingsPanel);
     scrollToInitialSettingsSection(form);
     installShortcutCapture(form);
@@ -223,6 +220,7 @@ function renderShell(): void {
     hideUnsupportedSettingsActions(form);
     bindCaptureShortcutInputs(appRoot);
     bindSettingsForm(form);
+    updateCaptureShortcutCopy();
     applyShellView();
     setShellStatus(shellState.status, shellState.statusTone);
 }
@@ -440,6 +438,7 @@ function installGamingCaptureShortcutSection(form: HTMLFormElement): void {
             <input data-capture-shortcut-input value="${escapeHtml(hotkeyLabel())}" aria-label="Capture shortcut" autocomplete="off" inputmode="none" spellcheck="false">
         </label>
         <div class="jpdb-reader-help" data-capture-shortcut-help>${escapeHtml(CAPTURE_SHORTCUT_HELP)}</div>
+        <button type="button" data-action="refresh-native-shortcuts">${escapeHtml(uiText(shellState.settings.interfaceLanguage, 'desktopShortcutsRefresh'))}</button>
     `;
     const grid = panel.querySelector<HTMLElement>('.grid');
     panel.insertBefore(section, grid ?? panel.firstChild);
@@ -492,6 +491,11 @@ function bindSettingsForm(form: HTMLFormElement): void {
         const button = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-action]');
         const action = button?.dataset.action;
         if (!action) return;
+        if (action === 'refresh-native-shortcuts') {
+            event.preventDefault();
+            void refreshNativeShortcuts(button);
+            return;
+        }
         if (action === 'settings-panel') {
             event.preventDefault();
             showSettingsPanel(form, button.dataset.panel ?? DEFAULT_SETTINGS_PANEL);
@@ -609,6 +613,7 @@ function bindCaptureShortcutInputs(root: HTMLElement): void {
 }
 
 async function persistCaptureShortcutFromInput(root: HTMLElement, shortcut: string): Promise<void> {
+    if (!shellState.environment) return;
     const token = ++captureShortcutPersistToken;
     setCaptureShortcutControlsDisabled(root, true);
     setShellStatus(`Saving ${shortcut.trim() || 'capture shortcut'}.`, 'busy');
@@ -631,7 +636,7 @@ async function persistCaptureShortcutFromInput(root: HTMLElement, shortcut: stri
 
 function setCaptureShortcutControlsDisabled(root: HTMLElement, disabled: boolean): void {
     root.querySelectorAll<HTMLInputElement>('[data-capture-shortcut-input]').forEach(input => {
-        input.disabled = disabled;
+        input.disabled = disabled || !shellState.environment;
     });
 }
 
@@ -677,6 +682,7 @@ function persistSettingsFromForm(form: HTMLFormElement): void {
 // The browser's "Export settings" file, read into Gaming's own settings (settings-import.ts):
 // how a Pass/Fail choice or a Jiten key made in the browser reaches the popup over a game.
 async function importBrowserSettings(form: HTMLFormElement, button: HTMLButtonElement | null): Promise<void> {
+    if (!shellState.environment) return;
     const file = await pickFile(form, 'settings');
     if (!file) return;
     button?.setAttribute('disabled', 'true');
@@ -684,10 +690,15 @@ async function importBrowserSettings(form: HTMLFormElement, button: HTMLButtonEl
         const serialized = await file.text();
         const result = await importGamingSettingsBackup(serialized, shellState.settings, shellState.environment?.platform ?? '', bridge, persistGamingSettings);
         if (result.environment) shellState.environment = result.environment;
+        if (result.kind === 'partial-unavailable') {
+            shellState.environment = null;
+            captureShortcutPersistToken++;
+        }
         if (result.kind !== 'imported') {
             const key = { 'unsupported-format': 'settingsImportUnsupportedFormat', invalid: 'desktopShortcutImportInvalid',
-                taken: 'desktopShortcutImportTaken', 'save-failed': 'desktopShortcutImportSaveFailed', partial: 'desktopShortcutImportPartial' } as const;
-            if (result.kind === 'partial') shellState.settingsPanel = 'shortcuts';
+                taken: 'desktopShortcutImportTaken', 'save-failed': 'desktopShortcutImportSaveFailed', partial: 'desktopShortcutImportPartial',
+                'partial-unavailable': 'desktopShortcutImportUnconfirmed' } as const;
+            if (result.kind === 'partial' || result.kind === 'partial-unavailable') shellState.settingsPanel = 'shortcuts';
             renderShell();
             setShellStatus(uiText(shellState.settings.interfaceLanguage, key[result.kind]), 'error');
             return;
@@ -771,17 +782,29 @@ function updateCaptureShortcutCopy(): void {
     textShortcutControls?.update(shellState.settings.interfaceLanguage, shellState.environment);
     appRoot.querySelectorAll<HTMLInputElement>('[data-capture-shortcut-input]').forEach(element => {
         element.value = hotkeyLabel();
+        element.disabled = !shellState.environment;
+        element.placeholder = shellState.environment ? '' : uiText(shellState.settings.interfaceLanguage, 'desktopShortcutsUnavailable');
     });
     appRoot.querySelectorAll<HTMLElement>('[data-capture-shortcut-help]').forEach(element => {
-        element.textContent = CAPTURE_SHORTCUT_HELP;
+        element.textContent = shellState.environment ? CAPTURE_SHORTCUT_HELP : uiText(shellState.settings.interfaceLanguage, 'desktopShortcutsUnavailable');
     });
+    appRoot.querySelectorAll<HTMLButtonElement>('[data-action="refresh-native-shortcuts"]').forEach(button => { button.hidden = Boolean(shellState.environment); });
+    appRoot.querySelectorAll<HTMLButtonElement>('[data-action="import-reader-settings"]').forEach(button => { button.disabled = !shellState.environment; });
+}
 
+async function refreshNativeShortcuts(button: HTMLButtonElement): Promise<void> {
+    if (button.disabled) return;
+    button.disabled = true;
+    shellState.environment = await bridge.getEnvironment().catch(() => null);
+    renderShell();
+    setShellStatus(uiText(shellState.settings.interfaceLanguage, shellState.environment ? 'desktopShortcutsRefreshed' : 'desktopShortcutsUnavailable'),
+        shellState.environment ? 'success' : 'error');
 }
 
 function hotkeyLabel(): string {
     // Same helper the tray uses, so the menu-bar item and the settings screen never
     // disagree about what the capture shortcut is called.
-    return captureShortcutLabel(shellState.environment?.hotkey ?? '', shellState.environment?.platform ?? '');
+    return shellState.environment ? captureShortcutLabel(shellState.environment.hotkey, shellState.environment.platform) : '';
 }
 
 function scrollToInitialSettingsSection(form: HTMLFormElement): void {
@@ -833,11 +856,7 @@ function parseStoredSettings(): Partial<ReaderSettings> | null {
 }
 
 function persistGamingSettings(settings: ReaderSettings): void {
-    if (settings.ocrProvider === 'local-service' && settings.ocrEndpointUrl.trim()) {
-        localStorage.setItem(PREVIOUS_OCR_ENDPOINT_STORAGE_KEY, settings.ocrEndpointUrl);
-        localStorage.setItem(PREVIOUS_OCR_ENGINE_STORAGE_KEY, settings.ocrEngine);
-    }
-    localStorage.setItem(GAMING_SETTINGS_STORAGE_KEY, JSON.stringify(settings));
+    persistGamingReaderSettings(settings, localStorage);
 }
 
 

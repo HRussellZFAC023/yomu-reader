@@ -17,6 +17,7 @@ let nextSaveEnvironment: YomuGamingEnvironment | null = null;
 let nextPairKind: YomuGamingShortcutUpdate['kind'] = 'saved';
 let rollbackKind: YomuGamingShortcutUpdate['kind'] | 'throw' = 'saved';
 let pairRevision = 0;
+let environmentUnavailable = false;
 const pairCalls: YomuGamingShortcutPatch[] = [];
 
 function registeredEnvironment(hotkey: string): YomuGamingEnvironment {
@@ -37,7 +38,10 @@ function registeredEnvironment(hotkey: string): YomuGamingEnvironment {
 
 function testBridge(): YomuGamingBridge {
     return {
-        getEnvironment: async () => currentEnvironment,
+        getEnvironment: async () => {
+            if (environmentUnavailable) throw new Error('Fixture environment IPC unavailable');
+            return currentEnvironment;
+        },
         getFrozenCapture: async () => {
             throw new Error('capture unavailable in tests');
         },
@@ -115,6 +119,12 @@ function settingsForm(): HTMLFormElement {
 
 function homeStatus(): HTMLElement {
     return settingsForm().querySelector<HTMLElement>('[data-gaming-shell-status]')!;
+}
+
+function nativeInput(name: 'capture-shortcut-input' | 'text-shortcut-input' | 'text-shortcut-enabled'): HTMLInputElement {
+    const input = settingsForm().querySelector<HTMLInputElement>(`[data-${name}]`);
+    if (!input) throw new Error(`Missing native shortcut fixture input ${name}`);
+    return input;
 }
 
 function activePanel(): string {
@@ -326,6 +336,63 @@ describe('Desktop settings without a home screen', () => {
         expect(pairCalls).toHaveLength(0);
         expect(currentEnvironment).toEqual(previous);
         expect(homeStatus().textContent).not.toContain('could not be restored');
+    });
+
+    it('shows unconfirmed native shortcuts when both undo and refresh IPC fail', async () => {
+        await saveShortcut('Ctrl+Shift+Y');
+        rollbackKind = 'throw';
+        environmentUnavailable = true;
+        try {
+            await importWithRejectedReaderWrite(desktopSettingsExport({ ...DEFAULT_SETTINGS, theme: 'dark' }, 'Ctrl+Alt+K',
+                { enabled: true, shortcut: 'Ctrl+Shift+Y', language: 'en' }));
+            expect(currentEnvironment.hotkey).toBe('Control+Alt+K');
+            expect(nativeInput('capture-shortcut-input').value).toBe('');
+            expect(nativeInput('capture-shortcut-input').disabled).toBe(true);
+            expect(nativeInput('text-shortcut-input').value).toBe('');
+            expect(nativeInput('text-shortcut-enabled').disabled).toBe(true);
+            expect(nativeInput('text-shortcut-enabled').indeterminate).toBe(true);
+            expect(settingsForm().querySelector<HTMLButtonElement>('[data-action="import-reader-settings"]')?.disabled).toBe(true);
+            expect(homeStatus().textContent).toContain('current state is unavailable');
+            click(settingsForm(), '[data-action="refresh-native-shortcuts"]');
+            await vi.waitFor(() => expect(homeStatus().textContent).toBe('Current shortcuts unavailable'));
+            expect(nativeInput('capture-shortcut-input').disabled).toBe(true);
+            environmentUnavailable = false;
+            click(settingsForm(), '[data-action="refresh-native-shortcuts"]');
+            await vi.waitFor(() => expect(homeStatus().textContent).toBe('Current shortcuts refreshed.'));
+            expect(nativeInput('capture-shortcut-input').value).toBe('Ctrl+Alt+K');
+            expect(nativeInput('capture-shortcut-input').disabled).toBe(false);
+            expect(nativeInput('text-shortcut-input').value).toBe('Ctrl+Shift+Y');
+            expect(nativeInput('text-shortcut-input').disabled).toBe(false);
+            expect(settingsForm().querySelector<HTMLButtonElement>('[data-action="import-reader-settings"]')?.disabled).toBe(false);
+        } finally { rollbackKind = 'saved'; environmentUnavailable = false; }
+    });
+
+    it('preserves OCR fallback history when the primary Reader import write is rejected', async () => {
+        const endpointKey = 'yomu-gaming-ocr-endpoint';
+        const engineKey = 'yomu-gaming-ocr-engine';
+        localStorage.setItem(endpointKey, 'http://127.0.0.1:9876/old');
+        localStorage.setItem(engineKey, 'manga-ocr');
+        await importWithRejectedReaderWrite(desktopSettingsExport({ ...DEFAULT_SETTINGS, ocrProvider: 'local-service',
+            ocrEndpointUrl: 'http://127.0.0.1:9988/new', ocrEngine: 'tesseract' }));
+        expect(localStorage.getItem(endpointKey)).toBe('http://127.0.0.1:9876/old');
+        expect(localStorage.getItem(engineKey)).toBe('manga-ocr');
+    });
+
+    it.each(['yomu-gaming-ocr-endpoint', 'yomu-gaming-ocr-engine'])('commits Reader and native import despite an auxiliary-only cache failure: %s', async failedKey => {
+        pairCalls.length = 0;
+        const write = Storage.prototype.setItem;
+        const setItem = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (this: Storage, key, value) {
+            if (key === failedKey) throw new DOMException('Fixture auxiliary quota', 'QuotaExceededError');
+            return write.call(this, key, value);
+        });
+        try {
+            await importBackup(desktopSettingsExport({ ...DEFAULT_SETTINGS, ocrProvider: 'local-service',
+                ocrEndpointUrl: 'http://127.0.0.1:9988/new', ocrEngine: 'tesseract' }, 'Ctrl+Alt+K'));
+            expect(pairCalls).toHaveLength(1);
+            expect(JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? '{}')).toMatchObject({ ocrEndpointUrl: 'http://127.0.0.1:9988/new', ocrEngine: 'tesseract' });
+            expect(homeStatus().dataset.statusTone).toBe('success');
+            expect(homeStatus().textContent).toBe('Settings imported.');
+        } finally { setItem.mockRestore(); }
     });
 
     it('submits a valid backup pair in one native call before reporting import success', async () => {

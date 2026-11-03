@@ -22,7 +22,28 @@ function fixture() {
     return { form, save, onSave, controls, environment };
 }
 
+function shortcutInput(form: HTMLFormElement, selector: string): HTMLInputElement {
+    const input = form.querySelector<HTMLInputElement>(selector);
+    if (!input) throw new Error('Missing selected-text shortcut fixture control');
+    return input;
+}
+
 describe('selected-text shortcut settings controls', () => {
+    it.each(['en', 'ja'] as const)('shows unavailable controls without a default key or a native write in %s', language => {
+        const f = fixture();
+        f.controls?.update(language, null);
+        const input = shortcutInput(f.form, '[data-text-shortcut-input]');
+        const enabled = shortcutInput(f.form, '[data-text-shortcut-enabled]');
+        expect(input.value).toBe('');
+        expect(input.disabled).toBe(true);
+        expect(enabled.disabled).toBe(true);
+        expect(enabled.indeterminate).toBe(true);
+        enabled.dispatchEvent(new Event('change'));
+        expect(f.save).not.toHaveBeenCalled();
+        expect(f.form.textContent).not.toMatch(/未翻訳|Shortcut disabled|ショートカットは無効/);
+        expect(f.form.textContent).toContain(language === 'en' ? 'Current shortcuts unavailable' : '現在のショートカットを確認できません');
+    });
+
     it('starts disabled without changing the OCR binding or silently claiming another app shortcut', () => {
         const f = fixture();
         f.controls?.update('en', f.environment);

@@ -27,14 +27,16 @@ export function installSelectedTextShortcutControls(form: HTMLFormElement, bridg
             <label><input type="checkbox" data-text-shortcut-enabled ${current.enabled ? 'checked' : ''}>${t('desktopSelectedTextEnabled')}</label>
             <label><span>${t('desktopSelectedTextShortcut')}</span>
                 <input data-text-shortcut-input aria-label="${t('desktopSelectedTextShortcut')}" autocomplete="off" inputmode="none" spellcheck="false"
-                    value="${escapeHtml(captureShortcutLabel(current.shortcut, environment?.platform ?? ''))}"></label>
+                    value="${escapeHtml(environment ? captureShortcutLabel(current.shortcut, environment.platform) : '')}"
+                    placeholder="${environment ? '' : t('desktopShortcutsUnavailable')}"></label>
             <p class="jpdb-reader-help">${t('desktopSelectedTextShortcutHelp')}</p>
-            <p class="jpdb-reader-help" role="status" data-text-shortcut-status>${escapeHtml(saveFailed ? uiText(language, 'settingsSaveFailed') : selectionShortcutCopy(language, current))}</p>`;
+            <p class="jpdb-reader-help" role="status" data-text-shortcut-status>${escapeHtml(!environment ? uiText(language, 'desktopShortcutsUnavailable') : saveFailed ? uiText(language, 'settingsSaveFailed') : selectionShortcutCopy(language, current))}</p>`;
         const input = section.querySelector<HTMLInputElement>('[data-text-shortcut-input]');
         const enabled = section.querySelector<HTMLInputElement>('[data-text-shortcut-enabled]');
         if (!input || !enabled) return;
-        input.disabled = busy || !current.enabled;
-        enabled.disabled = busy;
+        input.disabled = busy || !environment || !current.enabled;
+        enabled.disabled = busy || !environment;
+        enabled.indeterminate = !environment;
         enabled.addEventListener('change', () => void save(current.shortcut, enabled.checked));
         input.addEventListener('keydown', event => {
             if (event.key === 'Tab') return;
@@ -52,7 +54,7 @@ export function installSelectedTextShortcutControls(form: HTMLFormElement, bridg
     };
 
     const save = async (shortcut: string, enabled: boolean) => {
-        if (busy) return;
+        if (busy || !environment) return;
         busy = true;
         saveFailed = false;
         render();

@@ -68,7 +68,9 @@ export function desktopShortcutsFromExport(text: string, platform: string):
 }
 
 type GamingSettingsImport = { kind: 'imported'; settings: ReaderSettings; environment: YomuGamingEnvironment | null }
-    | { kind: 'unsupported-format' | 'invalid' | 'taken' | 'save-failed' | 'partial'; environment: YomuGamingEnvironment | null };
+    | { kind: 'unsupported-format' | 'invalid' | 'taken' | 'save-failed'; environment: YomuGamingEnvironment | null }
+    | { kind: 'partial'; environment: YomuGamingEnvironment }
+    | { kind: 'partial-unavailable'; environment: null };
 
 /** A rejected Reader write conditionally undoes only this import's native commit. */
 export async function importGamingSettingsBackup(text: string, current: ReaderSettings, platform: string,
@@ -104,6 +106,6 @@ async function undoNativeImport(commit: Extract<YomuGamingShortcutUpdate, { kind
     } catch {
         // An IPC failure leaves the result uncertain. Refresh instead of reporting restoration.
         const environment = await bridge.getEnvironment().catch(() => null);
-        return { kind: 'partial', environment };
+        return environment ? { kind: 'partial', environment } : { kind: 'partial-unavailable', environment: null };
     }
 }
