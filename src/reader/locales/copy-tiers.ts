@@ -71,7 +71,8 @@ const COMMUNITY_LOOKUP_ACTIONS = new Set(['desktopSelectedTextLookUp', 'desktopS
     'desktopSelectedTextPaste', 'definitionTranslationOriginal', 'deckPickerSaved', 'deckPickerNotSaved']);
 const COMMUNITY_DEGRADED_STATES = new Set(['desktopSelectedTextTaken', 'desktopSelectedTextInvalid',
     'desktopSelectedTextTooLong', 'desktopSelectedTextNoJapanese', 'deckPickerChecking',
-    'desktopShortcutImportInvalid', 'desktopShortcutImportTaken', 'desktopShortcutImportSaveFailed', 'desktopShortcutImportPartial']);
+    'desktopShortcutImportInvalid', 'desktopShortcutImportTaken', 'desktopShortcutImportSaveFailed', 'desktopShortcutImportPartial',
+    'desktopShortcutImportUnconfirmed', 'desktopShortcutsRefresh']);
 
 // Ranked by cost of a bad translation, not by frequency: a mistranslated delete
 // confirmation costs a learner their deck, a mistranslated tooltip costs them a

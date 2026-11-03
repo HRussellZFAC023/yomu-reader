@@ -36,7 +36,7 @@ const scopes = {
         tests: [
             'gaming-selected-text', 'gaming-selected-text-command', 'gaming-selected-text-main',
             'gaming-selected-text-renderer', 'gaming-selected-text-shortcut-controls', 'gaming-first-run',
-            'gaming-lifecycle', 'gaming-settings-import', 'gaming-settings-file', 'gaming-packaged-reader-styles',
+            'gaming-lifecycle', 'gaming-settings-import', 'gaming-settings-storage', 'gaming-settings-file', 'gaming-packaged-reader-styles',
             'reader-boot', 'reader-boot-storage-barrier', 'settings-file-io',
         ],
         directories: [],

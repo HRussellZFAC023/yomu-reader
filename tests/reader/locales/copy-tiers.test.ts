@@ -127,7 +127,8 @@ describe('D43 copy tiers are a property of the string', () => {
                 category: 'lookup-primary-actions', rule: 'lookup-primary-actions' },
             { keys: ['desktopSelectedTextTaken', 'desktopSelectedTextInvalid', 'desktopSelectedTextTooLong',
                 'desktopSelectedTextNoJapanese', 'deckPickerChecking', 'desktopShortcutImportInvalid',
-                'desktopShortcutImportTaken', 'desktopShortcutImportSaveFailed', 'desktopShortcutImportPartial'],
+                'desktopShortcutImportTaken', 'desktopShortcutImportSaveFailed', 'desktopShortcutImportPartial',
+                'desktopShortcutImportUnconfirmed', 'desktopShortcutsUnavailable', 'desktopShortcutsRefresh'],
                 category: 'degraded-and-empty-states', rule: 'degraded-empty-and-unavailable-states' },
         ];
         for (const { keys, category, rule } of groups) {
@@ -178,7 +179,7 @@ describe('D43 copy tiers are a property of the string', () => {
         const humanCritical = messages.filter((message) => message.tier === 'human-critical');
         const byIdAlone = humanCritical.filter((message) => copyTierOf(message.id).tier === 'human-critical');
         expect({ total: messages.length, critical: humanCritical.length, byId: byIdAlone.length })
-            .toEqual({ total: 1278, critical: 459, byId: 454 });
+            .toEqual({ total: 1282, critical: 462, byId: 457 });
         // 2.2.1 restores two translation controls and adds five deck-save failure messages.
         for (const key of ['translationLanguage', 'translationLanguageHelp']) {
             expect(chromeMessageSource()).toHaveProperty(key);
