@@ -7,6 +7,7 @@ import { applyMokuroReaderOcrDefault, installMokuroOcrToggleNote } from '../app/
 import { announceInstalledReaderRuntime, shouldInstallHostedReaderRuntime } from '../app/runtime-presence';
 import { installUserscriptGmStorageBridgeWhenReady, installUserscriptHttpBridgeWhenReady } from './index';
 import { activateTargetOwnedDocumentStartCompanions } from '../app/target-owned-document-start';
+import { subscribeToHostedSettingsChanges } from './hosted-settings-changes';
 
 // The hosted website runs the same readable bundle as a no-install fallback.
 // Signal a real userscript/extension immediately so that fallback never races
@@ -22,7 +23,7 @@ if (installedRuntime || (docEl && shouldInstallHostedReaderRuntime())) {
             console.error('[Yomu Reader] Failed to initialize site-language preference', error);
         });
     }
-    installUserscriptGmStorageBridgeWhenReady();
+    installUserscriptGmStorageBridgeWhenReady(subscribeToHostedSettingsChanges);
     installUserscriptHttpBridgeWhenReady();
     applyMokuroReaderOcrDefault();
     activateTargetOwnedDocumentStartCompanions();
