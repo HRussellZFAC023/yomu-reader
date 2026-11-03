@@ -1,6 +1,6 @@
 # Changelog
 
-## [2.2.1] - 2026-11-03
+## [2.2.2] - 2026-11-03
 
 ### Fixed
 
@@ -12,6 +12,10 @@
 - Mobile YouTube subtitle controls stay above the video while native dialogs retain their priority. (`smoke:youtube-ipad-playback`)
 - Turning off Request Japanese sites saves the preference before returning to the original page, preventing an immediate redirect back to Japanese. (`tests/reader/preferred-site-language.test.ts`, `smoke:userscript-boot`)
 - Completed OCR on paused videos keeps playback controls and subtitles visible. The redundant captured image stays transparent while recognized text remains available for lookup. (`smoke:youtube-paused-frame-register`)
+
+## [2.2.1] - 2026-11-03
+
+The tagged 2.2.1 release did not complete. The fixes ship in 2.2.2.
 
 ## [2.2.0] - 2026-10-27
 

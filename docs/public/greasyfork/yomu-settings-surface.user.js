@@ -14526,7 +14526,7 @@ const NEW_TAB_CACHE_KEY = "jpdb-reader-newtab-card-cache";
 function clearNewTabOfflineCache() {
   return gmStorageDelete(NEW_TAB_CACHE_KEY);
 }
-const CURRENT_YOMU_VERSION = "2.2.1".trim() ? "2.2.1".trim() : "dev";
+const CURRENT_YOMU_VERSION = "2.2.2".trim() ? "2.2.2".trim() : "dev";
 function latestYomuVersionFromVersionJson(value) {
   if (!value || typeof value !== "object") return null;
   const record2 = value;
