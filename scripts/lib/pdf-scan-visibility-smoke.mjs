@@ -8,20 +8,22 @@ export async function verifyPdfScanVisibility(page, pageNumber, expectedText) {
     await page.mouse.move(8, 150);
     const registrationHandle = await page.waitForFunction(({ pageNumber, expectedText }) => {
         const canvas = document.querySelector(`.pdf-page[data-page-number="${pageNumber}"] canvas`);
-        const canvasRect = canvas?.getBoundingClientRect();
-        if (!canvasRect) return false;
+        if (!canvas) return false;
+        const canvasRect = canvas.getBoundingClientRect();
         const lines = [...document.querySelectorAll('.jpdb-ocr-line')].filter(line => {
             const rect = line.getBoundingClientRect();
-            return rect.top >= canvasRect.top && rect.bottom <= canvasRect.bottom
-                && rect.left >= canvasRect.left && rect.right <= canvasRect.right
-                && rect.top >= 0 && rect.bottom <= innerHeight && !line.closest('[hidden]');
+            return [rect.top >= canvasRect.top, rect.bottom <= canvasRect.bottom,
+                rect.left >= canvasRect.left, rect.right <= canvasRect.right,
+                rect.top >= 0, rect.bottom <= innerHeight, !line.closest('[hidden]')].every(Boolean);
         });
         const line = lines.find(line => line.getAttribute('data-ocr-text') === expectedText);
-        const word = line?.querySelector('.jpdb-reader-word');
-        if (!line || !word) return false;
+        const word = line && line.querySelector('.jpdb-reader-word');
+        if (!word) return false;
         const rect = line.getBoundingClientRect();
         const wordRect = word.getBoundingClientRect();
         const hit = document.elementFromPoint(wordRect.left + wordRect.width / 2, wordRect.top + wordRect.height / 2);
+        function hitWord(hit) { return hit?.closest('.jpdb-reader-word'); }
+        function wordSurface(word) { return word.getAttribute('data-surface') || ''; }
         return {
             pageNumber,
             text: line.getAttribute('data-ocr-text'),
@@ -40,8 +42,8 @@ export async function verifyPdfScanVisibility(page, pageNumber, expectedText) {
             ],
             box: { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom },
             canvasBox: { left: canvasRect.left, top: canvasRect.top, width: canvasRect.width, height: canvasRect.height },
-            wordHit: hit?.closest('.jpdb-reader-word') === word,
-            wordSpelling: word.getAttribute('data-surface') || '',
+            wordHit: hitWord(hit) === word,
+            wordSpelling: wordSurface(word),
         };
     }, { pageNumber, expectedText }, { timeout: 15_000 });
     const registration = await registrationHandle.jsonValue();
@@ -63,22 +65,18 @@ export async function verifyPdfScanVisibility(page, pageNumber, expectedText) {
     }
     const painted = await sharp(withOverlay).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
     const source = await sharp(withoutOverlay).ensureAlpha().raw().toBuffer();
-    let changedPixels = 0;
-    for (let y = Math.ceil(registration.box.top); y < Math.floor(registration.box.bottom); y += 1) {
-        for (let x = Math.ceil(registration.box.left); x < Math.floor(registration.box.right); x += 1) {
-            const offset = (y * painted.info.width + x) * 4;
-            if (Math.max(...[0, 1, 2].map(channel => Math.abs(painted.data[offset + channel] - source[offset + channel]))) > 12) changedPixels += 1;
-        }
-    }
+    const changedPixels = countPixels(painted.info.width, {
+        top: Math.ceil(registration.box.top), bottom: Math.floor(registration.box.bottom),
+        left: Math.ceil(registration.box.left), right: Math.floor(registration.box.right),
+    }, offset => Math.max(...[0, 1, 2].map(channel => Math.abs(painted.data[offset + channel] - source[offset + channel]))) > 12);
     assert(changedPixels > 100, 'scanned PDF OCR target must actually paint over the source raster', { ...registration, changedPixels });
     const canvasBox = registration.canvasBox;
-    let sourceRasterPixels = 0;
-    for (let y = Math.max(0, Math.ceil(canvasBox.top + canvasBox.height * 0.3)); y < Math.min(painted.info.height, canvasBox.top + canvasBox.height * 0.6); y += 1) {
-        for (let x = Math.max(0, Math.ceil(canvasBox.left + canvasBox.width * 0.25)); x < Math.min(painted.info.width, canvasBox.left + canvasBox.width * 0.75); x += 1) {
-            const offset = (y * painted.info.width + x) * 4;
-            if (Math.min(...source.subarray(offset, offset + 3)) < 220) sourceRasterPixels += 1;
-        }
-    }
+    const sourceRasterPixels = countPixels(painted.info.width, {
+        top: Math.max(0, Math.ceil(canvasBox.top + canvasBox.height * 0.3)),
+        bottom: Math.min(painted.info.height, canvasBox.top + canvasBox.height * 0.6),
+        left: Math.max(0, Math.ceil(canvasBox.left + canvasBox.width * 0.25)),
+        right: Math.min(painted.info.width, canvasBox.left + canvasBox.width * 0.75),
+    }, offset => Math.min(...source.subarray(offset, offset + 3)) < 220);
     assert(sourceRasterPixels > 1000, 'scanned PDF source raster must actually paint on the visible page', { ...registration, sourceRasterPixels });
 
     const word = page.locator(`.jpdb-ocr-line[data-ocr-text="${expectedText}"] .jpdb-reader-word`).first();
@@ -90,4 +88,14 @@ export async function verifyPdfScanVisibility(page, pageNumber, expectedText) {
     await page.keyboard.press('Escape');
     await page.mouse.move(8, 150);
     return { ...registration, changedPixels, sourceRasterPixels, lookupText: lookupText.slice(0, 100) };
+}
+
+function countPixels(width, box, matches) {
+    let count = 0;
+    for (let y = box.top; y < box.bottom; y += 1) {
+        for (let x = box.left; x < box.right; x += 1) {
+            if (matches((y * width + x) * 4)) count += 1;
+        }
+    }
+    return count;
 }

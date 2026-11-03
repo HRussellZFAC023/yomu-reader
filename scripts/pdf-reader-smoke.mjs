@@ -383,6 +383,19 @@ function pdfSmokeSettingsForTarget(baseUrl, targetLanguage) {
     };
 }
 
+async function fetchFixtureResponse(request) {
+        const response = await fetch(request.url, {
+            method: request.method || 'GET',
+            headers: request.headers || {},
+            body: gmRequestFetchBody(request),
+        });
+        return {
+            status: response.status,
+            responseText: await response.text(),
+            contentType: response.headers.get('content-type') ?? 'text/plain',
+        };
+}
+
 async function openInReader(browser, baseUrl, pdfBytes, fileName, settings = pdfSmokeSettings(baseUrl)) {
     const page = await browser.newPage({ viewport: { width: 1280, height: 1000 } });
     await page.emulateMedia({ reducedMotion: 'reduce' });
@@ -394,16 +407,7 @@ async function openInReader(browser, baseUrl, pdfBytes, fileName, settings = pdf
         if (new URL(request.url).origin !== baseUrl) {
             return { status: 404, responseText: '{}', contentType: 'application/json' };
         }
-        const response = await fetch(request.url, {
-            method: request.method || 'GET',
-            headers: request.headers || {},
-            body: gmRequestFetchBody(request),
-        });
-        return {
-            status: response.status,
-            responseText: await response.text(),
-            contentType: response.headers.get('content-type') ?? 'text/plain',
-        };
+        return fetchFixtureResponse(request);
     });
     await page.addInitScript(() => {
         for (const storageKey of Object.keys(localStorage)) {

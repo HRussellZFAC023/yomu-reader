@@ -37,7 +37,7 @@ async function proveScenario(browser, fixture, scenario) {
     const requested = [];
     const respond = async rawUrl => {
         const url = new URL(rawUrl);
-        const source = url.host === 'api.jiten.moe' ? 'jiten' : url.host === 'jpdb.io' ? 'jpdb' : '';
+        const source = { 'api.jiten.moe': 'jiten', 'jpdb.io': 'jpdb' }[url.host];
         if (source) {
             requested.push(source);
             await gates[source].promise;
@@ -57,15 +57,11 @@ async function proveScenario(browser, fixture, scenario) {
         const popup = await openFixturePopup(page, fixture);
         await popup.locator('[data-source="local-dictionary"]').first().waitFor({ state: 'attached', timeout: 15_000 });
         const localOnly = await popupSources(popup);
-        assert(!localOnly.includes('__jiten__') && !localOnly.includes('__jpdb__'), 'Remote fixture rendered before its response was released', { scenario: scenario.id, localOnly });
+        assert(!localOnly.includes('__jiten__'), 'Jiten fixture rendered before its response was released', { scenario: scenario.id, localOnly });
+        assert(!localOnly.includes('__jpdb__'), 'JPDB fixture rendered before its response was released', { scenario: scenario.id, localOnly });
 
         const stages = [{ stage: 'local-before-remote', sources: localOnly }];
-        for (const source of scenario.releases) {
-            gates[source].release();
-            if (source === 'jiten' && scenario.disabled) continue;
-            await popup.locator(`[data-source="${source}"]`).first().waitFor({ state: 'attached', timeout: 20_000 });
-            stages.push({ stage: `${source}-released`, sources: await popupSources(popup) });
-        }
+        await releaseSources(popup, gates, scenario, stages);
         await popup.locator('[data-source="jpdb"]', { hasText: JPDB_GLOSS }).waitFor({ state: 'attached', timeout: 20_000 });
         await waitForSourceCount(page, scenario.expected.length);
         const sources = await popupSources(popup);
@@ -84,12 +80,22 @@ async function proveScenario(browser, fixture, scenario) {
         const reloaded = await popupSources(reloadedPopup);
         assert(sameList(reloaded, scenario.expected), 'Popup source order changed after reloading the document', { scenario: scenario.id, reloaded, expected: scenario.expected });
         const reloadedObserved = await assertObservedOrder(page, scenario);
-        assert(requested.includes('jpdb') && (scenario.disabled || requested.includes('jiten')), 'Async fixture did not exercise both remote transports', requested);
+        assert(requested.includes('jpdb'), 'Async fixture did not exercise JPDB transport', requested);
+        if (!scenario.disabled) assert(requested.includes('jiten'), 'Async fixture did not exercise Jiten transport', requested);
         return { id: scenario.id, expected: scenario.expected, stages, sources, observed, reloaded, reloadedObserved, requested, screenshot };
     } finally {
         gates.jiten.release();
         gates.jpdb.release();
         await context.close();
+    }
+}
+
+async function releaseSources(popup, gates, scenario, stages) {
+    for (const source of scenario.releases) {
+        gates[source].release();
+        if (source === 'jiten' && scenario.disabled) continue;
+        await popup.locator(`[data-source="${source}"]`).first().waitFor({ state: 'attached', timeout: 20_000 });
+        stages.push({ stage: `${source}-released`, sources: await popupSources(popup) });
     }
 }
 

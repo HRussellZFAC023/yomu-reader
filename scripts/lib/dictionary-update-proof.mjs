@@ -1,3 +1,4 @@
+import { deepStrictEqual } from 'node:assert';
 import { readFileSync } from 'node:fs';
 import {
     addGmStorageBridgeInitScript,
@@ -61,13 +62,7 @@ export async function proveStoredDictionarySurvivesUpdate(browser, { scriptPath,
                 await card.getByText(GLOSS, { exact: true }).waitFor({ state: 'visible', timeout: 15_000 });
                 assert(await card.count() === 1, 'Updated code did not recognize exactly the stored Jitendex source', { version, load });
                 const stored = await readLibrary(page);
-                assert(stored.version === 7 && stored.titles.length === 1 && stored.titles[0] === TITLE,
-                    'Update lost or renamed the stored dictionary', { version, load, stored });
-                assert(stored.terms.length === 1 && stored.terms[0].id === 1 && stored.terms[0].glossary[0] === GLOSS,
-                    'Update did not preserve the imported term', { version, load, stored });
-                assert(stored.info.revision === 'fixture-before-update' && stored.info.importDate === 100,
-                    'Update replaced the stored import metadata', { version, load, stored });
-                assert(stored.epoch.token === '3:fixture-reset', 'Legacy library was not adopted into its current epoch', stored);
+                assertStoredLibrary(stored, { version, load });
                 const values = await readPrefixedGmValues(page, PREFIX);
                 assert(!values['yomu-dictionary-archives'], 'Update proof unexpectedly created an archive', Object.keys(values));
                 const preferences = JSON.parse(values[YOMU_SETTINGS_KEY]).dictionaryPreferences;
@@ -81,6 +76,18 @@ export async function proveStoredDictionarySurvivesUpdate(browser, { scriptPath,
         }
     }
     return reports;
+}
+
+function assertStoredLibrary(stored, scenario) {
+    const actual = {
+        version: stored.version, titles: stored.titles,
+        terms: stored.terms.map(term => ({ id: term.id, gloss: term.glossary[0] })),
+        revision: stored.info.revision, importDate: stored.info.importDate, epoch: stored.epoch.token,
+    };
+    deepStrictEqual(actual, {
+        version: 7, titles: [TITLE], terms: [{ id: 1, gloss: GLOSS }],
+        revision: 'fixture-before-update', importDate: 100, epoch: '3:fixture-reset',
+    }, `Update lost stored dictionary content or metadata: ${JSON.stringify(scenario)}`);
 }
 
 async function seedLegacyLibrary(page, version) {

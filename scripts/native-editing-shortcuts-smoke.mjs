@@ -205,67 +205,76 @@ function verifyKeys(result, modifier, key) {
     assert.deepEqual(result.keydowns, [{ key, ctrl: modifier === 'Control', meta: modifier === 'Meta', prevented: false, trusted: true }]);
 }
 
+const EDITORS = ['#input', '#textarea', '#editable', '#shadow-input', '#popup-input', '#popup-textarea', '#popup-editable'];
+const ANNOTATION_ROOTS = {
+    plain: '#prose', inline: '#prose rt', portal: '.jpdb-reader-document-annotation-portal', mirror: '#prose .jpdb-reader-text-mirror',
+};
+
+async function verifyAnnotationCopy(page, name, kind) {
+    await page.goto('https://native-editing.example/', { waitUntil: 'domcontentloaded' });
+    await page.addStyleTag({ content: readFileSync(path.join(ROOT, 'dist/yomu.css'), 'utf8') });
+    await page.addScriptTag({ content: browserBundle });
+    await page.evaluate(kind => window.nativeEditingProbe.paint(kind), kind);
+    assert.equal(await page.locator(ANNOTATION_ROOTS[kind]).count(), 1);
+    for (const all of [true, false]) {
+        const selected = all ? TEXT : '本語';
+        await page.evaluate(all => window.nativeEditingProbe.selectProse(all), all);
+        await page.evaluate(() => window.nativeEditingProbe.reset());
+        await page.keyboard.press(NATIVE_MODIFIER + '+c');
+        const result = await state(page);
+        verifyKeys(result, NATIVE_MODIFIER, 'c');
+        assert.deepEqual(result.clipboard, [{ type: 'copy', prevented: false, trusted: true }]);
+        if (!all) assert.equal(result.selected, selected, name + '/' + kind + ': partial source selection');
+        await verifyCopiedPayload(page, selected, true);
+    }
+}
+
+async function verifyEditorShortcut(page, name, selector, key) {
+    if (key === 'v') {
+        await page.evaluate(() => window.nativeEditingProbe.prepareClipboardSeed());
+        await page.keyboard.press(NATIVE_MODIFIER + '+c');
+    }
+    await page.evaluate(selector => { window.nativeEditingProbe.prepareEditor(selector); window.nativeEditingProbe.reset(); }, selector);
+    await page.keyboard.press(NATIVE_MODIFIER + '+' + key);
+    const result = await state(page);
+    verifyKeys(result, NATIVE_MODIFIER, key);
+    const pasteFields = { c: {}, v: { plain: PASTED_TEXT, htmlText: '', readingText: '' }, x: {} };
+    const record = { type: { c: 'copy', v: 'paste', x: 'cut' }[key], prevented: false, trusted: true, ...pasteFields[key] };
+    assert.deepEqual(result.clipboard, [record], name + '/' + selector + '/' + key);
+    const expectedValues = { c: TEXT, v: PASTED_TEXT + TEXT.slice(3), x: TEXT.slice(3) };
+    assert.equal(await page.evaluate(selector => window.nativeEditingProbe.value(selector), selector), expectedValues[key]);
+    if (key !== 'v') await verifyCopiedPayload(page, '日本語', selector.includes('editable'));
+}
+
+// Only this OS's native modifier proves clipboard defaults. Both modifiers
+// must pass through Reader without triggering actions.
+async function verifyOtherModifier(page) {
+    for (const selector of ['#prose', ...EDITORS]) {
+        for (const key of ['c', 'v', 'x']) {
+            await page.evaluate(selector => {
+                if (selector === '#prose') window.nativeEditingProbe.selectProse(true);
+                else window.nativeEditingProbe.prepareEditor(selector);
+                window.nativeEditingProbe.reset();
+            }, selector);
+            await page.keyboard.press(OTHER_MODIFIER + '+' + key);
+            verifyKeys(await state(page), OTHER_MODIFIER, key);
+        }
+    }
+}
+
 async function runEngine(name, browserType) {
-    const browser = await browserType.launch({ headless: true, ...(name === 'chromium' ? { channel: 'chromium-headless-shell' } : {}) });
+    const browser = await browserType.launch({ headless: true, ...{ chromium: { channel: 'chromium-headless-shell' } }[name] });
     try {
         const context = await browser.newContext();
         const page = await context.newPage();
         const errors = [];
         page.on('pageerror', error => errors.push(error.message));
         await page.route('https://native-editing.example/**', route => route.fulfill({ contentType: 'text/html; charset=utf-8', body: fixture }));
-        for (const kind of ['plain', 'inline', 'portal', 'mirror']) {
-            await page.goto('https://native-editing.example/', { waitUntil: 'domcontentloaded' });
-            await page.addStyleTag({ content: readFileSync(path.join(ROOT, 'dist/yomu.css'), 'utf8') });
-            await page.addScriptTag({ content: browserBundle });
-            await page.evaluate(kind => window.nativeEditingProbe.paint(kind), kind);
-            if (kind === 'inline') assert.equal(await page.locator('#prose rt').count(), 1);
-            if (kind === 'portal') assert.equal(await page.locator('.jpdb-reader-document-annotation-portal').count(), 1);
-            if (kind === 'mirror') assert.equal(await page.locator('#prose .jpdb-reader-text-mirror').count(), 1);
-            for (const all of [true, false]) {
-                const selected = all ? TEXT : '本語';
-                await page.evaluate(all => window.nativeEditingProbe.selectProse(all), all);
-                await page.evaluate(() => window.nativeEditingProbe.reset());
-                await page.keyboard.press(NATIVE_MODIFIER + '+c');
-                const result = await state(page);
-                verifyKeys(result, NATIVE_MODIFIER, 'c');
-                assert.deepEqual(result.clipboard, [{ type: 'copy', prevented: false, trusted: true }]);
-                if (!all) assert.equal(result.selected, selected, name + '/' + kind + ': partial source selection');
-                await verifyCopiedPayload(page, selected, true);
-            }
+        for (const kind of ['plain', 'inline', 'portal', 'mirror']) await verifyAnnotationCopy(page, name, kind);
+        for (const selector of EDITORS) {
+            for (const key of ['c', 'v', 'x']) await verifyEditorShortcut(page, name, selector, key);
         }
-
-        const editors = ['#input', '#textarea', '#editable', '#shadow-input', '#popup-input', '#popup-textarea', '#popup-editable'];
-        for (const selector of editors) {
-            for (const key of ['c', 'v', 'x']) {
-                if (key === 'v') {
-                    await page.evaluate(() => window.nativeEditingProbe.prepareClipboardSeed());
-                    await page.keyboard.press(NATIVE_MODIFIER + '+c');
-                }
-                await page.evaluate(selector => { window.nativeEditingProbe.prepareEditor(selector); window.nativeEditingProbe.reset(); }, selector);
-                await page.keyboard.press(NATIVE_MODIFIER + '+' + key);
-                const result = await state(page);
-                verifyKeys(result, NATIVE_MODIFIER, key);
-                const record = { type: { c: 'copy', v: 'paste', x: 'cut' }[key], prevented: false, trusted: true };
-                assert.deepEqual(result.clipboard, [{ ...record, ...(key === 'v' ? { plain: PASTED_TEXT, htmlText: '', readingText: '' } : {}) }], name + '/' + selector + '/' + key);
-                const expected = key === 'c' ? TEXT : (key === 'v' ? PASTED_TEXT : '') + TEXT.slice(3);
-                assert.equal(await page.evaluate(selector => window.nativeEditingProbe.value(selector), selector), expected);
-                if (key !== 'v') await verifyCopiedPayload(page, '日本語', selector.includes('editable'));
-            }
-        }
-
-        // Only this OS's native modifier proves clipboard defaults. Both
-        // modifiers must pass through Reader without triggering actions.
-        for (const selector of ['#prose', ...editors]) {
-            for (const key of ['c', 'v', 'x']) {
-                await page.evaluate(selector => {
-                    if (selector === '#prose') window.nativeEditingProbe.selectProse(true);
-                    else window.nativeEditingProbe.prepareEditor(selector);
-                    window.nativeEditingProbe.reset();
-                }, selector);
-                await page.keyboard.press(OTHER_MODIFIER + '+' + key);
-                verifyKeys(await state(page), OTHER_MODIFIER, key);
-            }
-        }
+        await verifyOtherModifier(page);
 
         // Prove the grade listener was actually live, not bypassed by this
         // fixture. Only the intentional bare letter should submit a grade.

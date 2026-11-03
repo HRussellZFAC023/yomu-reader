@@ -48,6 +48,29 @@ const mediaServer = await startLoopbackServer((_request, response) => {
     response.end(audioBytes);
 }, 'Study audio fixture media');
 const managerClip = `${mediaServer.origin.replace('127.0.0.1', 'audio.localhost')}/fixture.wav`;
+const cors = { 'access-control-allow-origin': '*' };
+const scenarioAssertions = {
+    'hosted-default': ({ requests, completed }) => {
+            assert(requests.some(request => new URL(request.url).origin === 'https://audio.yomureader.com' && new URL(request.url).searchParams.get('term')), 'Default hosted JSON was not requested for a Study headword.', { requests });
+            assert(requests.some(request => request.url === hostedClip), 'The hosted clip was not requested.', { requests });
+            assert(completed.every(event => event.src.startsWith('blob:')), 'The hosted media did not use the decoded Blob.', { completed });
+    },
+    'hosted-optional-cors-provider': ({ requests }) => {
+            assert(requests.some(request => proxyHosts.has(new URL(request.url).hostname) && new URL(request.url).searchParams.get('url') === blockedClip), 'The known blocked optional provider did not use public transport.', { requests });
+            assert(!requests.some(request => request.url === blockedClip), 'The optional provider made a doomed direct CORS request.', { requests });
+    },
+    'hosted-loopback-without-cors': ({ audio, completed }) => {
+            assert(!audio.fetches.some(url => url.startsWith(mediaServer.origin)), 'Loopback media was fetched instead of played directly.', audio);
+            assert(completed.every(event => event.src === `${mediaServer.origin}/fixture.wav`), 'The no-CORS loopback clip did not play directly.', { completed });
+    },
+    'installed-manager-fallback': ({ audio, bridgeRequests, expectedCorsErrors }) => {
+            assert(audio.fetches.includes(managerClip), 'Installed Study did not try the real browser fetch path.', audio);
+            assert(bridgeRequests.some(request => request.url === managerClip && request.responseType === 'blob'), 'Failed browser fetch did not fall back to the installed manager.', { bridgeRequests });
+            assert(expectedCorsErrors.some(error => error.includes(managerClip) && error.includes('Access-Control-Allow-Origin')), 'Installed fallback fixture did not encounter its missing-CORS-header rejection.');
+    },
+};
+
+
 const browser = await launchSmokeBrowser(chromium, 'chromium', { headless: true });
 const scenarios = [];
 try {
@@ -111,34 +134,7 @@ async function checkStudy(name, audioSettings, installed = false) {
     page.on('console', message => {
         if (message.type() === 'error' && /cors|access-control|ERR_FAILED/i.test(message.text())) expectedCorsErrors.push(message.text());
     });
-    await page.route('https://**/*', async route => {
-        const request = route.request();
-        const url = new URL(request.url());
-        if (url.origin === studyOrigin) {
-            if (url.pathname.endsWith('/app.js')) return route.fulfill({ contentType: 'text/javascript', body: app });
-            const filename = studyFile(url.pathname);
-            return filename
-                ? route.fulfill({ contentType: contentType(filename), body: readFileSync(filename) })
-                : route.fulfill({ status: 404, body: '' });
-        }
-        if (url.origin === 'https://audio.yomureader.com' || url.href === blockedClip || url.searchParams.get('url') === blockedClip) {
-            requests.push({ url: url.href, type: request.resourceType() });
-        }
-        const cors = { 'access-control-allow-origin': '*' };
-        if (url.origin === 'https://audio.yomureader.com') {
-            if (url.pathname === '/') {
-                await route.fulfill({ status: 200, headers: cors, contentType: 'application/json', body: JSON.stringify({ audioSources: [{ name: 'fixture', url: hostedClip }] }) });
-            } else {
-                await route.fulfill({ status: 200, headers: cors, contentType: 'audio/wav', body: audioBytes });
-            }
-        } else if (proxyHosts.has(url.hostname) && url.searchParams.get('url') === blockedClip) {
-            await route.fulfill({ status: 200, headers: cors, contentType: 'audio/wav', body: audioBytes });
-        } else if (url.href === blockedClip) {
-            await route.fulfill({ status: 200, contentType: 'audio/wav', body: audioBytes });
-        } else {
-            await route.fulfill({ status: 503, headers: cors, contentType: 'text/plain', body: 'Provider intentionally unavailable in this fixture.' });
-        }
-    });
+    await page.route('https://**/*', route => routeStudyFixture(route, requests));
     const commit = `study-audio-${name}`;
     const value = { ...settings, ...audioSettings, __yomuSettingsPersistenceCommitV1: commit };
     const ledger = {
@@ -203,9 +199,7 @@ async function checkStudy(name, audioSettings, installed = false) {
         await page.goto(`${studyOrigin}/study/?audio-fixture=${name}`, { waitUntil: 'domcontentloaded' });
         assert(await page.evaluate(() => typeof window.GM_xmlhttpRequest === 'function') === installed, 'The scenario has the wrong manager transport.');
         await page.waitForSelector('[data-newtab-prompt]', { timeout: 15_000 });
-        const finalReveal = page.locator('[data-newtab-action="study-step"][data-study-step-kind="final-reveal"]');
-        if (await finalReveal.count()) await finalReveal.first().click();
-        else await page.locator('[data-newtab-action="reveal"]').click();
+        await revealStudyCard(page);
         const speaker = page.locator('[data-action="study-word-audio"]');
         await speaker.waitFor();
         const prompt = await page.locator('[data-newtab-prompt]').textContent();
@@ -221,21 +215,7 @@ async function checkStudy(name, audioSettings, installed = false) {
         assert(completed.every(event => !event.muted && event.readyState >= 2), 'Media was muted or did not decode.', { completed });
         assert(audio.speech === 0, 'Recorded audio unexpectedly fell through to speech synthesis.', audio);
         assert(pageErrors.length === 0, 'Study raised an uncaught exception.', { pageErrors });
-        if (name === 'hosted-default') {
-            assert(requests.some(request => new URL(request.url).origin === 'https://audio.yomureader.com' && new URL(request.url).searchParams.get('term')), 'Default hosted JSON was not requested for a Study headword.', { requests });
-            assert(requests.some(request => request.url === hostedClip), 'The hosted clip was not requested.', { requests });
-            assert(completed.every(event => event.src.startsWith('blob:')), 'The hosted media did not use the decoded Blob.', { completed });
-        } else if (name === 'hosted-optional-cors-provider') {
-            assert(requests.some(request => proxyHosts.has(new URL(request.url).hostname) && new URL(request.url).searchParams.get('url') === blockedClip), 'The known blocked optional provider did not use public transport.', { requests });
-            assert(!requests.some(request => request.url === blockedClip), 'The optional provider made a doomed direct CORS request.', { requests });
-        } else if (name === 'hosted-loopback-without-cors') {
-            assert(!audio.fetches.some(url => url.startsWith(mediaServer.origin)), 'Loopback media was fetched instead of played directly.', audio);
-            assert(completed.every(event => event.src === `${mediaServer.origin}/fixture.wav`), 'The no-CORS loopback clip did not play directly.', { completed });
-        } else {
-            assert(audio.fetches.includes(managerClip), 'Installed Study did not try the real browser fetch path.', audio);
-            assert(bridgeRequests.some(request => request.url === managerClip && request.responseType === 'blob'), 'Failed browser fetch did not fall back to the installed manager.', { bridgeRequests });
-            assert(expectedCorsErrors.some(error => error.includes(managerClip) && error.includes('Access-Control-Allow-Origin')), 'Installed fallback fixture did not encounter its missing-CORS-header rejection.');
-        }
+        scenarioAssertions[name]({ requests, completed, audio, bridgeRequests, expectedCorsErrors });
         await page.screenshot({ path: path.join(artifactDir, `${name}.png`) });
         result = { name, status: 'pass', installed, prompt: prompt.trim(), completed, requests, bridgeRequests, audio, expectedCorsErrors };
     } catch (error) {
@@ -245,9 +225,49 @@ async function checkStudy(name, audioSettings, installed = false) {
     return result;
 }
 
+async function revealStudyCard(page) {
+    const finalReveal = page.locator('[data-newtab-action="study-step"][data-study-step-kind="final-reveal"]');
+    if (await finalReveal.count()) await finalReveal.first().click();
+    else await page.locator('[data-newtab-action="reveal"]').click();
+}
+
+async function routeStudyFixture(route, requests) {
+    const request = route.request();
+    const url = new URL(request.url());
+    const tracked = [url.origin === 'https://audio.yomureader.com', url.href === blockedClip, url.searchParams.get('url') === blockedClip].some(Boolean);
+    if (tracked) requests.push({ url: url.href, type: request.resourceType() });
+    const handlers = { [studyOrigin]: routeHostedStudy, 'https://audio.yomureader.com': routeHostedAudio };
+    const handler = handlers[url.origin];
+    if (handler) return handler(route, url);
+    return routeProviderAudio(route, url);
+}
+
+function routeHostedStudy(route, url) {
+    if (url.pathname.endsWith('/app.js')) return route.fulfill({ contentType: 'text/javascript', body: app });
+    const filename = studyFile(url.pathname);
+    return filename ? route.fulfill({ contentType: contentType(filename), body: readFileSync(filename) }) : route.fulfill({ status: 404, body: '' });
+}
+
+function routeHostedAudio(route, url) {
+    if (url.pathname === '/') return route.fulfill({ status: 200, headers: cors, contentType: 'application/json', body: JSON.stringify({ audioSources: [{ name: 'fixture', url: hostedClip }] }) });
+    return route.fulfill({ status: 200, headers: cors, contentType: 'audio/wav', body: audioBytes });
+}
+
+function routeProviderAudio(route, url) {
+    if (proxyHosts.has(url.hostname) && url.searchParams.get('url') === blockedClip) return route.fulfill({ status: 200, headers: cors, contentType: 'audio/wav', body: audioBytes });
+    if (url.href === blockedClip) return route.fulfill({ status: 200, contentType: 'audio/wav', body: audioBytes });
+    return route.fulfill({ status: 503, headers: cors, contentType: 'text/plain', body: 'Provider intentionally unavailable in this fixture.' });
+}
+
 function studyFile(pathname) {
-    const filename = path.resolve(publicRoot, `.${pathname === '/' ? '/study/' : pathname}${pathname.endsWith('/') || pathname === '/' ? 'index.html' : ''}`);
-    return filename.startsWith(`${publicRoot}${path.sep}`) && existsSync(filename) && !statSync(filename).isDirectory() ? filename : null;
+    const route = pathname === '/' ? '/study/' : pathname;
+    const filename = path.resolve(publicRoot, `.${route}${route.endsWith('/') ? 'index.html' : ''}`);
+    return safePublicFile(filename);
+}
+
+function safePublicFile(filename) {
+    if (!filename.startsWith(`${publicRoot}${path.sep}`) || !existsSync(filename)) return null;
+    return statSync(filename).isDirectory() ? null : filename;
 }
 
 function contentType(filename) {

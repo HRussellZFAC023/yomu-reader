@@ -1,51 +1,14 @@
 import { choosePrivateDeck } from './smoke-test-helpers.mjs';
+import { gamingJitenFixture } from './gaming-jiten-fixture.mjs';
 
 // Exercise the packaged renderer, preload and capture IPC, then the Reader's actual
 // provider transport. Only remote HTTP responses are fixtures; no action is replaced.
 export async function assertGamingJitenActions({ app, page, overlay, importSettings, recapture, findWord }) {
     const fixtureKey = 'gaming-jiten-fixture-key';
-    const wordId = 1234;
     const deckId = 7;
-    const requests = [];
-    let knownState = [0];
-    const vocabulary = () => ({
-        wordId, readingIndex: 0, spelling: '冒険', reading: '冒[ぼう]険[けん]', frequencyRank: 1234,
-        partsOfSpeech: ['n'], meaningsChunks: [['adventure']], meaningsPartOfSpeech: [['n']], knownState,
+    const { wordId, requests, route } = gamingJitenFixture({
+        knownState: [0], decks: [{ userStudyDeckId: deckId, name: 'Gaming fixture words', deckType: 2 }],
     });
-    const route = async route => {
-        const request = route.request();
-        const url = new URL(request.url());
-        if (url.hostname === '127.0.0.1' || url.hostname === 'localhost') return route.continue();
-        if (url.hostname !== 'api.jiten.moe') return route.fulfill({ status: 503, contentType: 'application/json', body: '{}' });
-        const body = request.postDataJSON() ?? {};
-        requests.push({ path: url.pathname, method: request.method(), authorization: request.headers().authorization, body });
-        let response = {};
-        if (url.pathname.endsWith('/reader/parse')) {
-            response = {
-                tokens: body.text.map(text => {
-                    const start = text.indexOf('冒険');
-                    return start < 0 ? [] : [{ wordId, readingIndex: 0, start, end: start + 2, length: 2 }];
-                }),
-                vocabulary: [vocabulary()],
-            };
-        } else if (url.pathname.endsWith('/reader/lookup-vocabulary')) {
-            response = { result: (body.words ?? []).map(() => knownState) };
-        } else if (url.pathname.endsWith('/srs/reader-study-decks')) {
-            response = [{ userStudyDeckId: deckId, name: 'Gaming fixture words', deckType: 2 }];
-        } else if (url.pathname.endsWith('/srs/review')) {
-            knownState = [2];
-        } else if (url.pathname.endsWith(`/srs/study-decks/${deckId}/words`)) {
-            return route.fulfill({ status: 204 });
-        } else if (url.pathname.endsWith(`/vocabulary/${wordId}/0/info`)) {
-            response = {
-                wordId, mainReading: { text: '冒険', readingIndex: 0, frequencyRank: 1234 },
-                alternativeReadings: [], partsOfSpeech: ['noun'],
-                definitions: [{ senseIndex: 0, englishMeanings: ['adventure'], pos: ['noun'] }],
-                knownStates: knownState, composedOf: [], usedIn: [], usedInTotal: 0,
-            };
-        } else if (url.pathname.includes('/random-example-sentences')) response = [];
-        return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(response) });
-    };
     await app.context().route(/^https?:\/\//, route);
     try {
         await overlay.evaluate(() => window.yomuGaming.hideOverlay());

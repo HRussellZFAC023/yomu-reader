@@ -1,40 +1,12 @@
 import path from 'node:path';
+import assert from 'node:assert/strict';
+import { gamingJitenFixture } from './gaming-jiten-fixture.mjs';
 
 // Built Electron Settings, preload/capture IPC and Reader controls. Remote Jiten
 // responses are deterministic fixtures, and every nonlocal request is intercepted.
 export async function assertGamingGradingMode({ app, page, overlay, importSettings, openSettingsPanel, recapture, findWord, evidenceDir }) {
     const fixtureKey = 'gaming-grading-mode-fixture-key';
-    const wordId = 1234;
-    const requests = [];
-    const vocabulary = {
-        wordId, readingIndex: 0, spelling: '冒険', reading: '冒[ぼう]険[けん]', frequencyRank: 1234,
-        partsOfSpeech: ['n'], meaningsChunks: [['adventure']], meaningsPartOfSpeech: [['n']], knownState: [2],
-    };
-    const route = async route => {
-        const request = route.request();
-        const url = new URL(request.url());
-        if (url.hostname === '127.0.0.1' || url.hostname === 'localhost') return route.continue();
-        if (url.hostname !== 'api.jiten.moe') return route.abort();
-        const body = request.postDataJSON() ?? {};
-        requests.push({ path: url.pathname, method: request.method(), authorization: request.headers().authorization, body });
-        let response = {};
-        if (url.pathname.endsWith('/reader/parse')) {
-            response = { tokens: body.text.map(text => {
-                const start = text.indexOf('冒険');
-                return start < 0 ? [] : [{ wordId, readingIndex: 0, start, end: start + 2, length: 2 }];
-            }), vocabulary: [vocabulary] };
-        } else if (url.pathname.endsWith('/reader/lookup-vocabulary')) {
-            response = { result: (body.words ?? []).map(() => [2]) };
-        } else if (url.pathname.endsWith('/srs/reader-study-decks') || url.pathname.includes('/random-example-sentences')) {
-            response = [];
-        } else if (url.pathname.endsWith(`/vocabulary/${wordId}/0/info`)) {
-            response = { wordId, mainReading: { text: '冒険', readingIndex: 0, frequencyRank: 1234 },
-                alternativeReadings: [], partsOfSpeech: ['noun'],
-                definitions: [{ senseIndex: 0, englishMeanings: ['adventure'], pos: ['noun'] }],
-                knownStates: [2], composedOf: [], usedIn: [], usedInTotal: 0 };
-        }
-        return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(response) });
-    };
+    const { wordId, requests, route } = gamingJitenFixture({ knownState: [2] });
     await app.context().route(/^https?:\/\//, route);
     try {
         await overlay.evaluate(() => window.yomuGaming.hideOverlay());
@@ -117,10 +89,10 @@ export async function assertGamingGradingMode({ app, page, overlay, importSettin
         await popup.waitFor({ state: 'detached', timeout: 10_000 });
         const reviews = requests.filter(request => request.path.endsWith('/srs/review'));
         const request = reviews.at(-1);
-        if (reviews.length !== before + 1 || request.method !== 'POST' || request.authorization !== `ApiKey ${fixtureKey}`
-            || JSON.stringify(request.body) !== JSON.stringify({ wordId, readingIndex: 0, rating })) {
-            throw new Error(`Gaming ${grade} did not submit exactly one rating ${rating}: ${JSON.stringify(reviews)}`);
-        }
+        assert.equal(reviews.length, before + 1, `Gaming ${grade} did not submit exactly one review`);
+        assert.equal(request.method, 'POST');
+        assert.equal(request.authorization, `ApiKey ${fixtureKey}`);
+        assert.deepEqual(request.body, { wordId, readingIndex: 0, rating });
         await recapture(overlay);
     }
 }

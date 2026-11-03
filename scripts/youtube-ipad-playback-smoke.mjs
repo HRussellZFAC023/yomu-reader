@@ -48,6 +48,26 @@ ytd-watch-metadata { display:flex; gap:12px; padding-top:30px; }
 <button><span class="ytSpecButtonShapeNextButtonTextContent">チャンネル登録</span></button></ytd-watch-metadata>
 <button id="fullscreen">Fullscreen fixture</button>`;
 
+function installPlaybackFixture({ name, text, bindInteractions = false }) {
+    const f = window.YomuPlaybackFixture;
+    const settings = { ...f.DEFAULT_SETTINGS, interfaceLanguage: 'en', annotationsPaused: true,
+        subtitlePlayerEnabled: true, subtitleOverlayVisible: true, subtitleControlsMode: 'always',
+        subtitleTranscriptVisible: false, localDictionariesEnabled: false, apiKey: '' };
+    const controller = new f.SubtitlePlayerController({ getSettings: () => settings, parseJapanese: async () => [], onSettingsChange: () => {} });
+    controller.install();
+    if (bindInteractions) {
+        controller.abortController = new AbortController();
+        controller.bindInteractionEvents();
+    }
+    const video = document.querySelector('video');
+    Object.defineProperties(video, { currentTime: { configurable: true, value: 5 }, paused: { configurable: true, value: true } });
+    controller.video = video;
+    controller.cues = [{ start: 0, end: 100, text, transcriptEligible: true }];
+    controller.currentCue = controller.cues[0];
+    controller.refresh();
+    window[name] = { controller, settings, video };
+}
+
 // The live m.youtube player has a .html5-video-container at z-index:10,
 // without desktop .ytp-chrome-top/.ytp-chrome-bottom elements. Reproduce the
 // reported landscape letterbox boundary with real controller UI and browser
@@ -67,21 +87,9 @@ async function checkMobileVideoLayer(browser, engineName) {
             <button id="mobile-fullscreen">Fullscreen fixture</button>` }));
         await page.goto('https://m.youtube.com/watch?v=mobile-layer-fixture', { waitUntil:'domcontentloaded' });
         await page.addScriptTag({ content:bundle.outputFiles[0].text });
+        await page.evaluate(installPlaybackFixture, { name: 'mobileLayerFixture', text: '日本語の字幕です。' });
         await page.evaluate(() => {
-            const f=window.YomuPlaybackFixture;
-            const settings={...f.DEFAULT_SETTINGS, interfaceLanguage:'en', annotationsPaused:true,
-                subtitlePlayerEnabled:true, subtitleOverlayVisible:true, subtitleControlsMode:'always',
-                subtitleTranscriptVisible:false, localDictionariesEnabled:false, apiKey:''};
-            const controller=new f.SubtitlePlayerController({getSettings:()=>settings,parseJapanese:async()=>[],onSettingsChange:()=>{}});
-            controller.install();
-            const video=document.querySelector('video');
-            Object.defineProperties(video,{currentTime:{configurable:true,value:5},paused:{configurable:true,value:true}});
-            controller.video=video;
-            controller.cues=[{start:0,end:100,text:'日本語の字幕です。',transcriptEligible:true}];
-            controller.currentCue=controller.cues[0];
-            controller.refresh();
-            document.querySelector('#mobile-fullscreen').onclick=()=>document.querySelector('#movie_player').requestFullscreen();
-            window.mobileLayerFixture={controller,settings};
+            document.querySelector('#mobile-fullscreen').onclick = () => document.querySelector('#movie_player').requestFullscreen();
         });
         await page.waitForSelector('.jpdb-subtitle-rail button[data-action="visibility"]');
         for (const videoTier of [10, 35]) {
@@ -140,26 +148,12 @@ for (const [engineName, engine] of [['chromium', chromium], ['webkit', webkit]])
             ? route.fulfill({ contentType:'text/html', body:html }) : route.abort());
         await page.goto('https://www.youtube.com/watch?v=fixture123', { waitUntil: 'domcontentloaded' });
         await page.addScriptTag({ content:bundle.outputFiles[0].text });
+        await page.evaluate(installPlaybackFixture, { name: 'fixture', text: '英語の動画にも字幕を表示します。', bindInteractions: true });
         await page.evaluate(() => {
-            const f = window.YomuPlaybackFixture;
-            const settings = { ...f.DEFAULT_SETTINGS, interfaceLanguage:'en', annotationsPaused:true,
-                subtitlePlayerEnabled:true, subtitleOverlayVisible:true, subtitleTranscriptVisible:false,
-                subtitleControlsMode:'always', localDictionariesEnabled:false, apiKey:'' };
-            const controller = new f.SubtitlePlayerController({ getSettings:()=>settings, parseJapanese:async()=>[], onSettingsChange:()=>{} });
-            controller.install();
-            controller.abortController = new AbortController();
-            controller.bindInteractionEvents();
-            const video = document.querySelector('video');
-            Object.defineProperties(video, { currentTime:{ configurable:true, value:5 }, paused:{ configurable:true, value:true } });
-            controller.video = video;
-            controller.cues = [{ start:0, end:100, text:'英語の動画にも字幕を表示します。', transcriptEligible:true }];
-            controller.currentCue = controller.cues[0];
-            controller.refresh();
             document.querySelector('.ytp-progress-bar-container').addEventListener('click', event => {
                 const box = event.currentTarget.getBoundingClientRect();
                 window.seekFraction = (event.clientX-box.left)/box.width;
             });
-            window.fixture = { controller, settings, video };
         });
         await page.waitForFunction(() => document.querySelector('.jpdb-subtitle-lines')?.textContent.includes('英語の動画'));
         const ownership = await page.evaluate(() => {
