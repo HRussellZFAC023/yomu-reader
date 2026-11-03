@@ -24635,7 +24635,7 @@ return null;
 }
 buildAnkiNote(card, sentence, settings2, options) {
 const note = {
-deckName: this.ankiDeckName(options, settings2),
+deckName: options.deckName?.trim() || settings2.ankiDeck || "よむ",
 modelName: settings2.ankiModel || "よむ Japanese",
 fields: buildYomuAnkiFields(card, sentence, this.ankiFieldContext(options, settings2)),
 tags: tagsFromString(settings2.ankiTags),
@@ -24672,9 +24672,6 @@ fields,
 ...picture.length ? { picture } : {}
 }
 };
-}
-ankiDeckName(options, settings2) {
-return options.deckName?.trim() || settings2.ankiDeck || "よむ";
 }
 ankiFieldContext(options, settings2) {
 return {
