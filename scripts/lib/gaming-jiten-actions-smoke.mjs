@@ -9,6 +9,16 @@ export async function assertGamingJitenActions({ app, page, overlay, importSetti
     const { wordId, requests, route } = gamingJitenFixture({
         knownState: [0], decks: [{ userStudyDeckId: deckId, name: 'Gaming fixture words', deckType: 2 }],
     });
+    let picker;
+    const networkEvents = [];
+    const onRequest = request => {
+        const url = new URL(request.url());
+        if (url.hostname === 'api.jiten.moe' && (url.pathname.endsWith('/srs/review')
+            || url.pathname.endsWith(`/srs/study-decks/${deckId}/words`))) {
+            networkEvents.push({ type: 'request', method: request.method(), path: url.pathname, at: Date.now() });
+        }
+    };
+    app.context().on('request', onRequest);
     await app.context().route(/^https?:\/\//, route);
     try {
         await importGamingJitenSettings({ page, overlay, importSettings, fixtureKey });
@@ -23,7 +33,17 @@ export async function assertGamingJitenActions({ app, page, overlay, importSetti
         await grade.click();
         await waitForWrite(() => requests.filter(request => request.path.endsWith('/srs/review')), 'Jiten review');
         await word.hover();
-        await choosePrivateDeck(overlay, popup.locator('.jpdb-reader-deck-select').first(), 'Jiten');
+        picker = popup.locator('.jpdb-reader-deck-select').first();
+        await picker.evaluate(host => {
+            window.__gamingJitenEvents = [];
+            for (const type of ['keydown', 'keyup', 'beforeinput', 'input', 'change', 'pointerdown', 'focus', 'blur']) {
+                host.addEventListener(type, event => window.__gamingJitenEvents.push({
+                    type, key: event.key, trusted: event.isTrusted, at: Date.now(),
+                    defaultPrevented: event.defaultPrevented,
+                }), { capture: true });
+            }
+        });
+        await choosePrivateDeck(overlay, picker, 'Jiten');
         await waitForWrite(() => requests.filter(request => request.path.endsWith(`/srs/study-decks/${deckId}/words`)), 'Jiten deck add');
         await overlay.locator('.jpdb-reader-toast').filter({ hasText: /^Added to (deck|your default deck)\.$/ }).first().waitFor({ timeout: 10_000 });
         const writes = requests.filter(request => request.path.endsWith('/srs/review') || request.path.endsWith(`/srs/study-decks/${deckId}/words`));
@@ -35,7 +55,24 @@ export async function assertGamingJitenActions({ app, page, overlay, importSetti
             throw new Error('Gaming Jiten deck add lost the captured Japanese sentence.');
         }
         console.log(`[desktop-jiten-actions] real popup sent authenticated review and deck add: ${JSON.stringify(writes.map(({ authorization, ...request }) => request))}`);
+    } catch (error) {
+        const events = await overlay.evaluate(() => window.__gamingJitenEvents ?? []).catch(() => []);
+        // Every request belongs to this deterministic fixture. Report only its
+        // write endpoints, an auth comparison, and the expected public fields.
+        const evidence = requests.filter(request => request.path.endsWith('/srs/review')
+            || request.path.endsWith(`/srs/study-decks/${deckId}/words`)).map(request => ({
+            path: request.path, method: request.method,
+            authenticated: request.authorization === `ApiKey ${fixtureKey}`,
+            body: Object.fromEntries(['wordId', 'readingIndex', 'rating', 'occurrences', 'sentence', 'source']
+                .filter(key => Object.hasOwn(request.body, key)).map(key => [key, request.body[key]])),
+        }));
+        console.error(`[desktop-jiten-actions] failure evidence: ${JSON.stringify({
+            platform: process.platform, arch: process.arch,
+            events: [...events, ...networkEvents].sort((left, right) => left.at - right.at), requests: evidence,
+        })}`);
+        throw error;
     } finally {
+        app.context().off('request', onRequest);
         await app.context().unroute(/^https?:\/\//, route);
     }
 }
