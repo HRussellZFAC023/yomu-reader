@@ -36,3 +36,9 @@ Do not reintroduce `anki-*` classes on ordinary pages to simplify the stylesheet
 ## 2.2.0: the よむ deck's name
 
 2.2.0 gives the built-in deck one name, よむ deck / よむデッキ. Decision 6 still holds for it: on an ordinary page a save into the よむ deck says "Added to deck." / 「デッキに追加しました。」 like every other destination, because naming the deck there would tell the page which destination the learner uses. Study names it ("Added to your よむ deck." / 「よむデッキに追加しました。」), and the Add to deck dropdown names it on every surface, since the learner opened that menu and the page cannot read it before they do.
+
+## 2.3.0: private destination membership
+
+The closed Add to deck picker may name each destination and its saved status. Its native options and compact status list, including accessible descriptions and unknown reasons, stay inside the closed shadow root. Public hosts, events, attributes, titles, word decoration and save toasts gain no destination metadata. Study's existing named status remains unchanged.
+
+Only trusted pointer or keyboard activation starts these reads. Each opening checks the exact JPDB/Jiten deck, actual Anki card deck, or local よむ deck with the configured clients and credentials. No pooled membership or stale cache proves absence. A failed or incomplete read stays unknown; Bunpro reports that it cannot check. Results from older openings or removed controls are discarded. The private list remains readable after a native menu closes, since some platforms snapshot native option labels. Saved destinations remain selectable and retain their existing save/merge policy.

@@ -7030,7 +7030,7 @@ export class ReaderApp {
     private mountDeckSelects(popover: HTMLElement, card: JPDBCard, sentence: string | undefined): void {
         mountDeckSelects(popover, card, sentence, (control, actionCard, actionSentence, command) => (
             this.handleCardAction(control, actionCard, actionSentence, command)
-        ));
+        ), { language: this.settings.interfaceLanguage, load: (word, choices) => this.cardActions.loadDeckMembership(word, choices) });
     }
 
     private async showPreviousWord(anchor?: HTMLElement, trigger: 'modal' | 'hover' = 'modal'): Promise<void> {

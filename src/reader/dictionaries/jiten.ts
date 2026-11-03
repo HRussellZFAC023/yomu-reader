@@ -635,11 +635,11 @@ export class JitenApiClient {
     async studyDeckWordKeys(deckId: number): Promise<Set<string>> {
         const response = await this.requestEndpoint<unknown>(`srs/study-decks/${Math.floor(deckId)}/word-keys`, undefined, { method: 'GET' });
         const keys = new Set<string>();
-        if (!Array.isArray(response)) return keys;
+        if (!Array.isArray(response)) throw new Error('Invalid Jiten deck word keys');
         for (const row of response) {
             const record = row as { wordId?: unknown; readingIndex?: unknown };
             const wordId = Number(record?.wordId);
-            if (!Number.isFinite(wordId)) continue;
+            if (!Number.isInteger(wordId) || wordId <= 0 || !Number.isInteger(Number(record?.readingIndex ?? 0))) throw new Error('Invalid Jiten deck word key');
             keys.add(`${wordId}:${Number(record?.readingIndex) || 0}`);
         }
         return keys;

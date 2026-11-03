@@ -4,6 +4,8 @@ import { readCardUiCommandCapability, type CardCommandCapability } from '../dom/
 import { trustedReaderEventHandler } from '../ui/trusted-interaction';
 import { FORM_CONTROL_HOST_ATTRIBUTE } from '../ui/form-control-host';
 import type { DeckChoice } from '../cards/deck-choice';
+import type { DeckPickerMembership } from '../cards/deck-choice-membership';
+import { mountDeckPickerStatus } from './deck-picker-status';
 
 type MiningControlLabel = (expanded: boolean) => string;
 type MiningCardAction = (control: CardActionControl, card: JPDBCard, sentence: string | undefined, command: CardCommandCapability) => Promise<void> | void;
@@ -16,7 +18,10 @@ const DECK_SELECT_CLASS = 'jpdb-reader-deck-select';
 const DECK_SELECT_STYLE = ':host{display:block;min-width:0}'
     + 'select{box-sizing:border-box;width:100%;min-height:36px;padding:0 10px;border:1px solid var(--jpdb-reader-accent);border-radius:8px;'
     + 'background:var(--jpdb-reader-surface);color:var(--jpdb-reader-accent-readable);font:600 13px/1.2 var(--jpdb-reader-font,system-ui);cursor:pointer}'
-    + 'select:focus-visible{outline:2px solid var(--jpdb-reader-accent);outline-offset:2px}select:disabled{opacity:.6;cursor:progress}';
+    + 'select:focus-visible{outline:2px solid var(--jpdb-reader-accent);outline-offset:2px}select:disabled{opacity:.6;cursor:progress}'
+    + '#membership-status{font:12px/1.5 var(--jpdb-reader-font,system-ui);color:var(--jpdb-reader-text);overflow-wrap:anywhere}'
+    + 'ul{list-style:none;padding:0;margin:6px 0;max-height:140px;overflow:auto}li{height:4.5em;overflow:hidden}'
+    + 'strong{display:block;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font-weight:500}li span{display:block}p{margin:4px 0}';
 
 const deckSelects = new WeakMap<Element, HTMLSelectElement>();
 
@@ -41,14 +46,14 @@ export function setMiningControlsExpanded(button: HTMLButtonElement, expanded: b
  * choosing a deck saves the word there, and nothing is saved before a choice.
  * Mounts every dropdown placeholder in `root` that has none yet.
  */
-export function mountDeckSelects(root: ParentNode, card: JPDBCard, sentence: string | undefined, performAction: MiningCardAction): void {
+export function mountDeckSelects(root: ParentNode, card: JPDBCard, sentence: string | undefined, performAction: MiningCardAction, membership?: DeckPickerMembership): void {
     for (const host of root.querySelectorAll<HTMLElement>(`.${DECK_SELECT_CLASS}`)) {
         const choices = readCardUiCommandCapability(host)?.choices;
-        if (!deckSelects.has(host) && choices?.length) mountDeckSelect(host, choices, card, sentence, performAction);
+        if (!deckSelects.has(host) && choices?.length) mountDeckSelect(host, choices, card, sentence, performAction, membership);
     }
 }
 
-function mountDeckSelect(host: HTMLElement, choices: readonly DeckChoice[], card: JPDBCard, sentence: string | undefined, performAction: MiningCardAction): void {
+function mountDeckSelect(host: HTMLElement, choices: readonly DeckChoice[], card: JPDBCard, sentence: string | undefined, performAction: MiningCardAction, membership?: DeckPickerMembership): void {
     const label = host.textContent?.trim() ?? '';
     // delegatesFocus: focusing the host (a modal's focus trap does) lands on the dropdown.
     const root = host.attachShadow({ mode: 'closed', delegatesFocus: true });
@@ -64,12 +69,14 @@ function mountDeckSelect(host: HTMLElement, choices: readonly DeckChoice[], card
     // Keys typed into the dropdown browse its decks: page shortcuts must not take them.
     host.setAttribute(FORM_CONTROL_HOST_ATTRIBUTE, '');
     deckSelects.set(host, select);
+    const refreshMembership = membership && mountDeckPickerStatus(root, select, card, choices, membership);
     const choose = (): void => {
         const choice = choices[select.selectedIndex - 1];
         select.selectedIndex = 0;
-        if (choice) void addToChosenDeck(host, select, () => performAction(select, card, sentence, {
-            kind: 'card-action', action: 'add', deckSource: choice.source, deckId: choice.id,
-        }));
+        if (choice) void addToChosenDeck(host, select, async () => {
+            await performAction(select, card, sentence, { kind: 'card-action', action: 'add', deckSource: choice.source, deckId: choice.id });
+            if (select.isConnected) refreshMembership?.();
+        });
     };
     // A closed dropdown moves to the deck a typed letter or an arrow reaches and reports
     // each move as a change, so a save there would go to whichever deck the first letter

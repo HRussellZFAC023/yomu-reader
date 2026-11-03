@@ -1030,7 +1030,9 @@ export class NewTabRuntime {
     ): void {
         clearNestedParseState(popover);
         setReaderPopoverHtml(popover, this.lookupPopoverRenderer.render(card, sentence, 'modal', data));
-        mountDeckSelects(popover, card, sentence, (control, actionCard, actionSentence, command) => this.handleCardAction(control, actionCard, actionSentence, undefined, command));
+        mountDeckSelects(popover, card, sentence, (control, actionCard, actionSentence, command) => this.handleCardAction(control, actionCard, actionSentence, undefined, command), {
+            language: this.settings.interfaceLanguage, load: (word, choices) => this.cardActions.loadDeckMembership(word, choices),
+        });
         this.wanikaniSources.installDefinitionMounts(popover, card);
         this.refreshNewTabLookupHeader(popover, card, data);
     }

@@ -45,6 +45,7 @@ export interface AnkiConnectClient {
     addMissingYomuModelFields(expectedModelName: string): Promise<string[]>;
     warmStatusIndex(): Promise<AnkiStatusIndex | null>;
     findExistingCards(card: JPDBCard): Promise<AnkiLookupResult>;
+    findDeckMembership(card: JPDBCard): Promise<ReadonlySet<string>>;
     findCachedStatusBatch(cards: JPDBCard[]): Promise<AnkiLookupResult[]>;
     findExistingCardsBatch(cards: JPDBCard[]): Promise<AnkiLookupResult[]>;
     rebuildStatusIndex(cardIds?: number[], now?: number, rebuildLeaseOwner?: string): Promise<AnkiStatusIndex | null>;
@@ -82,6 +83,7 @@ class DisabledAnkiConnectClient implements AnkiConnectClient {
     addMissingYomuModelFields = ankiEmptyStrings;
     warmStatusIndex = ankiNull as AnkiConnectClient['warmStatusIndex'];
     findExistingCards = ankiUntrustedLookup;
+    findDeckMembership = ankiUnavailable;
     findCachedStatusBatch = ankiUntrustedLookupBatch;
     findExistingCardsBatch = ankiUntrustedLookupBatch;
     rebuildStatusIndex = ankiNull as AnkiConnectClient['rebuildStatusIndex'];

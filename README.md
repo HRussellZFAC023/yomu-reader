@@ -56,7 +56,9 @@ Store versions can lag a GitHub release by a few days while the stores review it
 
 Hold a word in a link or button to look it up. A quick tap keeps the website’s action.
 
-Words saved without a connected service go to the Default deck in Study.
+Words saved without a connected service go to the よむ deck in Study.
+
+Open Add to deck… to see each deck’s saved status. JPDB, Jiten, Anki and the よむ deck are checked when you open it. A failed check or Bunpro shows Status unknown. Saved decks remain selectable and keep their usual save behavior.
 
 If a word cannot be saved, open Study to see its last save error. Check the destination in Settings, then try again. Dismiss removes the notice.
 

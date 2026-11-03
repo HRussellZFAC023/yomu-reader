@@ -60,6 +60,8 @@ To Study → Library. Press Add to review there and they come back for review.
 
 Words saved without a connected service go to the よむ deck in Study.
 
+Open Add to deck… to see each deck’s saved status. JPDB, Jiten, Anki and the よむ deck are checked when you open it. A failed check or Bunpro shows Status unknown. Saved decks remain selectable and keep their usual save behavior.
+
 ## Why did a word fail to save? {#save-error}
 
 Open Study to see the last word that could not be saved and its error. Check the destination in Settings, then try saving the word again. A successful save of that word clears its old error. Press Dismiss save error to remove the notice.

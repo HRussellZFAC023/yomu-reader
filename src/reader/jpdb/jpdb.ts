@@ -155,6 +155,20 @@ export class JpdbClient {
         return pool.has(vocabularyPairKey(card.vid, card.sid));
     }
 
+    /** Explicit private picker read: no pooled cache or failure-as-absence fallback. */
+    // Reader/NewTab mount callback → CardActionController.loadDeckMembership
+    // → the JPDB companion facade; never a passive render-data request.
+    // fallow-ignore-next-line unused-class-member
+    async isCardInDeck(deckId: string, card: JPDBCard): Promise<boolean> {
+        if (!isDeckMembershipCard(card)) throw new Error('No JPDB word identity');
+        const response = await this.api.request<JpdbDeckVocabularyResponse>('deck/list-vocabulary', {
+            id: normalizeDeckRequestId(deckId), fetch_occurences: false,
+        });
+        const pairs = normalizeVocabularyPairs(response?.vocabulary);
+        if (!Array.isArray(response?.vocabulary) || pairs.length !== response.vocabulary.length) throw new Error('Invalid JPDB deck vocabulary');
+        return pairs.some(([vid, sid]) => vid === card.vid && sid === card.sid);
+    }
+
     // Used by mining controls to toggle JPDB deck membership.
     async removeFromDeck(deckId: string, card: JPDBCard): Promise<void> {
         log.info('Removing card from deck', { term: card.spelling, deckId });

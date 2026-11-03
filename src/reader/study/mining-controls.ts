@@ -5,6 +5,7 @@ import { yomuKanjiStudyCompanion } from '../companions/registry';
 import type { JPDBCard } from '../app/types';
 import type { CardCommandCapability } from '../dom/private-command-capabilities';
 import type { CardActionControl } from '../cards/action-operation';
+import type { DeckPickerMembership } from '../cards/deck-choice-membership';
 
 type MiningControlLabel = (expanded: boolean) => string;
 type MiningCardAction = (control: CardActionControl, card: JPDBCard, sentence: string | undefined, command: CardCommandCapability) => Promise<void> | void;
@@ -32,6 +33,6 @@ export function rerenderAroundMiningControls(root: ParentNode, label: MiningCont
 }
 
 /** Mounts the "Add to deck…" dropdowns a popup render placed in `root`. */
-export function mountDeckSelects(root: ParentNode, card: JPDBCard, sentence: string | undefined, performAction: MiningCardAction): void {
-    yomuKanjiStudyCompanion()?.mountDeckSelects?.(root, card, sentence, performAction);
+export function mountDeckSelects(root: ParentNode, card: JPDBCard, sentence: string | undefined, performAction: MiningCardAction, membership?: DeckPickerMembership): void {
+    yomuKanjiStudyCompanion()?.mountDeckSelects?.(root, card, sentence, performAction, membership);
 }

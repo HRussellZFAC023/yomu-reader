@@ -9,6 +9,7 @@ export interface ReviewedDocsMessage {
 }
 
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
+    "Open Add to deck… to see each deck’s saved status. JPDB, Jiten, Anki and the よむ deck are checked when you open it. A failed check or Bunpro shows Status unknown. Saved decks remain selectable and keep their usual save behavior.": "「デッキに追加…」を開くと、各デッキへの保存状況を確認できます。JPDB、Jiten、Anki、よむデッキは、メニューを開くたびに確認します。確認に失敗した場合やBunproの場合は「保存状況不明」と表示します。保存済みのデッキも選択でき、保存先の通常の保存動作を保ちます。",
     "The tagged 2.2.1 release did not complete. The fixes ship in 2.2.2.": "2.2.1のタグによるリリースは完了しませんでした。修正は2.2.2に含まれます。",
     "Firefox lookup recognizes complete inflected words before question particles, including 決まりました in 決まりましたか. Hovering or clicking opens the full word. (": "Firefoxでも、「決まりましたか」の「決まりました」など、疑問を表す助詞の前にある活用語を正しく認識するようにしました。ホバーまたはクリックすると、単語全体の検索結果が開きます。 (",
     "Opening Settings no longer starts a Study review or flashes a cached card. Closing Settings starts Study normally. (": "設定を開いても学習ページの復習が始まらず、キャッシュ済みのカードも一瞬表示されなくなりました。設定を閉じると、通常どおり学習が始まります。 (",

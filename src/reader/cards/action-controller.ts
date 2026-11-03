@@ -15,8 +15,11 @@ import { handleStudyGrammarAction } from '../study/render';
 import { formatUiText, uiList, uiText, type UiCopyKey } from '../app/i18n';
 import { userFacingCopyKeyOf, userFacingError } from '../app/user-facing-errors';
 import { currentAccountDataSurfaceIsTrusted } from '../app/account-data-surface';
+import type { DeckChoice } from './deck-choice';
+import type { DeckChoiceMembership } from './deck-choice-membership';
+import { activeLearningTargetLanguage } from '../languages';
 import type { MiningContext } from '../study/mining-context';
-import { firstJitenWordListId, type JitenApiClient } from '../dictionaries/jiten';
+import { firstJitenWordListId, jitenCardReference, type JitenApiClient } from '../dictionaries/jiten';
 import { chosenWordGradingService } from '../settings/api-credential';
 import {
     apiGradingProviderPreference,
@@ -115,6 +118,36 @@ function assertReviewableApiCardState(states: string[]): void {
 
 export class CardActionController {
     readonly batchMining: PreparedBatchActions;
+
+    /** Called only by a trusted opening of the closed deck picker. No hover reads. */
+    loadDeckMembership(card: JPDBCard, choices: readonly DeckChoice[]): readonly Promise<DeckChoiceMembership>[] {
+        const settings = this.options.getSettings();
+        const ankiDecks = choices.some(choice => choice.source === 'anki') && settings.ankiEnabled
+            ? Promise.resolve().then(() => this.options.anki.findDeckMembership(card)) : undefined;
+        return choices.map(async (choice): Promise<DeckChoiceMembership> => {
+            try {
+                let member: boolean;
+                if (choice.source === 'anki' && ankiDecks) {
+                    member = (await ankiDecks).has(choice.id);
+                } else if (choice.source === 'yomu-local' && settings.yomuLocalSrsEnabled && this.options.srsAdapters?.['yomu-local']?.lookupCards) {
+                    const cards = await this.options.srsAdapters['yomu-local'].lookupCards([{ expression: card.spelling, reading: card.reading, language: card.language ?? activeLearningTargetLanguage() }]);
+                    member = cards.length > 0;
+                } else if (choice.source === 'jpdb' || choice.source === 'jiten') {
+                    const provider = this.apiProviderForDeckSource(choice.source, card, settings);
+                    this.assertApiProviderActionAllowed(provider, providerAddApiKeyRequiredKey(provider, choice.source));
+                    const word = await this.wordOnCollectionService(provider, card);
+                    if (choice.source === 'jpdb') member = await this.options.jpdb.isCardInDeck(choice.id, word);
+                    else if (this.options.jiten) {
+                        const reference = jitenCardReference(word);
+                        member = (await this.options.jiten.studyDeckWordKeys(Number(choice.id))).has(`${reference.wordId}:${reference.readingIndex}`);
+                    } else return { kind: 'unknown', reason: 'unavailable' };
+                } else return { kind: 'unknown', reason: 'unsupported' };
+                return { kind: member ? 'saved' : 'not-saved' };
+            } catch {
+                return { kind: 'unknown', reason: 'unavailable' };
+            }
+        });
+    }
     constructor(private options: CardActionControllerOptions) {
         this.batchMining = new PreparedBatchActions({
             getSettings: () => this.options.getSettings(),
