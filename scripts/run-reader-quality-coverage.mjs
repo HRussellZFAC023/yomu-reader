@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, mkdtempSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { mergeReaderQualityCoverage } from './merge-reader-quality-coverage.mjs';
@@ -59,8 +59,20 @@ for (const name of selected ? [selected] : Object.keys(scopes)) {
     if (result.status !== 0) process.exit(result.status ?? 1);
 }
 if (!selected) {
+    // The Pages gate uses node:test, so the two Vitest passes above cannot
+    // measure it. Add its real Istanbul counters before Fallow scores CRAP.
+    const pagesDir = mkdtempSync(path.join(tempDir, 'pages-deploy-coverage-'));
+    const pagesInput = path.join(pagesDir, 'coverage-final.json');
+    const pages = spawnSync(process.execPath, ['--require', path.join(root, 'scripts/lib/pages-deploy-coverage-hook.cjs'),
+        '--test', path.join(root, 'scripts/lib/pages-deploy-gate.test.cjs'),
+        path.join(root, 'scripts/merge-reader-quality-coverage.test.cjs')], {
+        cwd: root, stdio: 'inherit', env: { ...process.env, TMPDIR: tempDir, TEMP: tempDir, TMP: tempDir,
+            YOMU_PAGES_COVERAGE_OUTPUT: pagesInput },
+    });
+    if (pages.error) throw pages.error;
+    if (pages.status !== 0) process.exit(pages.status ?? 1);
     const outputDir = path.join(root, 'artifacts/fallow-coverage');
     mkdirSync(outputDir, { recursive: true });
     mergeReaderQualityCoverage(path.join(workDir, scopes.reader.directory, 'coverage-final.json'),
-        path.join(workDir, scopes.gaming.directory, 'coverage-final.json'), path.join(outputDir, 'coverage-final.json'));
+        path.join(workDir, scopes.gaming.directory, 'coverage-final.json'), pagesInput, path.join(outputDir, 'coverage-final.json'));
 }

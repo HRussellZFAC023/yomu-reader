@@ -58,6 +58,26 @@ async function verifyRefs({ github, repo, receipt }) {
     requireProof(run.run_attempt === receipt.ci_run_attempt && run.status === 'completed' && run.conclusion === 'success', 'CI was rerun or no longer has a successful current attempt');
 }
 
+async function waitForSuccessfulCi({ github, repo, workflow, sourceSha, sourceBranch, event, repository, sleep }) {
+    for (let attempt = 0; attempt < 100; attempt += 1) {
+        const runs = (await github.rest.actions.listWorkflowRuns({ ...repo, workflow_id: workflow.id, head_sha: sourceSha,
+            branch: sourceBranch, event, per_page: 100 })).data.workflow_runs;
+        const latest = [...runs].sort((left, right) => right.id - left.id)[0];
+        if (latest) {
+            const run = (await github.rest.actions.getWorkflowRun({ ...repo, run_id: latest.id })).data;
+            requireProof(run.workflow_id === workflow.id && run.path === CI_PATH && run.head_sha === sourceSha
+                && run.head_branch === sourceBranch && run.event === event
+                && run.repository.full_name === repository && run.head_repository.full_name === repository, 'CI run provenance does not match the source');
+            if (run.status === 'completed') {
+                requireProof(run.conclusion === 'success', `CI run ${run.id} concluded ${run.conclusion}`);
+                return run;
+            }
+        }
+        requireProof(attempt < 99, 'full CI did not pass within 50 minutes; no missing-CI fallback for manual deploys');
+        await sleep(30000);
+    }
+}
+
 async function approvePagesSource({ github, context, workflowSha, sourceCommit = '', sleep = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds)) }) {
     requireProof(context.eventName === 'workflow_dispatch' && context.ref === 'refs/heads/main', 'manual deployment must run from main');
     const mainSha = exactSha(context.sha);
@@ -86,24 +106,7 @@ async function approvePagesSource({ github, context, workflowSha, sourceCommit =
 
     const sourceBranch = pull?.head.ref ?? 'main';
     const event = candidate ? 'pull_request' : 'push';
-    let run;
-    for (let attempt = 0; attempt < 100; attempt += 1) {
-        const runs = (await github.rest.actions.listWorkflowRuns({ ...repo, workflow_id: workflow.id, head_sha: sourceSha,
-            branch: sourceBranch, event, per_page: 100 })).data.workflow_runs;
-        const latest = [...runs].sort((left, right) => right.id - left.id)[0];
-        if (latest) {
-            run = (await github.rest.actions.getWorkflowRun({ ...repo, run_id: latest.id })).data;
-            requireProof(run.workflow_id === workflow.id && run.path === CI_PATH && run.head_sha === sourceSha
-                && run.head_branch === sourceBranch && run.event === event
-                && run.repository.full_name === repository && run.head_repository.full_name === repository, 'CI run provenance does not match the source');
-            if (run.status === 'completed') {
-                requireProof(run.conclusion === 'success', `CI run ${run.id} concluded ${run.conclusion}`);
-                break;
-            }
-        }
-        requireProof(attempt < 99, 'full CI did not pass within 50 minutes; no missing-CI fallback for manual deploys');
-        await sleep(30000);
-    }
+    const run = await waitForSuccessfulCi({ github, repo, workflow, sourceSha, sourceBranch, event, repository, sleep });
 
     const jobs = await github.paginate(github.rest.actions.listJobsForWorkflowRunAttempt, {
         ...repo, run_id: run.id, attempt_number: run.run_attempt, per_page: 100,
