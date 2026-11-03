@@ -4,6 +4,7 @@
 
 ### Fixed
 
+- Firefox lookup recognizes complete inflected words before question particles, including 決まりました in 決まりましたか. Hovering or clicking opens the full word. (`smoke:parser-glyph-identity`)
 - Opening Settings no longer starts a Study review or flashes a cached card. Closing Settings starts Study normally. (`tests/reader/newtab-runtime-onboarding.test.ts`)
 - An open hosted Study tab receives settings changes saved through the installed userscript or extension on another page. (`smoke:hosted-settings-live-sync`)
 - Failed deck saves retain a sanitized explanation in Study, with Settings and Dismiss controls. Saving the same word successfully clears its old error. (`tests/reader/collection-save-diagnostics.test.ts`)

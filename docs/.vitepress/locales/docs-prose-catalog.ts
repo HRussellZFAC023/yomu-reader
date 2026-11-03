@@ -9,6 +9,7 @@ export interface ReviewedDocsMessage {
 }
 
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
+    "Firefox lookup recognizes complete inflected words before question particles, including 決まりました in 決まりましたか. Hovering or clicking opens the full word. (": "Firefoxでも、「決まりましたか」の「決まりました」など、疑問を表す助詞の前にある活用語を正しく認識するようにしました。ホバーまたはクリックすると、単語全体の検索結果が開きます。 (",
     "Opening Settings no longer starts a Study review or flashes a cached card. Closing Settings starts Study normally. (": "設定を開いても学習ページの復習が始まらず、キャッシュ済みのカードも一瞬表示されなくなりました。設定を閉じると、通常どおり学習が始まります。 (",
     "An open hosted Study tab receives settings changes saved through the installed userscript or extension on another page. (": "ユーザースクリプトまたは拡張機能を使って別のページで保存した設定の変更が、開いているウェブ版の学習タブにも反映されます。 (",
     "Failed deck saves retain a sanitized explanation in Study, with Settings and Dismiss controls. Saving the same word successfully clears its old error. (": "単語のデッキへの保存に失敗した場合は、機密情報を除いたエラーの説明を学習ページに残し、「設定」と「保存エラーを閉じる」のボタンを表示します。同じ単語の保存に成功すると、以前のエラーは消えます。 (",
