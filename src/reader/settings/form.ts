@@ -934,11 +934,11 @@ function renderDictionariesSettingsPanel(
                 <legend>${escapedUiText(language, 'sources')}</legend>
                 <div data-target-dictionary-content>
                 ${renderTranslationLanguageControl(settings)}
-                ${renderDefinitionTranslationControls(settings)}
                 ${renderSettingsDisclosure(uiText(language, 'popupOrderTitle'), `
                     <div class="jpdb-reader-dictionary-priorities" data-source-editor data-definition-source-editor>
                         ${renderDictionarySourceRows(settings)}
                     </div>`, ' data-help-key="popupOrderTitle"')}
+                ${renderDefinitionTranslationControls(settings)}
                 <div class="jpdb-reader-dictionary-status" data-dictionary-status role="status" aria-live="polite">${escapedUiText(language, 'checkingDictionaries')}</div>
                 <div class="jpdb-reader-recommended-dictionaries" data-recommended-dictionaries>
                     ${renderRecommendedDictionaries([], 'en', includeCatalogBrowse, 'ja', expandCatalogBrowse)}
