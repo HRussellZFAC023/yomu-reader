@@ -569,6 +569,21 @@ function safeReadNumber(source, key) {
 const value = safeReadProperty(source, key);
 return typeof value === "number" ? value : void 0;
 }
+function scheduleBridgeRetry({ installed, install }) {
+const retry = () => {
+if (!installed()) install();
+};
+if (typeof queueMicrotask === "function") {
+queueMicrotask(retry);
+} else {
+void Promise.resolve().then(retry);
+}
+window.setTimeout(retry, 0);
+window.setTimeout(retry, 250);
+if (document.readyState === "loading") {
+document.addEventListener("DOMContentLoaded", retry, { once: true });
+}
+}
 let recorder = () => void 0;
 function setAttemptRecorder(next) {
 recorder = next;
@@ -1010,7 +1025,10 @@ installUserscriptGmStorageBridge(subscribeToSettingsChanges2);
 if (typeof window === "undefined" || typeof document === "undefined") return;
 if (!shouldInstallUserscriptStorageBridge()) return;
 if (hasInstalledUserscriptStorageBridge()) return;
-scheduleUserscriptStorageBridgeRetry(subscribeToSettingsChanges2);
+scheduleBridgeRetry({
+installed: hasInstalledUserscriptStorageBridge,
+install: () => installUserscriptGmStorageBridge(subscribeToSettingsChanges2)
+});
 }
 async function handleStorageBridgeRequest(detail, accessors, assertActive) {
 const send = (response) => dispatchBridgeEvent$1(BRIDGE_RESPONSE_EVENT$1, { id: detail.id, ...response });
@@ -1172,22 +1190,6 @@ try {
 return typeof location !== "undefined" && isYomuStorageBridgeHostedUrl(location.href);
 } catch {
 return false;
-}
-}
-function scheduleUserscriptStorageBridgeRetry(subscribeToSettingsChanges2) {
-const retry = () => {
-if (hasInstalledUserscriptStorageBridge()) return;
-installUserscriptGmStorageBridge(subscribeToSettingsChanges2);
-};
-if (typeof queueMicrotask === "function") {
-queueMicrotask(retry);
-} else {
-void Promise.resolve().then(retry);
-}
-window.setTimeout(retry, 0);
-window.setTimeout(retry, 250);
-if (document.readyState === "loading") {
-document.addEventListener("DOMContentLoaded", retry, { once: true });
 }
 }
 function hasInstalledUserscriptStorageBridge(markerDataset = bridgeMarkerDataset$1()) {
@@ -13710,29 +13712,13 @@ installUserscriptHttpBridge();
 if (typeof window === "undefined" || typeof document === "undefined") return;
 if (!shouldInstallUserscriptHttpBridge()) return;
 if (hasInstalledUserscriptHttpBridge()) return;
-scheduleUserscriptHttpBridgeRetry();
+scheduleBridgeRetry({ installed: hasInstalledUserscriptHttpBridge, install: installUserscriptHttpBridge });
 }
 function shouldInstallUserscriptHttpBridge() {
 try {
 return typeof location !== "undefined" && isYomuPrivilegedHostedAppUrl(location.href);
 } catch {
 return false;
-}
-}
-function scheduleUserscriptHttpBridgeRetry() {
-const retry = () => {
-if (hasInstalledUserscriptHttpBridge()) return;
-installUserscriptHttpBridge();
-};
-if (typeof queueMicrotask === "function") {
-queueMicrotask(retry);
-} else {
-void Promise.resolve().then(retry);
-}
-window.setTimeout(retry, 0);
-window.setTimeout(retry, 250);
-if (document.readyState === "loading") {
-document.addEventListener("DOMContentLoaded", retry, { once: true });
 }
 }
 function hasInstalledUserscriptHttpBridge(markerDataset = bridgeMarkerDataset()) {
