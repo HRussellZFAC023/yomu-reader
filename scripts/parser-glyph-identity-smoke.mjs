@@ -118,7 +118,7 @@ assert(ENGINES.length > 0 && ENGINES.length === (requestedEngineNames.size || EN
     'Parser glyph identity engine must be chromium, firefox, or webkit.', {
         requested: [...requestedEngineNames],
     });
-assert(GLYPH_PROBES.length === 36, 'Fixture no longer covers the expected 36 Japanese glyphs.', {
+assert(GLYPH_PROBES.length === 51, 'Fixture no longer covers the expected 51 Japanese glyphs.', {
     glyphCount: GLYPH_PROBES.length,
 });
 
@@ -775,6 +775,10 @@ function fixtureDictionaryTerms() {
         term('被害', 'ひがい', 'n', 'damage', 13),
         term('が', 'が', 'prt', 'subject marker', 14),
         term('出る', 'でる', 'v1', 'to come out', 15),
+        term('仮装', 'かそう', 'n', 'costume; disguise', 16),
+        term('決まる', 'きまる', 'v5r', 'to be decided', 17),
+        term('迷う', 'まよう', 'v5u', 'to hesitate', 18),
+        term('衣装', 'いしょう', 'n', 'costume; clothing', 19),
     ];
     // Every non-Japanese word is a dictionary headword too, so only the
     // Japanese-only gate can keep it bare.
@@ -821,6 +825,22 @@ function fixtureSentences() {
             ['が', 'が'],
             ['出ている', '出る'],
         ]),
+        // Discord 2026-10-30: the first two targets opened on click only,
+        // while the latter two also opened on hover. Keep the original text
+        // and source offsets so both interaction paths read the same glyphs.
+        {
+            id: 'discord-hover',
+            text: '今年の仮装、もう決まりましたか？ まだ迷っている方は、ぜひCYCRの衣装から選んでみてください',
+            tokens: [
+                { surface: '仮装', headword: '仮装', start: 3, end: 5 },
+                { surface: '決まりました', headword: '決まる', start: 8, end: 14 },
+                { surface: '迷っている', headword: '迷う', start: 19, end: 24 },
+                { surface: '衣装', headword: '衣装', start: 34, end: 36 },
+            ],
+            targetId: 'ja',
+            lang: 'ja',
+            dir: 'ltr',
+        },
     ];
 }
 
