@@ -7,21 +7,30 @@
 // hover dead, state lost on scroll"). Asserts:
 //   A) page-1 OCRs (overlay lines appear)
 //   B) within-page SCROLL keeps the overlay alive (no teardown, no re-OCR)  [S1/S3]
-//   C) OCR line exposes hover-eligible words (data-vid/data-sid)            [S2]
+//   C) OCR line exposes lookup hit targets
 //   D) a REAL page turn still re-OCRs the new page                          [guard]
+//   E) page turns retire the previous page's text AND interactive hit targets
+//   F) a previous page's delayed OCR answer cannot paint a later page
+// This is a deterministic viewer-mechanics fixture, not a live BookWalker book.
 import { chromium, webkit, firefox } from 'playwright';
 import path from 'node:path';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { createSmokePaths, addGmStorageBridgeInitScript, makePng, YOMU_SETTINGS_KEY } from './lib/smoke-harness.mjs';
 import { addScriptTagWithCspFallback, installUserscriptCssResource } from './lib/smoke-test-helpers.mjs';
 
-const { scriptPath: SCRIPT_PATH, cssPath: CSS_PATH, dist: DIST } = createSmokePaths(import.meta.dirname);
+const { scriptPath: SCRIPT_PATH, cssPath: CSS_PATH, dist: DIST, artifacts: ARTIFACTS } = createSmokePaths(import.meta.dirname);
+const ARTIFACT_DIR = path.join(ARTIFACTS, 'bookwalker-page-turn');
+mkdirSync(ARTIFACT_DIR, { recursive: true });
 const COMPANIONS = ['yomu-anki', 'yomu-kanji-study', 'yomu-settings-surface', 'yomu-video', 'yomu-ocr-manga'].map(n => path.join(DIST, 'greasyfork', `${n}.user.js`));
 const BRIDGE = '__yomuCty2Req';
 const IMG_URL = 'https://c.bookwalker.jp/scrambled/cty2-p1.png';
 const IMG_URL_2 = 'https://c.bookwalker.jp/scrambled/cty2-p2.png';
+const IMG_URL_3 = 'https://c.bookwalker.jp/scrambled/cty2-p3.png';
 
 const PAGE_PNG = makePng(400,560,false);
 const PAGE_PNG_2 = makePng(400,560,true);
+const PAGE_PNG_3 = makePng(401,560,false);
+const PAGE_TEXT = ['大変な事になった', '昨日の古い結果', '明日の新しい文章'];
 
 const SETTINGS = { onboardingSeen:true, interfaceLanguage:'en', apiKey:'', ankiEnabled:false, audioEnabled:false, enableLogging:false, ocrEnabled:true, ocrAutoScanImages:true, ocrShowTextOverlay:true, ocrProvider:'local-service', ocrEndpointUrl:'http://127.0.0.1:7331/ocr' };
 const MOCK_OCR = { width:800, height:1130, lines:[{ text:'大変な事になった', box:{x:60,y:210,w:420,h:64}, vertical:false }] };
@@ -39,7 +48,7 @@ canvas.default{display:block;width:760px;height:1064px;background:#fff}
 <span id="pageSliderCounter">5 / 200</span>
 <script>
 window.__draw = async (n=1) => {
-  const img = new Image(); img.src = (n===2)? ${JSON.stringify(IMG_URL_2)} : ${JSON.stringify(IMG_URL)};
+  const img = new Image(); img.src = ${JSON.stringify([IMG_URL, IMG_URL_2, IMG_URL_3])}[n-1];
   try { await img.decode(); } catch(e){ return 'decode-failed'; }
   for (const c of document.querySelectorAll('canvas.default')) {
     const x = c.getContext('2d'); x.clearRect(0,0,c.width,c.height);
@@ -55,37 +64,56 @@ new MutationObserver(ms=>{for(const m of ms)for(const n of m.removedNodes){if(n.
 window.__state = () => ({
   lines: document.querySelectorAll('.jpdb-ocr-line').length,
   words: document.querySelectorAll('.jpdb-ocr-line .jpdb-reader-word[data-vid][data-sid]').length,
+  hitTargets: document.querySelectorAll('.jpdb-ocr-line .jpdb-reader-word').length,
   frames: document.querySelectorAll('.jpdb-ocr-canvas-frame').length,
   removals: window.__frameRemovals,
+  texts: [...document.querySelectorAll('.jpdb-ocr-line')].map(line => line.dataset.ocrText),
+  oldTargetsConnected: window.__oldTargets?.some(node => node.isConnected) ?? false,
+  oldTargetWasPresent: window.__oldTargets?.some(node => node.matches('.jpdb-reader-word')) ?? false,
 });
 </script></body></html>`;
 }
 
-async function run(engineName) {
+async function run(engineName, autoScan, readerMode) {
+  const caseName = `${readerMode}-${autoScan ? 'auto' : 'manual'}`;
+  const label = `${engineName}/${caseName}`;
   const engine = engineName==='webkit'?webkit:engineName==='firefox'?firefox:chromium;
   const browser = await engine.launch({ headless:true });
   const context = await browser.newContext({ viewport:{width:1000,height:900}, locale:'ja-JP', bypassCSP:true });
   const page = await context.newPage();
   let ocrHits = 0;
+  let currentPage = 1;
+  let releaseOldAnswer;
+  const oldAnswer = new Promise(resolve => { releaseOldAnswer = resolve; });
+  const requests = [];
   await page.exposeFunction(BRIDGE, async req => {
     const u = req.url||'';
     if (u===IMG_URL) return { status:200, bytes:[...PAGE_PNG], contentType:'image/png', responseText:'' };
     if (u===IMG_URL_2) return { status:200, bytes:[...PAGE_PNG_2], contentType:'image/png', responseText:'' };
-    if (/7331|\/ocr(\?|$)/.test(u)) { ocrHits++; return { status:200, responseText:JSON.stringify(MOCK_OCR) }; }
+    if (u===IMG_URL_3) return { status:200, bytes:[...PAGE_PNG_3], contentType:'image/png', responseText:'' };
+    if (/7331|\/ocr(\?|$)/.test(u)) {
+      ocrHits++;
+      const requestedPage = currentPage;
+      requests.push({ page: requestedPage, phase: 'requested' });
+      if (requestedPage === 2) await oldAnswer;
+      requests.push({ page: requestedPage, phase: 'answered' });
+      return { status:200, responseText:JSON.stringify({ ...MOCK_OCR, lines: [{ ...MOCK_OCR.lines[0], text: PAGE_TEXT[requestedPage-1] }] }) };
+    }
     return { status:503, responseText:'' };
   });
-  await addGmStorageBridgeInitScript(page, { key:YOMU_SETTINGS_KEY, value:SETTINGS, requestBridgeName:BRIDGE });
+  await addGmStorageBridgeInitScript(page, { key:YOMU_SETTINGS_KEY, value:{ ...SETTINGS, ocrAutoScanImages: autoScan }, requestBridgeName:BRIDGE });
   await context.route('**/*', route => {
     const r = route.request().url();
     if (r.startsWith('blob:')||r.startsWith('data:')) return route.continue();
     const u = new URL(r);
     if (u.href===IMG_URL) return route.fulfill({status:200,contentType:'image/png',body:PAGE_PNG});
     if (u.href===IMG_URL_2) return route.fulfill({status:200,contentType:'image/png',body:PAGE_PNG_2});
+    if (u.href===IMG_URL_3) return route.fulfill({status:200,contentType:'image/png',body:PAGE_PNG_3});
     if (u.hostname==='viewer.bookwalker.jp') return route.fulfill({status:200,contentType:'text/html; charset=utf-8',body:fixtureHtml()});
     return route.fulfill({status:404,body:''});
   });
 
-  await page.goto('https://viewer.bookwalker.jp/03/30/viewer.html?cid=test&cty=2', { waitUntil:'domcontentloaded', timeout:30000 });
+  await page.goto(`https://viewer.bookwalker.jp/03/30/viewer.html?cid=test&cty=${readerMode === 'cty2' ? 2 : 1}`, { waitUntil:'domcontentloaded', timeout:30000 });
   await installUserscriptCssResource(page, CSS_PATH).catch(()=>page.addStyleTag({path:CSS_PATH}));
   for (const c of COMPANIONS) await addScriptTagWithCspFallback(page, c).catch(()=>{});
   await addScriptTagWithCspFallback(page, SCRIPT_PATH);
@@ -97,10 +125,10 @@ async function run(engineName) {
   const tapCenter = async () => { const p = await page.evaluate(()=>{const r=document.querySelector('#c0').getBoundingClientRect();return {x:Math.round(r.left+r.width/2),y:Math.round(r.top+120)};}); await page.mouse.move(p.x,p.y); await page.mouse.click(p.x,p.y); };
   await tapCenter();
 
-  const aMs = await waitFor(async()=>(await st()).lines>=1);
+  const aMs = await waitFor(async()=>(await st()).texts.includes(PAGE_TEXT[0]));
   const afterPage1 = await st();
   const hitsAfterPage1 = ocrHits;
-  const wordsOk = afterPage1.words >= 1;
+  const wordsOk = afterPage1.hitTargets >= 1;
 
   // within-page scroll — overlay must survive (no teardown, no re-OCR)  [S1/S3]
   await page.evaluate(()=>{ window.__frameRemovals = 0; });
@@ -113,30 +141,73 @@ async function run(engineName) {
   const noTeardown = afterScroll.removals===0;
   const sceneB = overlaySurvived && noReOcr && noTeardown;
 
-  // real page turn — must re-OCR the new page  [guard]
+  // Retain the actual old hit targets: a new overlay alone is not proof they retired.
+  await page.evaluate(() => { window.__oldTargets = [...document.querySelectorAll('.jpdb-ocr-line, .jpdb-ocr-line .jpdb-reader-word')]; });
+  // Delay page 2's provider answer, then turn again while it is still in flight.
   const hitsBeforeTurn = ocrHits;
+  currentPage = 2;
   await page.evaluate(()=>{ const c=document.querySelector('#pageSliderCounter'); if(c) c.textContent='6 / 200'; });
   await page.evaluate(()=>window.scrollTo(0,0));
   await page.evaluate(()=>window.__draw(2));
-  await page.waitForTimeout(300);
+  const retiredMs = await waitFor(async() => {
+    const state = await st();
+    return !state.oldTargetsConnected && !state.texts.includes(PAGE_TEXT[0]) && (autoScan || state.frames === 0);
+  });
+  const beforeSecondTap = await st();
+  const manualWaitsForTap = autoScan || (ocrHits === hitsBeforeTurn && beforeSecondTap.lines === 0 && beforeSecondTap.frames === 0);
   await tapCenter();
-  const turnMs = await waitFor(async()=> ocrHits>hitsBeforeTurn && (await st()).lines>=1);
-  const turnOk = turnMs>=0;
+  const secondRequestMs = await waitFor(async()=> ocrHits>hitsBeforeTurn);
+  const waitingForPage2 = await st();
+  const targetsRetired = retiredMs >= 0 && beforeSecondTap.oldTargetWasPresent
+    && !waitingForPage2.oldTargetsConnected && waitingForPage2.lines === 0;
+
+  // Keep the counter unchanged: recycled-canvas content owns identity even when
+  // the viewer's counter lags behind its next composite.
+  currentPage = 3;
+  await page.evaluate(()=>window.__draw(3));
+  // In manual mode, let the page-turn detection retire the loading page-2 frame
+  // before requesting page 3. The provider answer remains pending throughout.
+  if (!autoScan) await waitFor(async() => (await st()).frames === 0);
+  await tapCenter();
+  const turnMs = await waitFor(async()=> (await st()).texts.includes(PAGE_TEXT[2]));
+  const beforeLateAnswer = await st();
+  await page.evaluate(() => {
+    window.__latePaints = [];
+    window.__latePaintObserver = new MutationObserver(() => {
+      window.__latePaints.push(...[...document.querySelectorAll('.jpdb-ocr-line')].map(line => line.dataset.ocrText));
+    });
+    window.__latePaintObserver.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['data-ocr-text'] });
+  });
+  releaseOldAnswer();
+  await page.waitForTimeout(1600);
+  const afterLateAnswer = await st();
+  const latePaints = await page.evaluate(() => { window.__latePaintObserver.disconnect(); return window.__latePaints; });
+  const lateAnswerIgnored = turnMs >= 0 && secondRequestMs >= 0
+    && afterLateAnswer.texts.length === 1 && afterLateAnswer.texts[0] === PAGE_TEXT[2]
+    && !latePaints.some(text => text === PAGE_TEXT[0] || text === PAGE_TEXT[1])
+    && !afterLateAnswer.oldTargetsConnected;
+  const turnOk = targetsRetired && manualWaitsForTap && lateAnswerIgnored;
+
+  await page.screenshot({ path: path.join(ARTIFACT_DIR, `${engineName}-${caseName}.png`) });
+  writeFileSync(path.join(ARTIFACT_DIR, `${engineName}-${caseName}.json`), JSON.stringify({
+    fixture: true, label, requests, afterPage1, afterScroll, beforeSecondTap, waitingForPage2,
+    beforeLateAnswer, afterLateAnswer, latePaints, targetsRetired, manualWaitsForTap, lateAnswerIgnored,
+  }, null, 2));
 
   await context.close(); await browser.close();
 
-  console.log(`[${engineName}] A page1-OCR: ${aMs>=0?aMs+'ms':'NO OVERLAY'} (lines=${afterPage1.lines})`);
-  console.log(`[${engineName}] C words(S2): ${wordsOk?'OK':'NONE'} (words=${afterPage1.words})`);
-  console.log(`[${engineName}] B scroll-survive(S1/S3): ${sceneB?'PASS':'FAIL'} (lines ${afterPage1.lines}->${afterScroll.lines}, reOCR=${scrollReOcr}, teardowns=${afterScroll.removals})`);
-  console.log(`[${engineName}] D real-turn re-OCR: ${turnOk?'PASS '+turnMs+'ms':'FAIL (new page not OCRd)'}`);
-  return { engineName, page1Ok:aMs>=0, wordsOk, scrollSurvive:sceneB, turnOk };
+  console.log(`[${label}] A page1-OCR: ${aMs>=0?aMs+'ms':'NO OVERLAY'} (lines=${afterPage1.lines})`);
+  console.log(`[${label}] C lookup targets: ${wordsOk?'OK':'NONE'} (targets=${afterPage1.hitTargets}, providerIds=${afterPage1.words})`);
+  console.log(`[${label}] B scroll-survive(S1/S3): ${sceneB?'PASS':'FAIL'} (lines ${afterPage1.lines}->${afterScroll.lines}, reOCR=${scrollReOcr}, teardowns=${afterScroll.removals})`);
+  console.log(`[${label}] D/E/F page turns: ${turnOk?'PASS':'FAIL'} (retired=${targetsRetired}, waitsForTap=${manualWaitsForTap}, lateAnswerIgnored=${lateAnswerIgnored}, newPage=${turnMs}ms)`);
+  return { engineName: label, page1Ok:aMs>=0, wordsOk, scrollSurvive:sceneB, turnOk };
 }
 
 const engines = (process.env.ENGINES||'chromium,firefox,webkit').split(',').filter(Boolean);
 const results = [];
-for (const e of engines) { try { results.push(await run(e)); } catch(err){ console.log(`[${e}] ERROR ${String(err).slice(0,200)}`); results.push({engineName:e,page1Ok:false,scrollSurvive:false,turnOk:false}); } }
+for (const e of engines) for (const readerMode of ['cty2', 'paged-counter']) for (const autoScan of [true, false]) { try { results.push(await run(e, autoScan, readerMode)); } catch(err){ console.log(`[${e}/${readerMode}/${autoScan ? 'auto' : 'manual'}] ERROR ${String(err).slice(0,200)}`); results.push({engineName:e,page1Ok:false,scrollSurvive:false,turnOk:false}); } }
 console.log('\n==== SUMMARY ====');
 let fails = 0;
-for (const r of results) { const ok = r.page1Ok && r.scrollSurvive && r.turnOk; if(!ok) fails++; console.log(`${r.engineName}: page1=${r.page1Ok} words=${r.wordsOk} scrollSurvive=${r.scrollSurvive} realTurn=${r.turnOk} => ${ok?'OK':'FAIL'}`); }
-console.log(fails ? `\nFAILURES: ${fails}` : '\nALL PASS — cty=2 within-page scroll keeps the OCR overlay; real turns still re-OCR.');
+for (const r of results) { const ok = r.page1Ok && r.wordsOk && r.scrollSurvive && r.turnOk; if(!ok) fails++; console.log(`${r.engineName}: page1=${r.page1Ok} words=${r.wordsOk} scrollSurvive=${r.scrollSurvive} realTurn=${r.turnOk} => ${ok?'OK':'FAIL'}`); }
+console.log(fails ? `\nFAILURES: ${fails}` : '\nALL PASS — scroll keeps OCR; page turns retire old targets and reject late old-page answers.');
 process.exit(fails?1:0);
