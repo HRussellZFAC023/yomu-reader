@@ -5776,6 +5776,11 @@ const EN = {
   collectAlreadySaved: "Already in one of your decks. Open Study to edit it.",
   collectHandoffOpened: "Opened your deck app. Finish saving there.",
   collectNotSaved: "This word was not saved. Try again, or open Study for details.",
+  collectDetailsUnavailable: "This word was not saved. Its error details could not be stored. Check your connection and settings, then try again.",
+  collectServiceUnavailable: "The deck service did not confirm this save. Check its connection and settings before trying again.",
+  collectFailureTitle: "Last word not saved: {word}",
+  collectFailureHelp: "Check the destination in Settings, then try saving the word again.",
+  collectFailureDismiss: "Dismiss save error",
   jpdbAddApiKeyRequired: "Add a JPDB API key, or use Add to Anki.",
   addedToJpdb: "Added to JPDB.",
   jitenAddApiKeyRequired: "Add a Jiten API key, or use Add to Anki.",
@@ -5798,6 +5803,11 @@ const JA = {
   collectAlreadySaved: "すでにデッキにあります。編集はStudyで行えます。",
   collectHandoffOpened: "デッキのアプリを開きました。そちらで保存を完了してください。",
   collectNotSaved: "この単語は保存されませんでした。もう一度お試しいただくか、Studyで詳細を確認してください。",
+  collectDetailsUnavailable: "この単語は保存されませんでした。エラーの詳細も保存できませんでした。接続と設定を確認して、もう一度お試しください。",
+  collectServiceUnavailable: "デッキのサービスから保存の確認が取れませんでした。接続と設定を確認してから、もう一度お試しください。",
+  collectFailureTitle: "最後に保存できなかった単語：{word}",
+  collectFailureHelp: "設定で保存先を確認してから、単語をもう一度保存してください。",
+  collectFailureDismiss: "保存エラーを閉じる",
   jpdbAddApiKeyRequired: "JPDB APIキーかAnki追加が必要です。",
   addedToJpdb: "JPDBに追加しました。",
   jitenAddApiKeyRequired: "Jiten APIキーかAnki追加が必要です。",
@@ -6015,6 +6025,8 @@ const COPY = {
   fourGradeShortcutsHelp: "Four-grade reviews use the first four shortcuts: Again, Hard, Good, Easy.",
   twoPoint: "Two point: FAIL / PASS",
   settingsLanguage: "Settings language",
+  translationLanguage: "Translation language",
+  translationLanguageHelp: "Choose the language for automatic sentence and example translations.",
   automatic: "Automatic",
   english: "English",
   japanese: "日本語",
@@ -7555,6 +7567,8 @@ fivePoint	サービスの標準評価
 fourGradeShortcutsHelp	4段階の復習では、最初の4つのショートカットを「もう一度・難しい・良い・簡単」に使います。
 twoPoint	2段階: 失敗 / 合格
 settingsLanguage	設定の表示言語
+translationLanguage	翻訳先の言語
+translationLanguageHelp	文や例文の自動翻訳先の言語を選びます。
 theme	テーマ
 auto	自動
 dark	ダーク
@@ -8718,6 +8732,7 @@ const MANAGED_STATE_MANIFEST = [
   { owner: "app/managed-web-storage", kind: "session", prefix: "yomu:web-owner:v2:" },
   { owner: "app/storage local provenance", kind: "local", key: "yomu:local-storage-provenance:v1" },
   { owner: "app/card-state-signal", kind: "gm", key: "yomu:card-state-signal" },
+  { owner: "cards/collection-save-failure", kind: "gm", key: "yomu:collection-save-failure:v1" },
   { owner: "app/storage leases", kind: "gm", prefix: "yomu:lease:" },
   { owner: "srs/account-sync", kind: "gm", key: "yomu:private:academy-device:v1" },
   { owner: "srs/account-sync", kind: "gm", key: "yomu:private:academy-device-pending:v1" },
@@ -14511,7 +14526,7 @@ const NEW_TAB_CACHE_KEY = "jpdb-reader-newtab-card-cache";
 function clearNewTabOfflineCache() {
   return gmStorageDelete(NEW_TAB_CACHE_KEY);
 }
-const CURRENT_YOMU_VERSION = "2.2.0".trim() ? "2.2.0".trim() : "dev";
+const CURRENT_YOMU_VERSION = "2.2.1".trim() ? "2.2.1".trim() : "dev";
 function latestYomuVersionFromVersionJson(value) {
   if (!value || typeof value !== "object") return null;
   const record2 = value;
@@ -15014,6 +15029,101 @@ function applyNativeSubtitleDisplayMode(settings2, mode, options = {}) {
   if (markVisibilityChosen) settings2.subtitleSecondaryVisibleChosen = true;
   return changed;
 }
+const GOOGLE_TRANSLATION_LANGUAGE_CODES = /* @__PURE__ */ new Set([
+  "sq",
+  "ar",
+  "yue",
+  "zh",
+  "da",
+  "nl",
+  "en",
+  "fi",
+  "fr",
+  "de",
+  "el",
+  "hu",
+  "id",
+  "it",
+  "km",
+  "ko",
+  "lo",
+  "la",
+  "mn",
+  "fa",
+  "pl",
+  "pt",
+  "ro",
+  "ru",
+  "bs",
+  "es",
+  "sv",
+  "tl",
+  "th",
+  "tr",
+  "vi",
+  "ja"
+]);
+Logger.scope("GoogleTranslation");
+function normalizeTranslationLanguage(language2, options = {}) {
+  const trimmed = language2.trim();
+  if (options.allowAuto && trimmed.toLowerCase() === "auto") return "auto";
+  if (!trimmed) throw new Error("Translation language is required.");
+  try {
+  return Intl.getCanonicalLocales(trimmed)[0] ?? trimmed;
+  } catch {
+  throw new Error(`Invalid translation language: ${language2}`);
+  }
+}
+function googleTranslationLanguageCapability(language2) {
+  const logicalLanguage = normalizeTranslationLanguage(language2);
+  const locale = new Intl.Locale(logicalLanguage);
+  if (locale.language === "grc") {
+  return {
+    logicalLanguage,
+    providerLanguage: null,
+    supported: false
+  };
+  }
+  if (locale.language === "fil") {
+  return {
+    logicalLanguage,
+    providerLanguage: "tl",
+    supported: true
+  };
+  }
+  if (locale.language === "sr" && (locale.script === "Latn" || logicalLanguage === "sr")) {
+  return {
+    logicalLanguage,
+    // Google ignores sr-Latn and returns Cyrillic. Bosnian is the
+    // closest supported Serbo-Croatian standard with guaranteed Latin
+    // output; the logical profile remains sr-Latn everywhere else.
+    providerLanguage: "bs",
+    supported: true
+  };
+  }
+  if (!GOOGLE_TRANSLATION_LANGUAGE_CODES.has(locale.language)) {
+  return {
+    logicalLanguage,
+    providerLanguage: null,
+    supported: false
+  };
+  }
+  return {
+  logicalLanguage,
+  providerLanguage: logicalLanguage,
+  supported: true
+  };
+}
+const TRANSLATION_LANGUAGES = LEARNER_LANGUAGES.filter(
+  (language2) => googleTranslationLanguageCapability(language2.runtimeLocale).supported
+);
+function isSupportedTranslationLanguage(language2) {
+  try {
+  return new Intl.Locale(language2).language !== "ja" && googleTranslationLanguageCapability(language2).supported;
+  } catch {
+  return false;
+  }
+}
 const SELECTABLE_INTERFACE_LANGUAGES = Object.freeze(["auto", "en", "ja"]);
 const CUSTOM_FONT_FAMILY_VALUE = "__custom_font_family__";
 const COLOR_SOURCE_VALUES = ["status", "jpdb", "anki", "pitch", "off"];
@@ -15159,8 +15269,10 @@ function readLanguageProfileFormSettings(data, current, interfaceLanguage, dicti
   current.parserProvider
   );
   const dictionaries2 = languageProfileDictionariesFromPreferences(dictionaryPreferences);
+  const requestedTranslationLanguage = String(data.get("translationLanguage") ?? "");
+  const outputLanguage = isSupportedTranslationLanguage(requestedTranslationLanguage) ? requestedTranslationLanguage : active.outputLanguage;
   return {
-  languageProfiles: current.languageProfiles.map((profile) => profile.id === active.id ? { ...profile, uiLocale: interfaceLanguage, parserProvider, dictionaries: dictionaries2 } : profile),
+  languageProfiles: current.languageProfiles.map((profile) => profile.id === active.id ? { ...profile, outputLanguage, learnerLanguage: outputLanguage, uiLocale: interfaceLanguage, parserProvider, dictionaries: dictionaries2 } : profile),
   activeLanguageProfileId: active.id
   };
 }
@@ -21395,91 +21507,6 @@ const enRecommendations = {
   blockers,
   dictionaries
 };
-const GOOGLE_TRANSLATION_LANGUAGE_CODES = /* @__PURE__ */ new Set([
-  "sq",
-  "ar",
-  "yue",
-  "zh",
-  "da",
-  "nl",
-  "en",
-  "fi",
-  "fr",
-  "de",
-  "el",
-  "hu",
-  "id",
-  "it",
-  "km",
-  "ko",
-  "lo",
-  "la",
-  "mn",
-  "fa",
-  "pl",
-  "pt",
-  "ro",
-  "ru",
-  "bs",
-  "es",
-  "sv",
-  "tl",
-  "th",
-  "tr",
-  "vi",
-  "ja"
-]);
-Logger.scope("GoogleTranslation");
-function normalizeTranslationLanguage(language2, options = {}) {
-  const trimmed = language2.trim();
-  if (options.allowAuto && trimmed.toLowerCase() === "auto") return "auto";
-  if (!trimmed) throw new Error("Translation language is required.");
-  try {
-  return Intl.getCanonicalLocales(trimmed)[0] ?? trimmed;
-  } catch {
-  throw new Error(`Invalid translation language: ${language2}`);
-  }
-}
-function googleTranslationLanguageCapability(language2) {
-  const logicalLanguage = normalizeTranslationLanguage(language2);
-  const locale = new Intl.Locale(logicalLanguage);
-  if (locale.language === "grc") {
-  return {
-    logicalLanguage,
-    providerLanguage: null,
-    supported: false
-  };
-  }
-  if (locale.language === "fil") {
-  return {
-    logicalLanguage,
-    providerLanguage: "tl",
-    supported: true
-  };
-  }
-  if (locale.language === "sr" && (locale.script === "Latn" || logicalLanguage === "sr")) {
-  return {
-    logicalLanguage,
-    // Google ignores sr-Latn and returns Cyrillic. Bosnian is the
-    // closest supported Serbo-Croatian standard with guaranteed Latin
-    // output; the logical profile remains sr-Latn everywhere else.
-    providerLanguage: "bs",
-    supported: true
-  };
-  }
-  if (!GOOGLE_TRANSLATION_LANGUAGE_CODES.has(locale.language)) {
-  return {
-    logicalLanguage,
-    providerLanguage: null,
-    supported: false
-  };
-  }
-  return {
-  logicalLanguage,
-  providerLanguage: logicalLanguage,
-  supported: true
-  };
-}
 const DICTIONARY_CATALOG_SCHEMA_VERSION = 1;
 const DEFAULT_DICTIONARY_CATALOG_TARGET_LANGUAGE = "ja";
 const SLICE1_LEARNER_LANGUAGES = [
@@ -24153,6 +24180,18 @@ function setAccessibleName(element, name) {
   element.setAttribute("aria-label", name);
   element.title = name;
 }
+function renderTranslationLanguageControl(settings2) {
+  const saved = activeLanguageProfile(settings2.languageProfiles, settings2.activeLanguageProfileId)?.outputLanguage ?? "en";
+  const options = TRANSLATION_LANGUAGES.map((language2) => [
+  language2.runtimeLocale,
+  language2.nativeName === language2.englishName ? language2.nativeName : `${language2.nativeName} · ${language2.englishName}`
+  ]);
+  if (!options.some(([tag]) => tag === saved)) {
+  options.push([saved, isSupportedTranslationLanguage(saved) ? saved : `${saved} · ${uiText(settings2.interfaceLanguage, "unavailable")}`]);
+  }
+  return `<div class="grid">${select("translationLanguage", uiText(settings2.interfaceLanguage, "translationLanguage"), saved, options)}</div>
+        <div class="jpdb-reader-help" data-help-key="translationLanguageHelp">${uiText(settings2.interfaceLanguage, "translationLanguageHelp")}</div>`;
+}
 const COLOR_SOURCE_CLASS_VALUES = ["status", "jpdb", "anki", "pitch"];
 function syncSubtitlePreview(form) {
   const preview = form.querySelector("[data-subtitle-preview]");
@@ -24945,6 +24984,7 @@ function renderDictionariesSettingsPanel(settings2, includeCatalogBrowse, expand
             <fieldset id="jpdb-reader-settings-panel-dictionaries" role="tabpanel" data-settings-panel="dictionaries" data-legend-key="sources" hidden>
                 <legend>${escapedUiText(language2, "sources")}</legend>
                 <div data-target-dictionary-content>
+                ${renderTranslationLanguageControl(settings2)}
                 ${renderSettingsDisclosure(uiText(language2, "popupOrderTitle"), `
                     <div class="jpdb-reader-dictionary-priorities" data-source-editor data-definition-source-editor>
                         ${renderDictionarySourceRows(settings2)}
@@ -25826,6 +25866,7 @@ const DIRECT_SETTINGS_CONTROL_LABEL_KEYS = [
   "hoverCloseDelayMs"
 ];
 const SETTINGS_CONTROL_LABEL_ALIASES = [
+  ["translationLanguage", "translationLanguage"],
   ["twoButtonReviews", "reviewRatingScale"],
   ["interfaceLanguage", "settingsLanguage"],
   ["ocrCloudVisionApiKey", "cloudVisionApiKey"],

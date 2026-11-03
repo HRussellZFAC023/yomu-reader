@@ -1676,6 +1676,7 @@
   const NADESHIKO_DEVELOPER_URL = `${NADESHIKO_URL}user/developer`;
   const USERSCRIPT_HTTP_BRIDGE_READY_EVENT = "yomu-userscript-http-bridge-ready";
   const USERSCRIPT_STORAGE_BRIDGE_READY_EVENT = "yomu-userscript-storage-bridge-ready";
+  const USERSCRIPT_SETTINGS_CHANGED_EVENT = "yomu-userscript-settings-changed";
   const OPEN_SUBTITLE_TRACKS_EVENT = "yomu-open-subtitle-tracks";
   const LOAD_SUBTITLE_FILES_EVENT = "yomu-load-subtitle-files";
   const SETTINGS_CHANGE_EVENT = "yomu-settings-change";
@@ -4777,6 +4778,11 @@
     collectAlreadySaved: "Already in one of your decks. Open Study to edit it.",
     collectHandoffOpened: "Opened your deck app. Finish saving there.",
     collectNotSaved: "This word was not saved. Try again, or open Study for details.",
+    collectDetailsUnavailable: "This word was not saved. Its error details could not be stored. Check your connection and settings, then try again.",
+    collectServiceUnavailable: "The deck service did not confirm this save. Check its connection and settings before trying again.",
+    collectFailureTitle: "Last word not saved: {word}",
+    collectFailureHelp: "Check the destination in Settings, then try saving the word again.",
+    collectFailureDismiss: "Dismiss save error",
     jpdbAddApiKeyRequired: "Add a JPDB API key, or use Add to Anki.",
     addedToJpdb: "Added to JPDB.",
     jitenAddApiKeyRequired: "Add a Jiten API key, or use Add to Anki.",
@@ -4799,6 +4805,11 @@
     collectAlreadySaved: "すでにデッキにあります。編集はStudyで行えます。",
     collectHandoffOpened: "デッキのアプリを開きました。そちらで保存を完了してください。",
     collectNotSaved: "この単語は保存されませんでした。もう一度お試しいただくか、Studyで詳細を確認してください。",
+    collectDetailsUnavailable: "この単語は保存されませんでした。エラーの詳細も保存できませんでした。接続と設定を確認して、もう一度お試しください。",
+    collectServiceUnavailable: "デッキのサービスから保存の確認が取れませんでした。接続と設定を確認してから、もう一度お試しください。",
+    collectFailureTitle: "最後に保存できなかった単語：{word}",
+    collectFailureHelp: "設定で保存先を確認してから、単語をもう一度保存してください。",
+    collectFailureDismiss: "保存エラーを閉じる",
     jpdbAddApiKeyRequired: "JPDB APIキーかAnki追加が必要です。",
     addedToJpdb: "JPDBに追加しました。",
     jitenAddApiKeyRequired: "Jiten APIキーかAnki追加が必要です。",
@@ -5016,6 +5027,8 @@
       fourGradeShortcutsHelp: "Four-grade reviews use the first four shortcuts: Again, Hard, Good, Easy.",
       twoPoint: "Two point: FAIL / PASS",
       settingsLanguage: "Settings language",
+      translationLanguage: "Translation language",
+      translationLanguageHelp: "Choose the language for automatic sentence and example translations.",
       automatic: "Automatic",
       english: "English",
       japanese: "日本語",
@@ -6556,6 +6569,8 @@ fivePoint	サービスの標準評価
 fourGradeShortcutsHelp	4段階の復習では、最初の4つのショートカットを「もう一度・難しい・良い・簡単」に使います。
 twoPoint	2段階: 失敗 / 合格
 settingsLanguage	設定の表示言語
+translationLanguage	翻訳先の言語
+translationLanguageHelp	文や例文の自動翻訳先の言語を選びます。
 theme	テーマ
 auto	自動
 dark	ダーク
@@ -7332,6 +7347,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     { owner: "app/managed-web-storage", kind: "session", prefix: "yomu:web-owner:v2:" },
     { owner: "app/storage local provenance", kind: "local", key: "yomu:local-storage-provenance:v1" },
     { owner: "app/card-state-signal", kind: "gm", key: "yomu:card-state-signal" },
+    { owner: "cards/collection-save-failure", kind: "gm", key: "yomu:collection-save-failure:v1" },
     { owner: "app/storage leases", kind: "gm", prefix: "yomu:lease:" },
     { owner: "srs/account-sync", kind: "gm", key: "yomu:private:academy-device:v1" },
     { owner: "srs/account-sync", kind: "gm", key: "yomu:private:academy-device-pending:v1" },
@@ -37270,7 +37286,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
                 ${example.audio ? renderProviderExampleAudio(example.audio) : ""}
                 <div class="${classes("jpdb-reader-jpdb-example-text", example.textClassName)}">
                     <div class="${classes("jpdb-reader-example-sentence jpdb-reader-parseable", example.sentenceClassName)}" data-provider-example-sentence data-yomu-furigana-mode="all">${example.sentenceHtml}</div>
-                    <div class="jpdb-reader-example-translation" data-provider-example-translation data-provider-translation-blurred="true"${translationPending ? ` data-provider-translation-pending="true" data-provider-translation-sentence="${escapeHtml$2(example.sentence)}" hidden` : ""} role="button" tabindex="0" aria-label="${escapeHtml$2(uiText(language2, "revealTranslation"))}">${escapeHtml$2(translation)}</div>
+                    <div class="jpdb-reader-example-translation" data-provider-example-translation data-provider-translation-blurred="true" data-provider-translation-sentence="${escapeHtml$2(example.sentence)}"${translationPending ? ' data-provider-translation-pending="true" hidden' : ' lang="en"'} role="button" tabindex="0" aria-label="${escapeHtml$2(uiText(language2, "revealTranslation"))}">${escapeHtml$2(translation)}</div>
                 </div>
             </div>
         </li>
@@ -37280,7 +37296,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     installProviderTranslationReveal(root);
     const translations = Array.from(root.querySelectorAll("[data-provider-example-translation]"));
     if (!options.blurTranslations) translations.forEach(revealProviderTranslation);
-    translations.filter((translation) => translation.dataset.providerTranslationPending === "true").forEach((translation) => hydrateProviderTranslation(root, translation, options));
+    translations.filter((translation) => translation.dataset.providerTranslationPending === "true" || Boolean(translation.lang && translation.lang !== options.outputLanguage)).forEach((translation) => hydrateProviderTranslation(root, translation, options));
   }
   function installProviderTranslationReveal(root) {
     if (root.dataset.providerExampleBehaviorsInstalled === "true") return;
@@ -37306,9 +37322,9 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       if (!translated.trim() || !translation.isConnected || !isCurrentProviderRoot(root, options)) return;
       translation.textContent = translated.trim();
       translation.lang = options.outputLanguage;
+      translation.dir = localeDirection(options.outputLanguage);
       translation.hidden = false;
       delete translation.dataset.providerTranslationPending;
-      delete translation.dataset.providerTranslationSentence;
     }).catch(() => void 0).finally(() => {
       delete translation.dataset.providerTranslationLoading;
     });
@@ -52452,6 +52468,20 @@ ${entry.reading}`);
   async function renderGrammarHints(hints, sentence, preferences, language2 = "en", options = {}) {
     return await (yomuKanjiStudyCompanion()?.renderGrammarHints?.(hints, sentence, preferences, language2, options) ?? Promise.resolve(""));
   }
+  const TRANSLATION_LANGUAGES = LEARNER_LANGUAGES.filter(
+    (language2) => googleTranslationLanguageCapability(language2.runtimeLocale).supported
+  );
+  function isSupportedTranslationLanguage(language2) {
+    try {
+      return new Intl.Locale(language2).language !== "ja" && googleTranslationLanguageCapability(language2).supported;
+    } catch {
+      return false;
+    }
+  }
+  function translationOutputLanguage(settings2) {
+    const saved = activeLanguageProfile(settings2.languageProfiles, settings2.activeLanguageProfileId)?.outputLanguage;
+    return saved && isSupportedTranslationLanguage(saved) ? saved : "en";
+  }
   const log$k = Logger.scope("StudySources");
   const STUDY_GRAMMAR_CACHE_LIMIT = 160;
   const STUDY_TRANSLATION_CACHE_LIMIT = 80;
@@ -52506,7 +52536,7 @@ ${entry.reading}`);
       const translation = popover.querySelector("[data-study-translation]");
       if (!translation) return;
       const requestKey = this.studyCacheKey(sentence);
-      preloadTargetSentenceTranslation(sentence, OUTPUT_LANGUAGE);
+      preloadTargetSentenceTranslation(sentence, translationOutputLanguage(settings2));
       void this.cachedTranslationContent(sentence, requestKey).then((result) => this.hideEmptyPreloadedTranslation(popover, translation, sentence, requestKey, result)).catch(() => void 0);
     }
     hideEmptyPreloadedTranslation(popover, container, sentence, requestKey, result) {
@@ -52628,7 +52658,7 @@ ${entry.reading}`);
       return this.dependencies.isCurrentPopoverRoot(popover) && container.isConnected;
     }
     async loadTranslationContent(sentence) {
-      const translation = await translateTargetSentence(sentence, OUTPUT_LANGUAGE);
+      const translation = await translateTargetSentence(sentence, translationOutputLanguage(this.settings()));
       const tokens = translation ? this.parseTranslationTokens(sentence) : Promise.resolve([]);
       return { tokens, translation };
     }
@@ -52656,7 +52686,8 @@ ${entry.reading}`);
       return promise;
     }
     studyCacheKey(sentence) {
-      return `${activeLearningTarget().id}${this.settings().interfaceLanguage}${OUTPUT_LANGUAGE}${sentence.trim()}`;
+      const settings2 = this.settings();
+      return `${activeLearningTarget().id}${settings2.interfaceLanguage}${translationOutputLanguage(settings2)}${sentence.trim()}`;
     }
     applyTranslation(popover, sentence, container, translation, requestKey) {
       if (!translation.translation) {
@@ -59343,9 +59374,8 @@ ${spelling}`);
       positionVideoFrameResumeControl(resume, rect, video);
       this.schedulePosition();
     }
-    // Reveal the rest of the overlay once OCR has produced text: the frame image
-    // and status indicator un-gate (the resume/play control is already visible from the
-    // moment the video paused), so the readable text appears with its status.
+    // Mark the frame ready and reveal its status after text is recognized. The
+    // raster remains invisible so the original player's controls and captions paint.
     revealVideoFrameOverlay(image) {
       if (!this.videoFrameVideos.has(image)) return;
       setPrivateRasterClass(image, "jpdb-ocr-video-frame-pending", false);
@@ -71444,15 +71474,15 @@ ${reading}`);
     chromeTier: (host) => Math.max(0, ...Array.from(
       host.querySelectorAll(".ytp-chrome-top, .ytp-chrome-bottom"),
       (element) => Number.parseInt(getComputedStyle(element).zIndex) || 0
-    )) + 1
+    ))
   };
   function captionLayerTier(host, player, video) {
-    if (host && isYouTubePage$1()) return youtubeCaptionLayerAdapter.chromeTier(host);
     let tier = 0;
     for (let ancestor = host ? video : player; ancestor && ancestor !== (host ?? document.body); ancestor = ancestor.parentElement ?? void 0) {
       const value = Number.parseInt(getComputedStyle(ancestor).zIndex);
       if (Number.isFinite(value)) tier = value;
     }
+    if (host && isYouTubePage$1()) return Math.max(tier, youtubeCaptionLayerAdapter.chromeTier(host)) + 1;
     return host ? Math.max(0, tier) + 1 : tier;
   }
   function mountCaptionLayer(root, parent, host) {
@@ -80684,6 +80714,7 @@ ${reading}`);
     const shouldReloadCookieShapedResponse = clearedSiteCookie || deferredCookieResponseReload;
     deferredCookieResponseReload = deferCookieResponseReloadUntilPersisted ? shouldReloadCookieShapedResponse : false;
     cancelPreferredJapaneseSiteRedirectWatcher();
+    if (deferCookieResponseReloadUntilPersisted) return;
     finishDisabledSiteNavigation(shouldRevert, shouldReloadCookieShapedResponse);
   }
   function finishDisabledSiteNavigation(shouldRevert, shouldReloadCookieShapedResponse) {
@@ -82700,7 +82731,7 @@ ${reading}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "2.2.0".trim() ? "2.2.0".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "2.2.1".trim() ? "2.2.1".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record2 = value;
@@ -82954,8 +82985,10 @@ ${reading}`);
       current.parserProvider
     );
     const dictionaries2 = languageProfileDictionariesFromPreferences(dictionaryPreferences);
+    const requestedTranslationLanguage = String(data.get("translationLanguage") ?? "");
+    const outputLanguage = isSupportedTranslationLanguage(requestedTranslationLanguage) ? requestedTranslationLanguage : active.outputLanguage;
     return {
-      languageProfiles: current.languageProfiles.map((profile) => profile.id === active.id ? { ...profile, uiLocale: interfaceLanguage, parserProvider, dictionaries: dictionaries2 } : profile),
+      languageProfiles: current.languageProfiles.map((profile) => profile.id === active.id ? { ...profile, outputLanguage, learnerLanguage: outputLanguage, uiLocale: interfaceLanguage, parserProvider, dictionaries: dictionaries2 } : profile),
       activeLanguageProfileId: active.id
     };
   }
@@ -91072,6 +91105,18 @@ ${reading}`);
     element.setAttribute("aria-label", name);
     element.title = name;
   }
+  function renderTranslationLanguageControl(settings2) {
+    const saved = activeLanguageProfile(settings2.languageProfiles, settings2.activeLanguageProfileId)?.outputLanguage ?? "en";
+    const options = TRANSLATION_LANGUAGES.map((language2) => [
+      language2.runtimeLocale,
+      language2.nativeName === language2.englishName ? language2.nativeName : `${language2.nativeName} · ${language2.englishName}`
+    ]);
+    if (!options.some(([tag]) => tag === saved)) {
+      options.push([saved, isSupportedTranslationLanguage(saved) ? saved : `${saved} · ${uiText(settings2.interfaceLanguage, "unavailable")}`]);
+    }
+    return `<div class="grid">${select("translationLanguage", uiText(settings2.interfaceLanguage, "translationLanguage"), saved, options)}</div>
+        <div class="jpdb-reader-help" data-help-key="translationLanguageHelp">${uiText(settings2.interfaceLanguage, "translationLanguageHelp")}</div>`;
+  }
   const COLOR_SOURCE_CLASS_VALUES = ["status", "jpdb", "anki", "pitch"];
   function syncSubtitlePreview(form) {
     const preview = form.querySelector("[data-subtitle-preview]");
@@ -91864,6 +91909,7 @@ ${reading}`);
             <fieldset id="jpdb-reader-settings-panel-dictionaries" role="tabpanel" data-settings-panel="dictionaries" data-legend-key="sources" hidden>
                 <legend>${escapedUiText(language2, "sources")}</legend>
                 <div data-target-dictionary-content>
+                ${renderTranslationLanguageControl(settings2)}
                 ${renderSettingsDisclosure(uiText(language2, "popupOrderTitle"), `
                     <div class="jpdb-reader-dictionary-priorities" data-source-editor data-definition-source-editor>
                         ${renderDictionarySourceRows(settings2)}
@@ -92745,6 +92791,7 @@ ${reading}`);
     "hoverCloseDelayMs"
   ];
   const SETTINGS_CONTROL_LABEL_ALIASES = [
+    ["translationLanguage", "translationLanguage"],
     ["twoButtonReviews", "reviewRatingScale"],
     ["interfaceLanguage", "settingsLanguage"],
     ["ocrCloudVisionApiKey", "cloudVisionApiKey"],
@@ -98038,6 +98085,56 @@ ${reading}`);
     const parsed = matchable.length ? await parse(matchable.map((word) => word.spelling.trim())) : [];
     return words.map((word) => sameWordOnService(word, parsed[matchable.indexOf(word)] ?? [], identifies));
   }
+  const KEY = "yomu:collection-save-failure:v1";
+  const REASONS = [
+    "collectNoDestination",
+    "collectWordNotFound",
+    "jpdbAddApiKeyRequired",
+    "jitenAddApiKeyRequired",
+    "jitenNeedsWordList",
+    "bunproAddApiKeyRequired",
+    "bunproNoMatchingWord",
+    "yomuLocalSrsDisabled",
+    "yomuLocalSrsStorageFailed",
+    "yomuLocalSrsSaveInterrupted",
+    "apiSrsActionsDisabled",
+    "collectServiceUnavailable"
+  ];
+  const DESTINATIONS = ["jpdb", "jiten", "bunpro", "wanikani", "yomu-local", "anki"];
+  async function recordCollectionSaveFailure(target, error) {
+    const copyKey = userFacingCopyKeyOf(error);
+    const failure = {
+      id: createStorageCoordinationId(),
+      word: target.spelling.slice(0, 200),
+      reading: target.reading.slice(0, 200),
+      destination: target.destination,
+      reason: REASONS.find((reason) => reason === copyKey) ?? "collectServiceUnavailable"
+    };
+    await mutateFailure(() => gmStorageSet(KEY, failure));
+  }
+  async function readCollectionSaveFailure() {
+    const stored = await gmStorageGetStrict(KEY, null);
+    if (!stored || typeof stored !== "object" || !("id" in stored) || !("word" in stored) || !("reading" in stored) || !("destination" in stored) || !("reason" in stored)) return null;
+    const { id, word, reading, destination, reason } = stored;
+    const parsedDestination = DESTINATIONS.find((candidate) => candidate === destination);
+    const parsedReason = REASONS.find((candidate) => candidate === reason);
+    return typeof id === "string" && typeof word === "string" && word.length <= 200 && typeof reading === "string" && reading.length <= 200 && parsedDestination && parsedReason ? { id, word, reading, destination: parsedDestination, reason: parsedReason } : null;
+  }
+  async function clearCollectionSaveFailure(target) {
+    await mutateFailure(async () => {
+      const failure = await readCollectionSaveFailure();
+      if (!failure) return;
+      const matches = typeof target === "string" ? failure.id === target : failure.word === target.spelling.slice(0, 200) && failure.reading === target.reading.slice(0, 200) && failure.destination === target.destination;
+      if (matches) await gmStorageDelete(KEY);
+    });
+  }
+  function mutateFailure(operation) {
+    return withGmStorageLease(
+      "collection-save-failure",
+      operation,
+      { leaseMs: STORAGE_WORK_LEASE_MS, guards: (key) => key === KEY }
+    );
+  }
   function handleStudyGrammarAction(button, sentence, language2 = "en", options = {}) {
     return yomuKanjiStudyCompanion()?.handleStudyGrammarAction?.(button, sentence, language2, options) ?? false;
   }
@@ -99721,7 +99818,7 @@ ${reading}`);
     }
     miningActionHandler(command, button, card, sentence, context) {
       const handlers = {
-        add: () => this.collect(context, (collectContext) => this.addToSelectedDeck(command, card, sentence, collectContext)),
+        add: () => this.collect(command, card, context, (collectContext) => this.addToSelectedDeck(command, card, sentence, collectContext)),
         anki: () => this.addToAnki(card, sentence, void 0, context),
         "anki-edit": () => this.openAnkiNote(command),
         "anki-merge": button ? () => this.mergeExistingAnkiCard(command, button, card, sentence, context) : void 0,
@@ -99857,13 +99954,20 @@ ${reading}`);
     }
     // An ordinary page renders this save and can read what it reports (ADR-0020):
     // a confirmation or failure there names no service, deck or Anki state.
-    async collect(context, save) {
-      if (this.accountDataSurfaceTrusted()) return save(context);
+    async collect(command, card, context, save) {
+      const trusted = this.accountDataSurfaceTrusted();
+      const target = { spelling: card.spelling, reading: card.reading, destination: selectedDeckChoice(command, this.options.getSettings()).source };
       try {
-        await save({ ...context, privately: true });
+        await save(trusted ? context : { ...context, privately: true });
       } catch (error) {
-        throw privateCollectionFailure(error);
+        let recorded = true;
+        await recordCollectionSaveFailure(target, error).catch(() => {
+          recorded = false;
+        });
+        if (trusted) throw error;
+        throw recorded ? privateCollectionFailure(error) : userFacingError("collectDetailsUnavailable", { cause: error });
       }
+      await clearCollectionSaveFailure(target).catch((error) => log$8.warn("Clearing the saved word failure notice failed", error));
     }
     accountDataSurfaceTrusted() {
       return this.options.accountDataSurfaceTrusted?.() ?? currentAccountDataSurfaceIsTrusted();
@@ -103145,7 +103249,7 @@ ${component.reading}`;
   registerExampleSource(createTatoebaExampleSource());
   function renderTargetExampleSourceMounts(settings2, sourceAttributes) {
     const targetLanguage2 = TARGET_LANGUAGE;
-    const outputLanguage = OUTPUT_LANGUAGE;
+    const outputLanguage = translationOutputLanguage(settings2);
     return declaredExampleCapabilities(targetLanguage2).map((row) => {
       if (!row.capabilities.supported) {
         return renderExampleSourceRow({
@@ -104481,6 +104585,121 @@ ${component.reading}`;
     { spelling: "電車", reading: "でんしゃ", meaning: "train", sentence: "電車に乗ります。" },
     { spelling: "時間", reading: "じかん", meaning: "time", sentence: "時間があります。" }
   ];
+  const NEW_TAB_ACTIONS = [
+    // Shell: overflow menu, app nav, site nav, support banner.
+    "settings",
+    "theme",
+    "language",
+    "install-app",
+    "dismiss-support-banner",
+    "dismiss-collection-failure",
+    "site-nav",
+    "external-link",
+    "mode",
+    "practice-sessions",
+    // Study: navigation, reveal, grading, step chrome.
+    "previous",
+    "next",
+    "reveal",
+    "grade",
+    "empty-fallback",
+    "continue-batch",
+    "recover-review-recording",
+    "check-held-reviews",
+    "discard-held-reviews",
+    "study-step",
+    "study-hint",
+    "return-to-review",
+    "recall-submit",
+    "type-word-submit",
+    "type-word-handwriting-check",
+    "type-word-handwriting-match",
+    "type-word-handwriting-retry",
+    "type-word-skip",
+    "type-word-mode",
+    "jpdb-kanji-action",
+    // Listen / pitch-perception step.
+    "listen-pick",
+    "listen-play",
+    "listen-play-recording",
+    "listen-record",
+    // Library search.
+    "search-clear",
+    "search-focus",
+    "search-suggestion",
+    "search-handwriting-toggle",
+    "handwriting-candidate",
+    "search-result-word",
+    "search-result-kanji",
+    // Library browse (My Cards).
+    "browse-filter",
+    "browse-source-filter",
+    "browse-sort",
+    "browse-sort-direction",
+    "browse-select-mode",
+    "browse-page",
+    "browse-bulk",
+    "browse-card",
+    "browse-start-review",
+    // Stats dashboard.
+    "stats-source",
+    "stats-activity-metric",
+    "stats-activity-view",
+    "stats-select-day",
+    "stats-study-trouble",
+    "stats-refresh",
+    "stats-toggle-anki-deck",
+    "stats-connect-anki",
+    "stats-open-api-settings",
+    "stats-open-anki-settings",
+    "stats-open-saved",
+    "stats-import-jpdb"
+  ];
+  const NEW_TAB_ACTION_NAMES = new Set(NEW_TAB_ACTIONS);
+  function isNewTabAction(value) {
+    return typeof value === "string" && NEW_TAB_ACTION_NAMES.has(value);
+  }
+  function newTabAction(action) {
+    return action;
+  }
+  function newTabActionAttr(action) {
+    return `data-newtab-action="${action}"`;
+  }
+  function newTabActionSelector(action, suffix = "") {
+    return `[data-newtab-action="${action}"]${suffix}`;
+  }
+  function nearestNewTabAction(target) {
+    const owner = target?.closest("[data-newtab-action]");
+    const action = owner?.dataset.newtabAction;
+    return isNewTabAction(action) ? action : void 0;
+  }
+  async function showCollectionSaveFailure(root, language2) {
+    root.querySelector("[data-collection-failure]")?.remove();
+    if (!currentAccountDataSurfaceIsTrusted()) return;
+    const failure = await readCollectionSaveFailure().catch(() => null);
+    const header = root.querySelector(".jpdb-reader-newtab-topbar");
+    if (!failure || !header || !root.isConnected) return;
+    header.append(el(
+      "aside",
+      {
+        class: "jpdb-reader-newtab-collection-failure",
+        dataset: { collectionFailure: failure.id },
+        role: "status"
+      },
+      el("strong", {}, formatUiText(language2, "collectFailureTitle", { word: failure.word })),
+      el("p", {}, uiText(language2, failure.reason)),
+      el("p", {}, uiText(language2, "collectFailureHelp")),
+      el("button", { type: "button", dataset: { newtabAction: newTabAction("settings") } }, uiText(language2, "settings")),
+      el("button", { type: "button", dataset: { newtabAction: newTabAction("dismiss-collection-failure") } }, uiText(language2, "collectFailureDismiss"))
+    ));
+  }
+  async function dismissCollectionSaveFailure(root) {
+    const notice = root.querySelector("[data-collection-failure]");
+    const id = notice?.dataset.collectionFailure;
+    if (!id || !currentAccountDataSurfaceIsTrusted()) return;
+    await clearCollectionSaveFailure(id);
+    notice.remove();
+  }
   const log$5 = Logger.scope("NewTab");
   const STATE_STORAGE_KEY = "jpdb-reader-newtab-ui";
   const STATE_CHANNEL_NAME = "jpdb-reader-newtab-ui";
@@ -104657,93 +104876,6 @@ ${component.reading}`;
   }
   function trimSpaces(value) {
     return value.replace(/\s+/gu, " ").trim();
-  }
-  const NEW_TAB_ACTIONS = [
-    // Shell: overflow menu, app nav, site nav, support banner.
-    "settings",
-    "theme",
-    "language",
-    "install-app",
-    "dismiss-support-banner",
-    "site-nav",
-    "external-link",
-    "mode",
-    "practice-sessions",
-    // Study: navigation, reveal, grading, step chrome.
-    "previous",
-    "next",
-    "reveal",
-    "grade",
-    "empty-fallback",
-    "continue-batch",
-    "recover-review-recording",
-    "check-held-reviews",
-    "discard-held-reviews",
-    "study-step",
-    "study-hint",
-    "return-to-review",
-    "recall-submit",
-    "type-word-submit",
-    "type-word-handwriting-check",
-    "type-word-handwriting-match",
-    "type-word-handwriting-retry",
-    "type-word-skip",
-    "type-word-mode",
-    "jpdb-kanji-action",
-    // Listen / pitch-perception step.
-    "listen-pick",
-    "listen-play",
-    "listen-play-recording",
-    "listen-record",
-    // Library search.
-    "search-clear",
-    "search-focus",
-    "search-suggestion",
-    "search-handwriting-toggle",
-    "handwriting-candidate",
-    "search-result-word",
-    "search-result-kanji",
-    // Library browse (My Cards).
-    "browse-filter",
-    "browse-source-filter",
-    "browse-sort",
-    "browse-sort-direction",
-    "browse-select-mode",
-    "browse-page",
-    "browse-bulk",
-    "browse-card",
-    "browse-start-review",
-    // Stats dashboard.
-    "stats-source",
-    "stats-activity-metric",
-    "stats-activity-view",
-    "stats-select-day",
-    "stats-study-trouble",
-    "stats-refresh",
-    "stats-toggle-anki-deck",
-    "stats-connect-anki",
-    "stats-open-api-settings",
-    "stats-open-anki-settings",
-    "stats-open-saved",
-    "stats-import-jpdb"
-  ];
-  const NEW_TAB_ACTION_NAMES = new Set(NEW_TAB_ACTIONS);
-  function isNewTabAction(value) {
-    return typeof value === "string" && NEW_TAB_ACTION_NAMES.has(value);
-  }
-  function newTabAction(action) {
-    return action;
-  }
-  function newTabActionAttr(action) {
-    return `data-newtab-action="${action}"`;
-  }
-  function newTabActionSelector(action, suffix = "") {
-    return `[data-newtab-action="${action}"]${suffix}`;
-  }
-  function nearestNewTabAction(target) {
-    const owner = target?.closest("[data-newtab-action]");
-    const action = owner?.dataset.newtabAction;
-    return isNewTabAction(action) ? action : void 0;
   }
   function normalizeNewTabCard(card) {
     const reading = newTabCardReading(card);
@@ -115936,6 +116068,7 @@ ${options.version}`;
       this.bindRootEvents(root);
       root.dataset.newtabBound = "true";
       const shouldRenderContent = this.renderContentShell(root, isNew);
+      await showCollectionSaveFailure(root, this.language());
       if (this.practiceVisible) {
         await this.showPracticeSessions(root, false);
         return;
@@ -116749,6 +116882,11 @@ ${options.version}`;
       return false;
     }
     handleRootUtilityClick(root, event, action) {
+      if (action === "dismiss-collection-failure") {
+        event.preventDefault();
+        void dismissCollectionSaveFailure(root).catch((error) => log$2.warn("Dismissing the save failure notice failed", error));
+        return true;
+      }
       if (action === "recover-review-recording") {
         event.preventDefault();
         void this.recoverReviewRecording(root);
@@ -123941,14 +124079,20 @@ ${options.version}`;
       if (!active) return;
       receive(await loadSettings());
     }, () => void 0);
-    const onStorageBridgeReady = () => reconciliation2.request();
-    if (hostedBridge) addWindowEventListener(USERSCRIPT_STORAGE_BRIDGE_READY_EVENT, onStorageBridgeReady);
+    const reconcileStorage = () => reconciliation2.request();
+    if (hostedBridge) {
+      addWindowEventListener(USERSCRIPT_STORAGE_BRIDGE_READY_EVENT, reconcileStorage);
+      addWindowEventListener(USERSCRIPT_SETTINGS_CHANGED_EVENT, reconcileStorage);
+    }
     if (hostedBridge) reconciliation2.request();
     return () => {
       active = false;
       reconciliation2.stop();
       unsubscribeStoredChanges();
-      if (hostedBridge) removeWindowEventListener(USERSCRIPT_STORAGE_BRIDGE_READY_EVENT, onStorageBridgeReady);
+      if (hostedBridge) {
+        removeWindowEventListener(USERSCRIPT_STORAGE_BRIDGE_READY_EVENT, reconcileStorage);
+        removeWindowEventListener(USERSCRIPT_SETTINGS_CHANGED_EVENT, reconcileStorage);
+      }
     };
   }
   function createNoopJpdbKanjiClient() {
@@ -124470,9 +124614,9 @@ ${options.version}`;
       subtitles: refreshableNoop(),
       ocr: refreshableNoop(),
       youtube: refreshableNoop(),
-      createBackdrop: () => createReaderBackdrop(() => this.dismiss()),
+      createBackdrop: () => createReaderBackdrop(() => this.dismissSettings()),
       mountDialog: (backdrop, form) => this.mountSettingsDialog(backdrop, form),
-      dismiss: () => this.dismiss(),
+      dismiss: () => this.dismissSettings(),
       toast: (message) => this.toast(message),
       applyTheme: (settings2) => this.applyTheme(settings2),
       applyAccentColor: (color) => this.applyAccentColor(color),
@@ -124510,9 +124654,8 @@ ${options.version}`;
       void showGradeKeyHintsUntilRetired(this.options.mountHost ?? document.documentElement);
       this.assertSessionVocabularyReadOnly();
       const requestedSettingsPanel = this.consumeRequestedSettingsPanel();
-      this.newTab = this.createNewTabController();
-      await this.newTab.renderPage();
-      this.openRequestedSettingsPanel(requestedSettingsPanel);
+      if (requestedSettingsPanel) this.showSettings(requestedSettingsPanel);
+      else await this.renderStudyPage();
       void this.refreshDictionaryStyles();
       this.scheduleDictionaryIndexPreparation();
       this.scheduleAnkiStatusWarmup();
@@ -124767,6 +124910,16 @@ ${options.version}`;
     showSettings(panel) {
       this.settingsDialog.open(panel);
     }
+    renderStudyPage() {
+      this.newTab ??= this.createNewTabController();
+      return this.newTab.renderPage();
+    }
+    dismissSettings() {
+      this.dismiss();
+      if (!this.newTab && !this.isDestroyed) {
+        void this.renderStudyPage().catch((error) => log.error("New tab initialization failed", error));
+      }
+    }
     consumeRequestedSettingsPanel() {
       const panel = settingsPanelFromHash(location.hash);
       if (!panel) return null;
@@ -124775,10 +124928,6 @@ ${options.version}`;
       } catch {
       }
       return panel;
-    }
-    openRequestedSettingsPanel(panel) {
-      if (!panel) return;
-      this.showSettings(panel);
     }
     activeBunproFrontendApiToken() {
       return isBunproFrontendCredentialExpired(this.settings) ? "" : effectiveBunproFrontendApiToken(this.settings);
@@ -124789,7 +124938,7 @@ ${options.version}`;
         if (event.target !== backdrop) return;
         event.preventDefault();
         event.stopPropagation();
-        this.dismiss();
+        this.dismissSettings();
       };
       backdrop.addEventListener("pointerdown", dismissFromBackdrop, { capture: true });
       backdrop.addEventListener("mousedown", dismissFromBackdrop, { capture: true });
@@ -125944,7 +126093,7 @@ ${options.version}`;
       if (!this.parser.canParse()) return;
       installProviderExampleBehaviors(root, {
         interfaceLanguage: this.settings.interfaceLanguage,
-        outputLanguage: OUTPUT_LANGUAGE,
+        outputLanguage: translationOutputLanguage(this.settings),
         blurTranslations: this.settings.immersionKitRevealTranslationOnClick,
         translate: translateJapaneseSentence,
         isCurrentRoot: (candidate) => candidate.isConnected

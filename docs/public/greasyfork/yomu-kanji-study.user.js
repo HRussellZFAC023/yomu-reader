@@ -882,6 +882,7 @@ const MANAGED_STATE_MANIFEST = [
   { owner: "app/managed-web-storage", kind: "session", prefix: "yomu:web-owner:v2:" },
   { owner: "app/storage local provenance", kind: "local", key: "yomu:local-storage-provenance:v1" },
   { owner: "app/card-state-signal", kind: "gm", key: "yomu:card-state-signal" },
+  { owner: "cards/collection-save-failure", kind: "gm", key: "yomu:collection-save-failure:v1" },
   { owner: "app/storage leases", kind: "gm", prefix: "yomu:lease:" },
   { owner: "srs/account-sync", kind: "gm", key: "yomu:private:academy-device:v1" },
   { owner: "srs/account-sync", kind: "gm", key: "yomu:private:academy-device-pending:v1" },
@@ -6460,6 +6461,9 @@ function createDefaultLanguageProfile(defaults = {}) {
 function outputLanguageFields(outputLanguage) {
   return { outputLanguage, learnerLanguage: outputLanguage };
 }
+function activeLanguageProfile(profiles, activeProfileId) {
+  return profiles.find((profile) => profile.id === activeProfileId) ?? profiles[0] ?? null;
+}
 function storedTargetLanguage(value) {
   return canonicalLanguageTag(value) ?? "ja";
 }
@@ -6476,7 +6480,6 @@ function normalizeParserProvider(value, fallback) {
 function emptyProfileDictionaries() {
   return { installed: [], enabled: [], order: [] };
 }
-const OUTPUT_LANGUAGE = "en";
 const SITE_INTERACTION_COPY = {
   en: {
   settingsPopupHelp: "If Settings did not open, allow pop-ups and try again.",
@@ -7357,6 +7360,11 @@ const EN = {
   collectAlreadySaved: "Already in one of your decks. Open Study to edit it.",
   collectHandoffOpened: "Opened your deck app. Finish saving there.",
   collectNotSaved: "This word was not saved. Try again, or open Study for details.",
+  collectDetailsUnavailable: "This word was not saved. Its error details could not be stored. Check your connection and settings, then try again.",
+  collectServiceUnavailable: "The deck service did not confirm this save. Check its connection and settings before trying again.",
+  collectFailureTitle: "Last word not saved: {word}",
+  collectFailureHelp: "Check the destination in Settings, then try saving the word again.",
+  collectFailureDismiss: "Dismiss save error",
   jpdbAddApiKeyRequired: "Add a JPDB API key, or use Add to Anki.",
   addedToJpdb: "Added to JPDB.",
   jitenAddApiKeyRequired: "Add a Jiten API key, or use Add to Anki.",
@@ -7379,6 +7387,11 @@ const JA = {
   collectAlreadySaved: "すでにデッキにあります。編集はStudyで行えます。",
   collectHandoffOpened: "デッキのアプリを開きました。そちらで保存を完了してください。",
   collectNotSaved: "この単語は保存されませんでした。もう一度お試しいただくか、Studyで詳細を確認してください。",
+  collectDetailsUnavailable: "この単語は保存されませんでした。エラーの詳細も保存できませんでした。接続と設定を確認して、もう一度お試しください。",
+  collectServiceUnavailable: "デッキのサービスから保存の確認が取れませんでした。接続と設定を確認してから、もう一度お試しください。",
+  collectFailureTitle: "最後に保存できなかった単語：{word}",
+  collectFailureHelp: "設定で保存先を確認してから、単語をもう一度保存してください。",
+  collectFailureDismiss: "保存エラーを閉じる",
   jpdbAddApiKeyRequired: "JPDB APIキーかAnki追加が必要です。",
   addedToJpdb: "JPDBに追加しました。",
   jitenAddApiKeyRequired: "Jiten APIキーかAnki追加が必要です。",
@@ -7596,6 +7609,8 @@ const COPY = {
   fourGradeShortcutsHelp: "Four-grade reviews use the first four shortcuts: Again, Hard, Good, Easy.",
   twoPoint: "Two point: FAIL / PASS",
   settingsLanguage: "Settings language",
+  translationLanguage: "Translation language",
+  translationLanguageHelp: "Choose the language for automatic sentence and example translations.",
   automatic: "Automatic",
   english: "English",
   japanese: "日本語",
@@ -9136,6 +9151,8 @@ fivePoint	サービスの標準評価
 fourGradeShortcutsHelp	4段階の復習では、最初の4つのショートカットを「もう一度・難しい・良い・簡単」に使います。
 twoPoint	2段階: 失敗 / 合格
 settingsLanguage	設定の表示言語
+translationLanguage	翻訳先の言語
+translationLanguageHelp	文や例文の自動翻訳先の言語を選びます。
 theme	テーマ
 auto	自動
 dark	ダーク
@@ -17259,6 +17276,20 @@ async function translateTargetSentence(sentence, outputLanguage = "en") {
 async function renderGrammarHints(hints, sentence, preferences, language = "en", options = {}) {
   return await (yomuKanjiStudyCompanion()?.renderGrammarHints?.(hints, sentence, preferences, language, options) ?? Promise.resolve(""));
 }
+LEARNER_LANGUAGES.filter(
+  (language) => googleTranslationLanguageCapability(language.runtimeLocale).supported
+);
+function isSupportedTranslationLanguage(language) {
+  try {
+  return new Intl.Locale(language).language !== "ja" && googleTranslationLanguageCapability(language).supported;
+  } catch {
+  return false;
+  }
+}
+function translationOutputLanguage(settings) {
+  const saved = activeLanguageProfile(settings.languageProfiles, settings.activeLanguageProfileId)?.outputLanguage;
+  return saved && isSupportedTranslationLanguage(saved) ? saved : "en";
+}
 const log = Logger.scope("StudySources");
 const STUDY_GRAMMAR_CACHE_LIMIT = 160;
 const STUDY_TRANSLATION_CACHE_LIMIT = 80;
@@ -17313,7 +17344,7 @@ class StudySourceController {
   const translation = popover.querySelector("[data-study-translation]");
   if (!translation) return;
   const requestKey = this.studyCacheKey(sentence);
-  preloadTargetSentenceTranslation(sentence, OUTPUT_LANGUAGE);
+  preloadTargetSentenceTranslation(sentence, translationOutputLanguage(settings));
   void this.cachedTranslationContent(sentence, requestKey).then((result) => this.hideEmptyPreloadedTranslation(popover, translation, sentence, requestKey, result)).catch(() => void 0);
   }
   hideEmptyPreloadedTranslation(popover, container, sentence, requestKey, result) {
@@ -17435,7 +17466,7 @@ class StudySourceController {
   return this.dependencies.isCurrentPopoverRoot(popover) && container.isConnected;
   }
   async loadTranslationContent(sentence) {
-  const translation = await translateTargetSentence(sentence, OUTPUT_LANGUAGE);
+  const translation = await translateTargetSentence(sentence, translationOutputLanguage(this.settings()));
   const tokens = translation ? this.parseTranslationTokens(sentence) : Promise.resolve([]);
   return { tokens, translation };
   }
@@ -17463,7 +17494,8 @@ class StudySourceController {
   return promise;
   }
   studyCacheKey(sentence) {
-  return `${activeLearningTarget().id}${this.settings().interfaceLanguage}${OUTPUT_LANGUAGE}${sentence.trim()}`;
+  const settings = this.settings();
+  return `${activeLearningTarget().id}${settings.interfaceLanguage}${translationOutputLanguage(settings)}${sentence.trim()}`;
   }
   applyTranslation(popover, sentence, container, translation, requestKey) {
   if (!translation.translation) {

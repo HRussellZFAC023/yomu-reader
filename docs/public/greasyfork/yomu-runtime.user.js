@@ -3898,6 +3898,11 @@ collectWordNotFound: "Not saved: this word was not found in your preferred gradi
 collectAlreadySaved: "Already in one of your decks. Open Study to edit it.",
 collectHandoffOpened: "Opened your deck app. Finish saving there.",
 collectNotSaved: "This word was not saved. Try again, or open Study for details.",
+collectDetailsUnavailable: "This word was not saved. Its error details could not be stored. Check your connection and settings, then try again.",
+collectServiceUnavailable: "The deck service did not confirm this save. Check its connection and settings before trying again.",
+collectFailureTitle: "Last word not saved: {word}",
+collectFailureHelp: "Check the destination in Settings, then try saving the word again.",
+collectFailureDismiss: "Dismiss save error",
 jpdbAddApiKeyRequired: "Add a JPDB API key, or use Add to Anki.",
 addedToJpdb: "Added to JPDB.",
 jitenAddApiKeyRequired: "Add a Jiten API key, or use Add to Anki.",
@@ -3920,6 +3925,11 @@ collectWordNotFound: "優先採点サービスでこの単語が見つからな�
 collectAlreadySaved: "すでにデッキにあります。編集はStudyで行えます。",
 collectHandoffOpened: "デッキのアプリを開きました。そちらで保存を完了してください。",
 collectNotSaved: "この単語は保存されませんでした。もう一度お試しいただくか、Studyで詳細を確認してください。",
+collectDetailsUnavailable: "この単語は保存されませんでした。エラーの詳細も保存できませんでした。接続と設定を確認して、もう一度お試しください。",
+collectServiceUnavailable: "デッキのサービスから保存の確認が取れませんでした。接続と設定を確認してから、もう一度お試しください。",
+collectFailureTitle: "最後に保存できなかった単語：{word}",
+collectFailureHelp: "設定で保存先を確認してから、単語をもう一度保存してください。",
+collectFailureDismiss: "保存エラーを閉じる",
 jpdbAddApiKeyRequired: "JPDB APIキーかAnki追加が必要です。",
 addedToJpdb: "JPDBに追加しました。",
 jitenAddApiKeyRequired: "Jiten APIキーかAnki追加が必要です。",
@@ -4137,6 +4147,8 @@ fivePoint: "Provider default",
 fourGradeShortcutsHelp: "Four-grade reviews use the first four shortcuts: Again, Hard, Good, Easy.",
 twoPoint: "Two point: FAIL / PASS",
 settingsLanguage: "Settings language",
+translationLanguage: "Translation language",
+translationLanguageHelp: "Choose the language for automatic sentence and example translations.",
 automatic: "Automatic",
 english: "English",
 japanese: "日本語",
@@ -5677,6 +5689,8 @@ fivePoint	サービスの標準評価
 fourGradeShortcutsHelp	4段階の復習では、最初の4つのショートカットを「もう一度・難しい・良い・簡単」に使います。
 twoPoint	2段階: 失敗 / 合格
 settingsLanguage	設定の表示言語
+translationLanguage	翻訳先の言語
+translationLanguageHelp	文や例文の自動翻訳先の言語を選びます。
 theme	テーマ
 auto	自動
 dark	ダーク
@@ -6422,6 +6436,7 @@ const MANAGED_STATE_MANIFEST = [
 { owner: "app/managed-web-storage", kind: "session", prefix: "yomu:web-owner:v2:" },
 { owner: "app/storage local provenance", kind: "local", key: "yomu:local-storage-provenance:v1" },
 { owner: "app/card-state-signal", kind: "gm", key: "yomu:card-state-signal" },
+{ owner: "cards/collection-save-failure", kind: "gm", key: "yomu:collection-save-failure:v1" },
 { owner: "app/storage leases", kind: "gm", prefix: "yomu:lease:" },
 { owner: "srs/account-sync", kind: "gm", key: "yomu:private:academy-device:v1" },
 { owner: "srs/account-sync", kind: "gm", key: "yomu:private:academy-device-pending:v1" },
@@ -29224,7 +29239,7 @@ return `
                 ${example.audio ? renderProviderExampleAudio(example.audio) : ""}
                 <div class="${classes("jpdb-reader-jpdb-example-text", example.textClassName)}">
                     <div class="${classes("jpdb-reader-example-sentence jpdb-reader-parseable", example.sentenceClassName)}" data-provider-example-sentence data-yomu-furigana-mode="all">${example.sentenceHtml}</div>
-                    <div class="jpdb-reader-example-translation" data-provider-example-translation data-provider-translation-blurred="true"${translationPending ? ` data-provider-translation-pending="true" data-provider-translation-sentence="${escapeHtml$2(example.sentence)}" hidden` : ""} role="button" tabindex="0" aria-label="${escapeHtml$2(uiText(language, "revealTranslation"))}">${escapeHtml$2(translation)}</div>
+                    <div class="jpdb-reader-example-translation" data-provider-example-translation data-provider-translation-blurred="true" data-provider-translation-sentence="${escapeHtml$2(example.sentence)}"${translationPending ? ' data-provider-translation-pending="true" hidden' : ' lang="en"'} role="button" tabindex="0" aria-label="${escapeHtml$2(uiText(language, "revealTranslation"))}">${escapeHtml$2(translation)}</div>
                 </div>
             </div>
         </li>
@@ -40283,6 +40298,20 @@ return await (yomuKanjiStudyCompanion()?.translateTargetSentence?.(sentence, out
 async function renderGrammarHints(hints, sentence, preferences, language = "en", options = {}) {
 return await (yomuKanjiStudyCompanion()?.renderGrammarHints?.(hints, sentence, preferences, language, options) ?? Promise.resolve(""));
 }
+LEARNER_LANGUAGES.filter(
+(language) => googleTranslationLanguageCapability(language.runtimeLocale).supported
+);
+function isSupportedTranslationLanguage(language) {
+try {
+return new Intl.Locale(language).language !== "ja" && googleTranslationLanguageCapability(language).supported;
+} catch {
+return false;
+}
+}
+function translationOutputLanguage(settings2) {
+const saved = activeLanguageProfile(settings2.languageProfiles, settings2.activeLanguageProfileId)?.outputLanguage;
+return saved && isSupportedTranslationLanguage(saved) ? saved : "en";
+}
 const log$5 = Logger.scope("StudySources");
 const STUDY_GRAMMAR_CACHE_LIMIT = 160;
 const STUDY_TRANSLATION_CACHE_LIMIT = 80;
@@ -40337,7 +40366,7 @@ if (!settings2.studyTranslationEnabled) return;
 const translation = popover.querySelector("[data-study-translation]");
 if (!translation) return;
 const requestKey = this.studyCacheKey(sentence);
-preloadTargetSentenceTranslation(sentence, OUTPUT_LANGUAGE);
+preloadTargetSentenceTranslation(sentence, translationOutputLanguage(settings2));
 void this.cachedTranslationContent(sentence, requestKey).then((result) => this.hideEmptyPreloadedTranslation(popover, translation, sentence, requestKey, result)).catch(() => void 0);
 }
 hideEmptyPreloadedTranslation(popover, container, sentence, requestKey, result) {
@@ -40459,7 +40488,7 @@ canApplyTranslation(popover, container) {
 return this.dependencies.isCurrentPopoverRoot(popover) && container.isConnected;
 }
 async loadTranslationContent(sentence) {
-const translation = await translateTargetSentence(sentence, OUTPUT_LANGUAGE);
+const translation = await translateTargetSentence(sentence, translationOutputLanguage(this.settings()));
 const tokens = translation ? this.parseTranslationTokens(sentence) : Promise.resolve([]);
 return { tokens, translation };
 }
@@ -40487,7 +40516,8 @@ pruneOldestCacheEntries(this.translationContentCache, STUDY_TRANSLATION_CACHE_LI
 return promise;
 }
 studyCacheKey(sentence) {
-return `${activeLearningTarget().id}${this.settings().interfaceLanguage}${OUTPUT_LANGUAGE}${sentence.trim()}`;
+const settings2 = this.settings();
+return `${activeLearningTarget().id}${settings2.interfaceLanguage}${translationOutputLanguage(settings2)}${sentence.trim()}`;
 }
 applyTranslation(popover, sentence, container, translation, requestKey) {
 if (!translation.translation) {
@@ -47135,9 +47165,8 @@ positionVideoFrameStatus(status, rect, video);
 positionVideoFrameResumeControl(resume, rect, video);
 this.schedulePosition();
 }
-// Reveal the rest of the overlay once OCR has produced text: the frame image
-// and status indicator un-gate (the resume/play control is already visible from the
-// moment the video paused), so the readable text appears with its status.
+// Mark the frame ready and reveal its status after text is recognized. The
+// raster remains invisible so the original player's controls and captions paint.
 revealVideoFrameOverlay(image) {
 if (!this.videoFrameVideos.has(image)) return;
 setPrivateRasterClass(image, "jpdb-ocr-video-frame-pending", false);
@@ -58365,15 +58394,15 @@ host: (video) => video.closest("#movie_player, .html5-video-player, ytm-player, 
 chromeTier: (host) => Math.max(0, ...Array.from(
 host.querySelectorAll(".ytp-chrome-top, .ytp-chrome-bottom"),
 (element) => Number.parseInt(getComputedStyle(element).zIndex) || 0
-)) + 1
+))
 };
 function captionLayerTier(host, player, video) {
-if (host && isYouTubePage$1()) return youtubeCaptionLayerAdapter.chromeTier(host);
 let tier = 0;
 for (let ancestor = host ? video : player; ancestor && ancestor !== (host ?? document.body); ancestor = ancestor.parentElement ?? void 0) {
 const value = Number.parseInt(getComputedStyle(ancestor).zIndex);
 if (Number.isFinite(value)) tier = value;
 }
+if (host && isYouTubePage$1()) return Math.max(tier, youtubeCaptionLayerAdapter.chromeTier(host)) + 1;
 return host ? Math.max(0, tier) + 1 : tier;
 }
 function mountCaptionLayer(root, parent, host) {
@@ -67605,6 +67634,7 @@ const clearedSiteCookie = clearSitePreferenceCookies();
 const shouldReloadCookieShapedResponse = clearedSiteCookie || deferredCookieResponseReload;
 deferredCookieResponseReload = deferCookieResponseReloadUntilPersisted ? shouldReloadCookieShapedResponse : false;
 cancelPreferredJapaneseSiteRedirectWatcher();
+if (deferCookieResponseReloadUntilPersisted) return;
 finishDisabledSiteNavigation(shouldRevert, shouldReloadCookieShapedResponse);
 }
 function finishDisabledSiteNavigation(shouldRevert, shouldReloadCookieShapedResponse) {
