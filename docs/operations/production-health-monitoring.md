@@ -102,6 +102,32 @@ Before saving with **Update and sync now** or triggering a manual update:
 Reopen the author form to confirm the saved URL and mode. Public script
 responses do not prove those settings.
 
+When the author setting still follows raw `main`, deploy a release candidate
+before exposing its new bootstrap there. First merge the deployment workflow
+change into protected `main` and wait for that commit's Deploy Docs run to finish.
+Put the candidate on a same-repository `release/*` PR into that exact main
+revision, finish its canonical build, and require full CI on the final candidate.
+Dispatch **Deploy Docs** from **main** with `source_commit` set to the exact
+40-character candidate SHA. All 26 CI jobs must pass; the gate checks the CI
+checkout log's immutable merge commit, its main/candidate parents, and equality
+of its tested tree with the candidate tree. It rejects missing CI, changed
+workflow bytes, forks, and moving main/PR refs. An empty input also requires
+full CI on main. The run records `PAGES_SOURCE_RECEIPT` and
+`PAGES_SOURCE_VERIFIED` JSON with workflow/source revisions, tree, and CI
+run/attempt. Avoid intervening main pushes: Pages runs share one cancellation
+group. Provenance is checked again before upload and immediately before deploy,
+which records `PAGES_SOURCE_DEPLOY_VERIFIED`. API reads and Pages deployment
+are separate operations, so recheck live provenance before merging.
+
+This deploy publishes the whole candidate website. Before merging the candidate
+and tagging the release, verify the deployed candidate body and every full-SRI
+runtime/CSS pin, the previous release's pinned bodies and digests, and existing
+userscript-manager and Study compatibility. Keep the website-first ordering
+until the saved Greasy Fork author URL and mode above have been changed and
+reopened to confirm persistence; this workflow does not change that account
+setting. Build, browser localization, artifact verification, and same-run Pages
+artifact deployment remain required.
+
 ## What fails the run, and what only gets reported
 
 Fails: a non-200, a 200 whose body is not JSON, or a payload whose

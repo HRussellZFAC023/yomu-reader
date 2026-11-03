@@ -2,6 +2,11 @@ name: Deploy Docs
 
 on:
   workflow_dispatch:
+    inputs:
+      source_commit:
+        description: 'Optional exact release candidate SHA; requires full CI on a matching tested tree'
+        required: false
+        type: string
   push:
     branches:
       - main
@@ -37,6 +42,7 @@ on:
 permissions:
   actions: write
   contents: read
+  pull-requests: read
   pages: write
   id-token: write
 
@@ -56,10 +62,16 @@ jobs:
     runs-on: ubuntu-24.04
     outputs:
       pages_artifact_id: ${{ steps.pages_artifact.outputs.artifact_id }}
+      source_receipt: ${{ steps.source_gate.outputs.receipt }}
     steps:
+      - name: Require protected main workflow ref
+        uses: actions/github-script@v8
+        with:
+          script: |
+            if (context.ref !== 'refs/heads/main') throw new Error('Deploy Docs must run from protected main.');
       # Production follows CI: a push deploys only once CI has passed on the same
-      # commit. 2.0.8 reached yomureader.com while CI was failing on it. A manual
-      # dispatch skips the wait; it is the recovery path after a CI rerun passes.
+      # commit. 2.0.8 reached yomureader.com while CI was failing on it. Manual
+      # dispatches use the stricter, full-suite gate below, including recovery.
       # CI ignores dist/yomu.user.js-only pushes, so no run within five minutes
       # means none is coming.
       - name: Wait for CI on this commit
@@ -78,7 +90,46 @@ jobs:
           done
           echo "::error::CI did not finish for $GITHUB_SHA within 50 minutes; not deploying."
           exit 1
-      - uses: actions/checkout@v6
+      - name: Check out protected workflow revision
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Require full CI and select manual deployment source
+        id: source_gate
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/github-script@v8
+        timeout-minutes: 55
+        env:
+          SOURCE_COMMIT: ${{ inputs.source_commit }}
+          WORKFLOW_SHA: ${{ github.workflow_sha }}
+        with:
+          script: |
+            const gate = require('./scripts/lib/pages-deploy-gate.cjs');
+            const receipt = await gate.approvePagesSource({ github, context,
+              sourceCommit: process.env.SOURCE_COMMIT,
+              workflowSha: process.env.WORKFLOW_SHA });
+            core.setOutput('source_commit', receipt.source_sha);
+            core.setOutput('source_tree', receipt.source_tree);
+            core.setOutput('receipt', JSON.stringify(receipt));
+            core.info(`PAGES_SOURCE_RECEIPT ${JSON.stringify(receipt)}`);
+      - name: Check out validated manual source
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ steps.source_gate.outputs.source_commit }}
+          fetch-depth: 0
+          fetch-tags: true
+          filter: blob:none
+          persist-credentials: false
+      - name: Verify selected source checkout
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          SOURCE_SHA: ${{ steps.source_gate.outputs.source_commit }}
+          SOURCE_TREE: ${{ steps.source_gate.outputs.source_tree }}
+        run: |
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          test "$(git rev-parse 'HEAD^{tree}')" = "$SOURCE_TREE"
       - uses: actions/setup-node@v6
         with:
           node-version-file: '.nvmrc'
@@ -155,6 +206,30 @@ jobs:
           npm run docs:locales:browser
       - name: Verify published artifacts
         run: npm run verify
+      - name: Recheck manual deployment provenance before upload
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/github-script@v8
+        env:
+          SOURCE_RECEIPT: ${{ steps.source_gate.outputs.receipt }}
+        with:
+          script: |
+            const receipt = JSON.parse(process.env.SOURCE_RECEIPT);
+            const repo = context.repo;
+            const main = (await github.rest.git.getRef({ ...repo, ref: 'heads/main' })).data;
+            if (main.object.sha !== receipt.main_sha) throw new Error('Main moved during build; dispatch again.');
+            if (receipt.pull_number) {
+              const pull = (await github.rest.pulls.get({ ...repo, pull_number: receipt.pull_number })).data;
+              const branch = (await github.rest.git.getRef({ ...repo, ref: `heads/${receipt.source_branch}` })).data;
+              if (pull.state !== 'open' || pull.base.ref !== 'main' || pull.base.repo.full_name !== receipt.repository ||
+                  pull.base.sha !== receipt.main_sha || pull.head.repo?.full_name !== receipt.repository ||
+                  pull.head.ref !== receipt.source_branch || pull.head.sha !== receipt.source_sha ||
+                  branch.object.sha !== receipt.source_sha) throw new Error('Release PR changed during build; dispatch again.');
+            }
+            const ci = (await github.rest.actions.getWorkflowRun({ ...repo, run_id: receipt.ci_run_id })).data;
+            if (ci.run_attempt !== receipt.ci_run_attempt || ci.status !== 'completed' || ci.conclusion !== 'success') {
+              throw new Error('CI attempt changed during build; dispatch again.');
+            }
+            core.info(`PAGES_SOURCE_VERIFIED ${JSON.stringify(receipt)}`);
       - name: Upload Pages artifact
         id: pages_artifact
         uses: actions/upload-pages-artifact@v5
@@ -207,6 +282,30 @@ jobs:
                 artifact_id: artifact.id,
               });
             }
+      - name: Recheck manual source immediately before deployment
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/github-script@v8
+        env:
+          SOURCE_RECEIPT: ${{ needs.build.outputs.source_receipt }}
+        with:
+          script: |
+            const receipt = JSON.parse(process.env.SOURCE_RECEIPT);
+            const repo = context.repo;
+            const main = (await github.rest.git.getRef({ ...repo, ref: 'heads/main' })).data;
+            if (main.object.sha !== receipt.main_sha) throw new Error('Main moved during build; dispatch again.');
+            if (receipt.pull_number) {
+              const pull = (await github.rest.pulls.get({ ...repo, pull_number: receipt.pull_number })).data;
+              const branch = (await github.rest.git.getRef({ ...repo, ref: `heads/${receipt.source_branch}` })).data;
+              if (pull.state !== 'open' || pull.base.ref !== 'main' || pull.base.repo.full_name !== receipt.repository ||
+                  pull.base.sha !== receipt.main_sha || pull.head.repo?.full_name !== receipt.repository ||
+                  pull.head.ref !== receipt.source_branch || pull.head.sha !== receipt.source_sha ||
+                  branch.object.sha !== receipt.source_sha) throw new Error('Release PR changed during build; dispatch again.');
+            }
+            const ci = (await github.rest.actions.getWorkflowRun({ ...repo, run_id: receipt.ci_run_id })).data;
+            if (ci.run_attempt !== receipt.ci_run_attempt || ci.status !== 'completed' || ci.conclusion !== 'success') {
+              throw new Error('CI attempt changed during build; dispatch again.');
+            }
+            core.info(`PAGES_SOURCE_DEPLOY_VERIFIED ${JSON.stringify(receipt)}`);
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v5

@@ -22,6 +22,7 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: 24
+      - run: node --test scripts/lib/pages-deploy-gate.test.cjs
       - run: npm run check:repository
       - run: npm run check:artifacts
 
