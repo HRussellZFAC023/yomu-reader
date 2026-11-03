@@ -19,6 +19,7 @@ export const NEW_TAB_ACTIONS = [
     'language',
     'install-app',
     'dismiss-support-banner',
+    'dismiss-collection-failure',
     'site-nav',
     'external-link',
     'mode',
