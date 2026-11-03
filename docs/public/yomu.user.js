@@ -25549,8 +25549,9 @@ const identity = term === target.normalizeText(candidate.surface);
 if (identity && match.card.source !== "local" && !match.card.pitchAccent?.length && (segmentsContainInternalParticle(text2, segments, candidate.start, candidate.end) || hasInternalKanaToKanjiTransition(text2, candidate.start, candidate.end))) {
 return false;
 }
-if (endsStrictlyInsideSegment(segments, candidate.end) && !context.hasConfirmedSpanAt(candidate.end) && !KANA_CASE_PARTICLE_CONTINUATIONS.some((particle) => text2.startsWith(particle, candidate.end))) {
-return false;
+if (endsStrictlyInsideSegment(segments, candidate.end) && !context.hasConfirmedSpanAt(candidate.end)) {
+const continuation = grammarParticleContinuation(text2, candidate.end);
+return continuation === "case" || continuation === "final" && candidate.lookupCandidate.depth > 0;
 }
 return true;
 };
@@ -25611,8 +25612,11 @@ return token;
 function endsInsideKanaRun(text2, end) {
 if (end <= 0 || end >= text2.length) return false;
 if (!KANA_RUN_CHARACTER_RE.test(text2[end - 1]) || !KANA_RUN_CHARACTER_RE.test(text2[end])) return false;
-if (KANA_CASE_PARTICLE_CONTINUATIONS.some((particle) => text2.startsWith(particle, end))) return false;
-let cursor = end;
+return grammarParticleContinuation(text2, end) === null;
+}
+function grammarParticleContinuation(text2, start) {
+if (KANA_CASE_PARTICLE_CONTINUATIONS.some((particle) => text2.startsWith(particle, start))) return "case";
+let cursor = start;
 let consumedFinal = true;
 while (consumedFinal && cursor < text2.length) {
 consumedFinal = false;
@@ -25623,8 +25627,7 @@ consumedFinal = true;
 break;
 }
 }
-if (cursor > end && (cursor >= text2.length || !KANA_RUN_CHARACTER_RE.test(text2[cursor]))) return false;
-return true;
+return cursor > start && (cursor >= text2.length || !KANA_RUN_CHARACTER_RE.test(text2[cursor])) ? "final" : null;
 }
 function authoritativeCardsFromParsedTerms(terms, parsed, target) {
 const result = new Map();
