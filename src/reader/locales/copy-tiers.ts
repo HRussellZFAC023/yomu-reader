@@ -66,6 +66,13 @@ const containsAny = (path: string, needles: readonly string[]): boolean => {
 const startsWithAny = (path: string, prefixes: readonly string[]): boolean =>
     prefixes.some((prefix) => path.startsWith(prefix));
 
+const DICTIONARY_TRANSLATION_CONSENT = new Set(['definitionTranslationTitle', 'definitionTranslationHelp']);
+const COMMUNITY_LOOKUP_ACTIONS = new Set(['desktopSelectedTextLookUp', 'desktopSelectedTextTray',
+    'desktopSelectedTextPaste', 'definitionTranslationOriginal', 'deckPickerSaved', 'deckPickerNotSaved']);
+const COMMUNITY_DEGRADED_STATES = new Set(['desktopSelectedTextTaken', 'desktopSelectedTextInvalid',
+    'desktopSelectedTextTooLong', 'desktopSelectedTextNoJapanese', 'deckPickerChecking',
+    'desktopShortcutImportInvalid', 'desktopShortcutImportTaken', 'desktopShortcutImportSaveFailed']);
+
 // Ranked by cost of a bad translation, not by frequency: a mistranslated delete
 // confirmation costs a learner their deck, a mistranslated tooltip costs them a
 // second. The first matching rule wins, and the rule name is reported.
@@ -75,7 +82,7 @@ const COPY_TIER_RULES: readonly CopyTierRule[] = /* @__PURE__ */ Object.freeze([
         category: 'destructive-actions',
         tier: 'human-critical',
         matches: (_id, path) =>
-            containsAny(path, [
+            !COMMUNITY_DEGRADED_STATES.has(path) && containsAny(path, [
                 'delete',
                 'remove',
                 'reset',
@@ -100,7 +107,8 @@ const COPY_TIER_RULES: readonly CopyTierRule[] = /* @__PURE__ */ Object.freeze([
         category: 'privacy-and-credentials',
         tier: 'human-critical',
         matches: (_id, path) =>
-            containsAny(path, [
+            DICTIONARY_TRANSLATION_CONSENT.has(path)
+            || containsAny(path, [
                 'privacy',
                 'permission',
                 'consent',
@@ -146,7 +154,8 @@ const COPY_TIER_RULES: readonly CopyTierRule[] = /* @__PURE__ */ Object.freeze([
         category: 'degraded-and-empty-states',
         tier: 'human-critical',
         matches: (id, path) =>
-            messageNamespaceOf(id) === 'errors'
+            COMMUNITY_DEGRADED_STATES.has(path)
+            || messageNamespaceOf(id) === 'errors'
             || startsWithAny(path, ['no', 'cannot', 'could'])
             || containsAny(path, [
                 'unavailable',
@@ -174,7 +183,8 @@ const COPY_TIER_RULES: readonly CopyTierRule[] = /* @__PURE__ */ Object.freeze([
         category: 'lookup-primary-actions',
         tier: 'human-critical',
         matches: (_id, path) =>
-            startsWithAny(path, ['add', 'save', 'mine', 'lookup', 'play', 'state', 'open', 'copy'])
+            COMMUNITY_LOOKUP_ACTIONS.has(path)
+            || startsWithAny(path, ['add', 'save', 'mine', 'lookup', 'play', 'state', 'open', 'copy'])
             || containsAny(path, [
                 'revealtranslation',
                 'showtranslation',
