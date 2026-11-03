@@ -32,6 +32,29 @@ async function openStudy(language: 'en' | 'ja' = 'en') {
 afterEach(() => { vi.unstubAllGlobals(); document.body.replaceChildren(); localStorage.clear(); });
 
 describe('failed collection save followed by opening Study', () => {
+    it('keeps a rejected provider save available in Study when randomUUID is unavailable', async () => {
+        installGmStorageFixture();
+        // An insecure HTTP page exposes getRandomValues, but not randomUUID.
+        vi.stubGlobal('crypto', { getRandomValues: crypto.getRandomValues.bind(crypto) });
+        const request = vi.fn(async (url: string) => {
+            if (url.endsWith('/search/reviewables_v1_1')) return { vocabs: { data: [
+                { id: 42, reviewable_type: 'Vocab', word: '食べる', reading: 'たべる', meaning: 'to eat' },
+            ] } };
+            throw new Error('Fixture provider rejected the add request.');
+        });
+        const controller = testCardActionController({ getSettings: () => settings,
+            accountDataSurfaceTrusted: () => false,
+            srsAdapters: { bunpro: createBunproSrsAdapter(new BunproClient({ getFrontendToken: () => settings.bunproFrontendApiToken, requestImpl: request })) } });
+        expect(await save(controller)).toHaveBeenCalledWith('This word was not saved. Try again, or open Study for details.');
+        expect(request.mock.calls.some(([url]) => url.endsWith('/reviews/update_via_action_type'))).toBe(true);
+
+        const study = await openStudy();
+        const notice = document.querySelector<HTMLElement>('[data-collection-failure]');
+        expect(notice?.textContent).toContain('食べる');
+        expect(notice?.textContent).toContain('The deck service did not confirm this save.');
+        study.destroy();
+    });
+
     it('keeps the actual provider reason available after leaving the popup, until dismissed', async () => {
         const profile = installGmStorageFixture();
         // Deterministic provider-response fixture: Bunpro has no vocabulary match.

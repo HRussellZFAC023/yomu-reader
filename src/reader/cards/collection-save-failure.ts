@@ -1,4 +1,4 @@
-import { STORAGE_WORK_LEASE_MS } from '../app/gm-storage-lease';
+import { createStorageCoordinationId, STORAGE_WORK_LEASE_MS } from '../app/gm-storage-lease';
 import { gmStorageDelete, gmStorageGetStrict, gmStorageSet, withGmStorageLease } from '../app/storage';
 import { userFacingCopyKeyOf } from '../app/user-facing-errors';
 import type { JPDBCard } from '../app/types';
@@ -26,7 +26,7 @@ type SaveTarget = Pick<JPDBCard, 'spelling' | 'reading'> & { readonly destinatio
 
 export async function recordCollectionSaveFailure(target: SaveTarget, error: unknown): Promise<void> {
     const copyKey = userFacingCopyKeyOf(error);
-    const failure: CollectionSaveFailure = { id: crypto.randomUUID(), word: target.spelling.slice(0, 200),
+    const failure: CollectionSaveFailure = { id: createStorageCoordinationId(), word: target.spelling.slice(0, 200),
         reading: target.reading.slice(0, 200), destination: target.destination,
         reason: REASONS.find(reason => reason === copyKey) ?? 'collectServiceUnavailable' };
     await mutateFailure(() => gmStorageSet(KEY, failure));
