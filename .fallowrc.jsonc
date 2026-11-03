@@ -27,6 +27,10 @@
     // application graph.
     "scripts/check-userscript-weight.cjs",
     "scripts/check-smoke-workflow-coverage.mjs",
+    // The quality runner launches these Node CLI inputs by path: the coverage
+    // preload and merge-contract suite. Ordinary imports do not reach them.
+    "scripts/lib/pages-deploy-coverage-hook.cjs",
+    "scripts/merge-reader-quality-coverage.test.cjs",
     // Standalone, documented Academy operations/authoring CLIs. They are
     // intentionally run directly rather than through the application graph.
     "scripts/academy-account-lifecycle-live-proof.mjs",
