@@ -175,9 +175,10 @@ function existingSubtitleSecondaryLine(existing: HTMLElement | null): HTMLElemen
     return existing ?? createSubtitleSecondaryLine();
 }
 
-function createSubtitlePrimaryRow(primaryHtml: string, content: SubtitleContentLanguage): HTMLElement {
+function createSubtitlePrimaryRow(primaryHtml: string, sourceText: string, content: SubtitleContentLanguage): HTMLElement {
     const row = document.createElement('div');
     row.className = 'jpdb-subtitle-primary-row';
+    setClassState(row, 'jpdb-subtitle-has-kanji', /\p{Script=Han}/u.test(sourceText));
     const primary = document.createElement('div');
     primary.className = 'jpdb-subtitle-primary';
     syncSubtitleContentLanguage(primary, content);
@@ -189,6 +190,7 @@ function createSubtitlePrimaryRow(primaryHtml: string, content: SubtitleContentL
 export interface SubtitlePrimaryRowReconcileInput {
     host: HTMLElement | undefined;
     html: string | null;
+    sourceText: string;
     appliedHtml: string;
     content: SubtitleContentLanguage;
 }
@@ -209,6 +211,7 @@ export function reconcileSubtitlePrimaryRow(input: SubtitlePrimaryRowReconcileIn
     return reconcileVisibleSubtitlePrimaryRow({
         host: input.host,
         html: input.html,
+        sourceText: input.sourceText,
         appliedHtml: input.appliedHtml,
         content: input.content,
     }, row);
@@ -225,8 +228,9 @@ function reconcileVisibleSubtitlePrimaryRow(
     row: HTMLElement | null,
 ): SubtitlePrimaryRowReconcileResult {
     const primary = row?.querySelector<HTMLElement>('.jpdb-subtitle-primary');
-    if (!primary) return createVisibleSubtitlePrimaryRow(input, row);
+    if (!row || !primary) return createVisibleSubtitlePrimaryRow(input, row);
     syncSubtitleContentLanguage(primary, input.content);
+    setClassState(row, 'jpdb-subtitle-has-kanji', /\p{Script=Han}/u.test(input.sourceText));
     if (input.appliedHtml === input.html) return { changed: false, appliedHtml: input.appliedHtml };
     setInnerHtml(primary, remintRenderedWordPrivateTokens(input.html));
     return { changed: true, appliedHtml: input.html };
@@ -237,7 +241,7 @@ function createVisibleSubtitlePrimaryRow(
     row: HTMLElement | null,
 ): SubtitlePrimaryRowReconcileResult {
     row?.remove();
-    input.host.prepend(createSubtitlePrimaryRow(input.html, input.content));
+    input.host.prepend(createSubtitlePrimaryRow(input.html, input.sourceText, input.content));
     return { changed: true, appliedHtml: input.html };
 }
 

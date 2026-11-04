@@ -1,5 +1,6 @@
 import { nativePlayerControlRects, subtitleRailReservedRects, syncSubtitleNativeControlHitProtection } from './subtitle-native-control-geometry';
 import { subtitleCaptionBottomPercent, subtitleCaptionRects, SubtitleCaptionSizing } from './subtitle-caption-layout';
+import { refreshSubtitleWordUnderlines } from './subtitle-word-geometry';
 import { hasOpenYouTubeMobileBottomSheet } from './youtube-mobile-sheet';
 import { currentFullscreenElement } from '../core/fullscreen';
 import { READER_ROOT_SELECTOR } from '../dom/constants';
@@ -2729,6 +2730,7 @@ export class SubtitlePlayerController {
         const result = reconcileSubtitlePrimaryRow({
             host: this.subtitleEl,
             html,
+            sourceText: this.currentCue?.text ?? '',
             appliedHtml: this.lastAppliedPrimaryRowHtml,
             content,
         });
@@ -3517,6 +3519,7 @@ export class SubtitlePlayerController {
     private syncSubtitleTextSize(): void {
         if (!this.root) return;
         this.syncRootFontSize(this.options.getSettings());
+        refreshSubtitleWordUnderlines(this.root);
         this.applyEffectiveSubtitleBottom();
     }
 

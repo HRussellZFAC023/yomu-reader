@@ -217,7 +217,7 @@ const fixture = (word, size, backdrop, mode) => `<!doctype html>
 </style></head>
 <body>
   <div class="jpdb-subtitle-player"><div class="jpdb-subtitle-text"><div class="jpdb-subtitle-lines jpdb-subtitle-has-primary">
-    <div class="jpdb-subtitle-primary-row"><div class="jpdb-subtitle-primary"><span
+    <div class="jpdb-subtitle-primary-row jpdb-subtitle-has-kanji"><div class="jpdb-subtitle-primary"><span
       class="jpdb-reader-word jpdb-reader-has-furi" id="word" data-expression="${word.label}"
       ><ruby class="${word.rubyClass}"><span class="jpdb-reader-ruby-base" id="annotated">${word.base}</span><rp>(</rp><rt
       class="jpdb-reader-furi" id="reading">${word.reading}</rt><rp>)</rp></ruby>${word.okurigana}<span class="probe" id="probe"></span></span></div></div>
