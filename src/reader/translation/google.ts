@@ -38,6 +38,8 @@ export interface TranslateTextOptions {
     timeoutMs?: number;
     includeDictionaryData?: boolean;
     signal?: AbortSignal;
+    /** Reject an unusable response for this consumer and evict that value for retry. */
+    acceptResult?: (translated: string) => boolean;
 }
 
 export interface GoogleTranslationLanguageCapability {
@@ -135,11 +137,18 @@ export async function translateText(text: string, options: TranslateTextOptions)
     if (sourceLanguage !== 'auto' && sourceLanguage.toLowerCase() === outputLanguage.toLowerCase()) return original;
 
     const cacheKey = `${sourceLanguage}:${outputLanguage}:${original}`;
-    return resolveTranslationRequest(cacheKey, original, {
+    const translated = await resolveTranslationRequest(cacheKey, original, {
         ...options,
         sourceLanguage,
         outputLanguage,
     });
+    // Validate per subscriber, including cache hits. A consumer's format rule
+    // must not reject the shared transport for callers with another contract.
+    if (options.acceptResult && !options.acceptResult(translated)) {
+        if (translationCache.get(cacheKey) === translated) translationCache.delete(cacheKey);
+        throw new Error('Translation did not match the requested format.');
+    }
+    return translated;
 }
 
 function resolveTranslationRequest(

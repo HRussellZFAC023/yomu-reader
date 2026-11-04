@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { SubtitleCue } from '../../../src/reader/subtitles/subtitle-cues';
 import { translateSubtitleCues } from '../../../src/reader/subtitles/subtitle-translate';
-import { resetGoogleTranslationCacheForTests } from '../../../src/reader/translation/google';
+import { resetGoogleTranslationCacheForTests, translateText } from '../../../src/reader/translation/google';
 import type { SubtitleTrackOption } from '../../../src/reader/subtitles/subtitle-track-options';
 import { attachVideo, controllerInternals, createInstalledSubtitleController, registerSubtitleControllerCleanup } from './fixtures';
 
@@ -65,6 +65,33 @@ describe('subtitle translation presentation', () => {
         const cues = [{ start: 0, end: 2, text: 'First' }, { start: 2, end: 4, text: 'Second' }];
         expect(await translateSubtitleCues(cues, 'en', 'ja')).toEqual([]);
         expect(cues.map(cue => cue.text)).toEqual(['First', 'Second']);
+    });
+
+    it('retries a rejected batch through the real Google cache and keeps the recovered translation cached', async () => {
+        const fetch = vi.fn().mockResolvedValueOnce(translatedResponse('一行だけ')).mockResolvedValueOnce(translatedResponse('第一行\n第二行'));
+        vi.stubGlobal('fetch', fetch);
+        const cues = [{ start: 0, end: 1, text: 'First' }, { start: 1, end: 2, text: 'Second' }];
+        expect(await translateSubtitleCues(cues, 'en', 'ja')).toEqual([]);
+        const recovered = await translateSubtitleCues(cues, 'en', 'ja');
+        expect(recovered.map(cue => cue.text)).toEqual(['第一行', '第二行']);
+        expect(fetch).toHaveBeenCalledTimes(2);
+        expect(await translateSubtitleCues(cues, 'en', 'ja')).toEqual(recovered);
+        expect(fetch).toHaveBeenCalledTimes(2);
+    });
+
+    it('rejects a malformed cache hit without evicting another cached translation', async () => {
+        const fetch = vi.fn().mockResolvedValueOnce(translatedResponse('別の翻訳'))
+            .mockResolvedValueOnce(translatedResponse('一行だけ')).mockResolvedValueOnce(translatedResponse('第一行\n第二行'));
+        vi.stubGlobal('fetch', fetch);
+        const languages = { sourceLanguage: 'en', outputLanguage: 'ja' };
+        await expect(translateText('Other text', languages)).resolves.toBe('別の翻訳');
+        await expect(translateText('First\nSecond', languages)).resolves.toBe('一行だけ');
+        const cues = [{ start: 0, end: 1, text: 'First' }, { start: 1, end: 2, text: 'Second' }];
+        expect(await translateSubtitleCues(cues, 'en', 'ja')).toEqual([]);
+        expect(fetch).toHaveBeenCalledTimes(2);
+        expect((await translateSubtitleCues(cues, 'en', 'ja')).map(cue => cue.text)).toEqual(['第一行', '第二行']);
+        await expect(translateText('Other text', languages)).resolves.toBe('別の翻訳');
+        expect(fetch).toHaveBeenCalledTimes(3);
     });
 
     it('keeps successful timed translations without relabelling a failed batch as Japanese', async () => {

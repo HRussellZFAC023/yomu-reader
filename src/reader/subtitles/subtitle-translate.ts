@@ -101,11 +101,11 @@ async function translateBatch(
             outputLanguage,
             timeoutMs: TRANSLATION_TIMEOUT_MS,
             signal,
+            acceptResult: result => texts.length === 1 || result.split(TRANSLATION_SEPARATOR).length === texts.length,
         });
         throwIfSubtitleTranslationAborted(signal);
         const lines = texts.length === 1 ? [result] : result.split(TRANSLATION_SEPARATOR);
         log.info('Subtitle batch translated', { count: texts.length, resultCount: lines.length });
-        if (lines.length !== texts.length) throw new Error('Subtitle translation lost cue boundaries.');
         return lines.map(text => text.trim() || undefined);
     } catch (error) {
         throwIfSubtitleTranslationCancelled(signal, error);
