@@ -6711,6 +6711,7 @@ const COPY = {
   trackStatusLoading: "loading",
   trackStatusWaiting: "waiting for captions",
   trackStatusFailed: "failed",
+  trackStatusPartial: "partly translated",
   moveSubtitles: "Move subtitles",
   moveSubtitlesAccessible: "Move subtitles. Drag, or use the arrow and Page Up/Page Down keys. Press Home or 0 to reset.",
   moveSubtitleControls: "Subtitle controls. Tap to expand or collapse. Drag, or use the arrow keys, to move. Press Home or 0 to reset.",
@@ -7414,6 +7415,7 @@ trackKindLoadedFile	読み込んだファイル
 trackStatusLoading	読み込み中
 trackStatusWaiting	字幕待機中
 trackStatusFailed	失敗
+trackStatusPartial	一部翻訳済み
 showKanji	漢字を表示
 strokePractice	筆順と練習
 practiceDrawing	手書き練習
@@ -14618,7 +14620,7 @@ const NEW_TAB_CACHE_KEY = "jpdb-reader-newtab-card-cache";
 function clearNewTabOfflineCache() {
   return gmStorageDelete(NEW_TAB_CACHE_KEY);
 }
-const CURRENT_YOMU_VERSION = "2.3.1".trim() ? "2.3.1".trim() : "dev";
+const CURRENT_YOMU_VERSION = "2.3.2".trim() ? "2.3.2".trim() : "dev";
 function latestYomuVersionFromVersionJson(value) {
   if (!value || typeof value !== "object") return null;
   const record2 = value;
