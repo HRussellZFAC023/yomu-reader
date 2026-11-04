@@ -11,7 +11,7 @@
 // @updateURL https://update.greasyfork.org/scripts/581653/%E3%82%88%E3%82%80.meta.js
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-runtime.b92523c11f63.user.js#sha256=uSUjwR9jeVB40igfcSqbRwzt2DQWunrq581l2r6l3I8=
+// @require https://yomureader.com/greasyfork/yomu-runtime.a9062725d33f.user.js#sha256=qQYnJdM/B4rZNDVGjQs0YXC9SYW3v6mZtQxj5Si5A/E=
 // @resource yomuCss  https://yomureader.com/yomu.95df5389e4e2.css#sha256=ld9TieTiWI71U5VET+3pFj8/1duCA0ngHnfm7W2TM3Q=
 // @connect api.jiten.moe
 // @connect api.tatoeba.org
@@ -29339,7 +29339,6 @@ client: "gtx",
 sl: sourceProviderLanguage,
 tl: outputLanguage,
 dt: "t",
-dj: "1",
 q: text2
 });
 if (options.includeDictionaryData) params.append("dt", "bd");
@@ -29407,8 +29406,7 @@ failureLabel: "Translation request",
 timeoutLabel: "Translation timed out.",
 signal: options.signal
 });
-const translated = (json.sentences ?? []).map((item) => item.trans ?? "").join("").trim();
-if (!translated) throw new Error("No translation returned.");
+const translated = readGoogleTranslation(json);
 throwIfTranslationAborted(options.signal);
 translationCache.set(`${options.sourceLanguage}:${options.outputLanguage}:${text2}`, translated);
 pruneOldestCacheEntries(translationCache, TRANSLATION_CACHE_LIMIT);
@@ -29416,6 +29414,17 @@ return translated;
 } finally {
 done();
 }
+}
+function readGoogleTranslation(response) {
+const sentences = Array.isArray(response) ? response[0] : response !== null && typeof response === "object" && "sentences" in response ? response.sentences : void 0;
+if (!Array.isArray(sentences)) throw new Error("No translation returned.");
+const translated = sentences.map((sentence) => {
+const text2 = Array.isArray(response) ? Array.isArray(sentence) ? sentence[0] : void 0 : sentence !== null && typeof sentence === "object" && "trans" in sentence ? sentence.trans : void 0;
+if (typeof text2 !== "string") throw new Error("Invalid translation response.");
+return text2;
+}).join("").trim();
+if (!translated) throw new Error("No translation returned.");
+return translated;
 }
 LEARNER_LANGUAGES.filter(
 (language) => googleTranslationLanguageCapability(language.runtimeLocale).supported

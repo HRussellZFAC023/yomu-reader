@@ -16645,7 +16645,6 @@ function googleTranslationUrl(text2, options) {
   sl: sourceProviderLanguage,
   tl: outputLanguage,
   dt: "t",
-  dj: "1",
   q: text2
   });
   if (options.includeDictionaryData) params.append("dt", "bd");
@@ -16713,8 +16712,7 @@ async function performTranslation(text2, options) {
     timeoutLabel: "Translation timed out.",
     signal: options.signal
   });
-  const translated = (json.sentences ?? []).map((item) => item.trans ?? "").join("").trim();
-  if (!translated) throw new Error("No translation returned.");
+  const translated = readGoogleTranslation(json);
   throwIfTranslationAborted(options.signal);
   translationCache.set(`${options.sourceLanguage}:${options.outputLanguage}:${text2}`, translated);
   pruneOldestCacheEntries(translationCache, TRANSLATION_CACHE_LIMIT);
@@ -16722,6 +16720,17 @@ async function performTranslation(text2, options) {
   } finally {
   done();
   }
+}
+function readGoogleTranslation(response) {
+  const sentences = Array.isArray(response) ? response[0] : response !== null && typeof response === "object" && "sentences" in response ? response.sentences : void 0;
+  if (!Array.isArray(sentences)) throw new Error("No translation returned.");
+  const translated = sentences.map((sentence) => {
+  const text2 = Array.isArray(response) ? Array.isArray(sentence) ? sentence[0] : void 0 : sentence !== null && typeof sentence === "object" && "trans" in sentence ? sentence.trans : void 0;
+  if (typeof text2 !== "string") throw new Error("Invalid translation response.");
+  return text2;
+  }).join("").trim();
+  if (!translated) throw new Error("No translation returned.");
+  return translated;
 }
 const TRANSLATION_TIMEOUT_MS = 5e3;
 const GRAMMAR_RULE_DATA_TIMEOUT_MS = 15e3;
