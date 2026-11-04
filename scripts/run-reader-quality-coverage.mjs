@@ -23,7 +23,7 @@ const scopes = {
             'collection-save-diagnostics', 'translation-language', 'hosted-settings-live-sync',
             'storage-bridge-ready-retry', 'parser-span-authority-contract',
             'definition-translation', 'definition-translation-lifecycle', 'jpdb-definition-translation',
-            'google-translation', 'private-deck-status', 'private-deck-status-legacy-study',
+            'google-translation', 'anki', 'private-deck-status', 'private-deck-status-legacy-study',
             'popover-collect-action', 'offhost-account-data-privacy', 'jiten-word-list-mining',
             'jpdb/01-jpdb-api-deck-parse', 'content-addressed-retention',
         ],
