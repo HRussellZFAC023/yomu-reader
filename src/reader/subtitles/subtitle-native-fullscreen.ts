@@ -65,6 +65,8 @@ function clearNativeFullscreenCues(track: TextTrack): void {
 
 function addNativeFullscreenCues(track: TextTrack, cues: SubtitleCue[]): void {
     cues.filter(cue => cue.end > cue.start).forEach(cue => {
-        track.addCue(new VTTCue(cue.start, cue.end, cue.originalText ?? cue.text));
+        const text = (cue.originalText ?? cue.text)
+            .replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
+        track.addCue(new VTTCue(cue.start, cue.end, text));
     });
 }

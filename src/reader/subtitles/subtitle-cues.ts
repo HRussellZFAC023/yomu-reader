@@ -1108,11 +1108,10 @@ export function normalizeCaptionText(value: string): string {
         .join(' ');
 }
 
-// X/Twitter wraps each WebVTT cue in a custom `<X-word-ms ...>` element whose
-// attributes carry word durations and character ranges. Keep the raw-markup
-// stripping used for downloaded VTT shared with native X cue ingestion.
+// Native and downloaded cues share plain-text extraction. Strip raw tags,
+// including X/Twitter timing wrappers, without decoding escaped dialogue.
 export function stripWebVttCueMarkup(value: string): string {
-    return value.replace(/<[^>]+>/g, '');
+    return value.replace(/<!--[\s\S]*?(?:-->|$)|<\/?[a-z][\w:.-]*(?=[\s/>])(?:[^<>"']|"[^"]*"|'[^']*')*>|<(?:(?:\d+:)?\d{2}:)?\d{2}[,.]\d{3}>/gi, '');
 }
 
 // UT-67: auto-translated YouTube tracks ship literal HTML entities \u2014 a

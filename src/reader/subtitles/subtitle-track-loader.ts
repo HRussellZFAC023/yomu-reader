@@ -243,10 +243,9 @@ export function waitForTextTrackCues(track: TextTrack, timeoutMs = 900): Promise
 
 export function getTextTrackCueText(cue: VTTCue | TextTrackCue): string {
     if (!('text' in cue) || typeof cue.text !== 'string') return '';
-    // Preserve the raw text for ordinary cues so normalizeCaptionText remains
-    // the only entity-decoding boundary. getCueAsHTML() would decode once here
-    // and make escaped literal entities decode a second time downstream.
-    if (!/<\/?x-word-ms(?:\s|>)/i.test(cue.text)) return cue.text;
+    // Match downloaded SRT/VTT: discard raw markup before the shared entity
+    // decoder, so escaped literal tags stay dialogue. getCueAsHTML() would
+    // decode entities here and then decode them again during normalization.
     return stripWebVttCueMarkup(cue.text);
 }
 
