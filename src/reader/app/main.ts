@@ -3264,10 +3264,10 @@ export class ReaderApp {
         this.handleReaderWordClick(event, word);
         return true;
     }
-    private handleDocumentNonWordClick(event: MouseEvent): void {
+    private handleDocumentNonWordClick(event: MouseEvent): boolean {
         const insideActivePopover = this.activePopoverMode === 'modal' && this.isInsideActivePopover(event.target as Node | null);
-        if (this.pauseForSubtitleSurfaceTap(event)) return;
-        this.handleDocumentLookupCandidateClick(event, insideActivePopover);
+        if (this.pauseForSubtitleSurfaceTap(event)) return true;
+        return this.handleDocumentLookupCandidateClick(event, insideActivePopover);
     }
     private handleDocumentKeyup(event: KeyboardEvent): void {
         this.pressedKeys.delete(normalizePressedKey(event.key));
@@ -3332,7 +3332,7 @@ export class ReaderApp {
         const word = releaseWord ?? fallbackWord;
         if (!word?.isConnected) {
             if (Date.now() - tap.startedAt >= LINK_PRESS_LOOKUP_MS || !this.documentClickTarget(event)) return;
-            if (this.handleDocumentLookupCandidateClick(event, false)) this.tapLookup.suppressCompatibilityClick(event);
+            if (this.handleDocumentNonWordClick(event)) this.tapLookup.suppressCompatibilityClick(event);
             return;
         }
         const surfaces = this.readerWordClickSurfaces(event, word);

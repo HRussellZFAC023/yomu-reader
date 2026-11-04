@@ -66,6 +66,21 @@ function fixture(markup = '<p id="text">辞書を使用します。</p>') {
     return { target, pointer, click, shown, internals };
 }
 
+function subtitleFixture(text = '<div id="text" class="jpdb-subtitle-primary">字幕です</div>', initiallyPaused = false) {
+    const tap = fixture(`<div class="jpdb-subtitle-player" data-jpdb-reader-root><div class="jpdb-subtitle-text">${text}</div></div>`);
+    tap.internals.settings.subtitleMiningPause = true;
+    const video = document.createElement('video');
+    let paused = initiallyPaused;
+    const pause = vi.fn(() => { paused = true; video.dispatchEvent(new Event('pause')); });
+    Object.defineProperties(video, {
+        readyState: { value: 4 }, paused: { get: () => paused }, ended: { value: false },
+        pause: { value: pause },
+        getBoundingClientRect: { value: () => new DOMRect(0, 0, 960, 540) },
+    });
+    document.body.prepend(video);
+    return { ...tap, pause, video };
+}
+
 afterEach(() => {
     cleanups.splice(0).reverse().forEach(cleanup => cleanup());
     vi.restoreAllMocks();
@@ -178,6 +193,58 @@ describe('unannotated text touch lookup', () => {
         Object.assign(internals.settings, settings);
         pointer('pointerdown');
         expect(pointer('pointerup').defaultPrevented).toBe(false);
+        expect(shown).not.toHaveBeenCalled();
+    });
+});
+
+describe('unannotated subtitle touch', () => {
+    it('pauses immediately before starting a lookup and consumes the trailing click', () => {
+        const { pointer, click, shown, pause, video } = subtitleFixture();
+        pointer('pointerdown');
+        expect(pointer('pointerup').defaultPrevented).toBe(true);
+        expect(pause).toHaveBeenCalledTimes(1);
+        expect(video.paused).toBe(true);
+        expect(shown).not.toHaveBeenCalled();
+        expect(click().defaultPrevented).toBe(true);
+        expect(pause).toHaveBeenCalledTimes(1);
+        expect(shown).not.toHaveBeenCalled();
+    });
+
+    it.each([
+        ['disabled popup', undefined, { popupActivationMode: 'off' }],
+        ['disabled click lookup', undefined, { lookupOnClick: false }],
+        ['caption punctuation', '<div id="text" class="jpdb-subtitle-primary">。</div>', {}],
+    ] as const)('pauses without starting lookup for %s', (_name, markup, settings) => {
+        const { pointer, shown, pause, internals } = subtitleFixture(markup);
+        Object.assign(internals.settings, settings);
+        pointer('pointerdown');
+        expect(pointer('pointerup').defaultPrevented).toBe(true);
+        expect(pause).toHaveBeenCalledTimes(1);
+        expect(shown).not.toHaveBeenCalled();
+    });
+
+    it('keeps raw lookup available when subtitle pause is disabled', () => {
+        const { pointer, shown, pause, internals } = subtitleFixture();
+        internals.settings.subtitleMiningPause = false;
+        pointer('pointerdown');
+        pointer('pointerup');
+        expect(pause).not.toHaveBeenCalled();
+        expect(shown).toHaveBeenCalledTimes(1);
+    });
+
+    it('keeps raw lookup available when playback is already paused', () => {
+        const { pointer, shown, pause } = subtitleFixture(undefined, true);
+        pointer('pointerdown');
+        pointer('pointerup');
+        expect(pause).not.toHaveBeenCalled();
+        expect(shown).toHaveBeenCalledTimes(1);
+    });
+
+    it('leaves subtitle buttons to their control handler', () => {
+        const { pointer, shown, pause } = subtitleFixture('<button id="text" data-action="playback">字幕</button>');
+        pointer('pointerdown');
+        expect(pointer('pointerup').defaultPrevented).toBe(false);
+        expect(pause).not.toHaveBeenCalled();
         expect(shown).not.toHaveBeenCalled();
     });
 });
