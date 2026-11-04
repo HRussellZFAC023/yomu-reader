@@ -22026,7 +22026,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const preservesSource = Boolean(target.nonDestructive) || uniqueParents.some((parent) => scanHostRequiresSourcePreservingMirror(parent));
     if (!preservesSource) return false;
     const common = uniqueParents.find((parent) => uniqueParents.every((candidate) => parent.contains(candidate)));
-    if (common && uniqueParents.every((parent) => parent.closest(PASSIVE_INTERACTION_SELECTOR) === common.closest(PASSIVE_INTERACTION_SELECTOR) && sameSourcePresentation(safeComputedStyle(common), safeComputedStyle(parent)))) return false;
+    const proportional = uniqueParents.some((parent) => typographyRequiresSourceProjection(safeComputedStyle(parent)));
+    if (common && uniqueParents.every((parent) => parent.closest(PASSIVE_INTERACTION_SELECTOR) === common.closest(PASSIVE_INTERACTION_SELECTOR) && (!proportional || sameSourcePresentation(safeComputedStyle(common), safeComputedStyle(parent))))) return false;
     return true;
   }
   function applyTokensToReactiveLeafMirrors(target, tokens, settings2) {

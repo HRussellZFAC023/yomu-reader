@@ -9562,7 +9562,8 @@ if (uniqueParents.length < 2) return false;
 const preservesSource = Boolean(target.nonDestructive) || uniqueParents.some((parent) => scanHostRequiresSourcePreservingMirror(parent));
 if (!preservesSource) return false;
 const common = uniqueParents.find((parent) => uniqueParents.every((candidate) => parent.contains(candidate)));
-if (common && uniqueParents.every((parent) => parent.closest(PASSIVE_INTERACTION_SELECTOR) === common.closest(PASSIVE_INTERACTION_SELECTOR) && sameSourcePresentation(safeComputedStyle(common), safeComputedStyle(parent)))) return false;
+const proportional = uniqueParents.some((parent) => typographyRequiresSourceProjection(safeComputedStyle(parent)));
+if (common && uniqueParents.every((parent) => parent.closest(PASSIVE_INTERACTION_SELECTOR) === common.closest(PASSIVE_INTERACTION_SELECTOR) && (!proportional || sameSourcePresentation(safeComputedStyle(common), safeComputedStyle(parent))))) return false;
 return true;
 }
 function applyTokensToReactiveLeafMirrors(target, tokens, settings2) {
@@ -39448,8 +39449,9 @@ begin(event, word) {
 this.pending = { id: event.pointerId, x: event.clientX, y: event.clientY, word, startedAt: Date.now() };
 }
 update(event) {
-if (this.pending?.id !== event.pointerId) return;
-if (!this.containsRelease(this.pending, event)) this.reset();
+const tap = this.pending;
+if (!tap || tap.id !== event.pointerId) return;
+if (!this.containsRelease(tap, event)) this.reset();
 }
 finish(event) {
 const tap = this.pending;
@@ -39458,7 +39460,8 @@ this.reset();
 return this.containsRelease(tap, event) ? tap : void 0;
 }
 cancel(event) {
-if (this.pending?.id === event.pointerId) this.reset();
+const tap = this.pending;
+if (tap && tap.id === event.pointerId) this.reset();
 }
 suppressCompatibilityClick(event) {
 this.completed = { target: event.target, x: event.clientX, y: event.clientY, expiresAt: Date.now() + 700 };
