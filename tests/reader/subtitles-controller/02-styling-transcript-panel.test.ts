@@ -483,7 +483,8 @@ describe('SubtitlePlayerController — styling & transcript panel', () => {
         expect(normalizedCss).toMatch(/\.jpdb-subtitle-lines \{[^}]*align-content: end;/);
         expect(normalizedCss).toMatch(/\.jpdb-subtitle-primary \{[^}]*font-size: var\(--subtitle-font-size\) !important;/);
         expect(normalizedCss).toMatch(/\.jpdb-subtitle-primary :is\([^}]*\.jpdb-reader-word,[^}]*ruby,[^}]*\.jpdb-reader-ruby-base[^}]*\) \{[^}]*font-size: inherit !important;/);
-        expect(normalizedCss).toMatch(/\.jpdb-subtitle-primary \.jpdb-reader-furi \{[^}]*font-size: \.58em !important;/);
+        expect(normalizedCss).toMatch(/\.jpdb-subtitle-player \{[^}]*--subtitle-reading-scale: \.58;/);
+        expect(normalizedCss).toMatch(/\.jpdb-subtitle-primary \.jpdb-reader-furi \{[^}]*font-size: calc\(var\(--subtitle-reading-scale\) \* 1em\) !important;/);
         // Page readings are regular weight; a caption's reading over footage stays bold.
         expect(normalizedCss).toMatch(/\.jpdb-subtitle-primary \.jpdb-reader-furi \{[^}]*font-weight: 700;/);
     });

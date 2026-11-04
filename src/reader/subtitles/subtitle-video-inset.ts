@@ -144,12 +144,13 @@ function videoInsetMetrics(options: ApplySubtitleVideoInsetOptions): VideoInsetM
     const width = videoInsetWidth(options);
     const height = videoInsetHeight(options, width);
     const inset = `${insetPixels}px`;
+    const reference = !isYouTubePage() && options.video ? `:${options.videoRect.left}:${options.videoRect.right}` : '';
     return {
         insetPixels,
         inset,
         width,
         height,
-        signature: `${options.side}:${inset}:${width}:${height}`,
+        signature: `${options.side}:${inset}:${width}:${height}${reference}`,
     };
 }
 
@@ -176,8 +177,7 @@ interface VideoInsetSnapshot {
     restore(): void;
 }
 
-const GENERIC_TARGET_INSET_PROPS = ['width', 'height', 'max-width', 'max-height', 'min-width', 'min-height', 'margin-left', 'margin-right', 'justify-self', 'object-fit', 'box-sizing'];
-const CONTAINED_VIDEO_INSET_PROPS = ['height', 'max-height', 'min-height', 'object-fit'];
+const GENERIC_TARGET_INSET_PROPS = ['width', 'height', 'max-width', 'max-height', 'min-width', 'min-height', 'margin-left', 'margin-right', 'justify-self', 'object-fit', 'box-sizing'] as const;
 const CONTAINER_INSET_PROPS = ['width', 'max-width', 'min-width', 'height', 'max-height', 'min-height', 'margin-left', 'margin-right'];
 const WATCH_FLEXY_INSET_VARS = ['--ytd-watch-flexy-player-width', '--ytd-watch-flexy-player-height', '--ytd-watch-flexy-min-player-height'];
 
@@ -189,8 +189,8 @@ function captureVideoInsetSnapshots(video: HTMLVideoElement | undefined): VideoI
     for (const element of youtubeInsetTargets()) {
         snapshots.push(elementStyleSnapshot(element, CONTAINER_INSET_PROPS, () => clearYouTubePlayerContainerInset(element)));
     }
-    if (target) snapshots.push(elementStyleSnapshot(target, GENERIC_TARGET_INSET_PROPS));
-    if (video && target !== video) snapshots.push(elementStyleSnapshot(video, CONTAINED_VIDEO_INSET_PROPS));
+    if (target) snapshots.push(genericVideoInsetSnapshot(target));
+    if (video && target !== video) snapshots.push(genericVideoInsetSnapshot(video));
     return snapshots;
 }
 
@@ -211,15 +211,16 @@ function documentInsetSnapshot(): VideoInsetSnapshot {
     };
 }
 
-function elementStyleSnapshot(element: HTMLElement, props: string[], clear?: () => void): VideoInsetSnapshot {
-    const saved = props.map(prop => [prop, element.style.getPropertyValue(prop)] as const);
+function elementStyleSnapshot(element: HTMLElement, props: readonly string[], clear?: () => void): VideoInsetSnapshot {
+    const saved = props.map(prop => [prop, element.style.getPropertyValue(prop), element.style.getPropertyPriority(prop)] as const);
     return {
         clear: clear ?? (() => {
             for (const prop of props) element.style.removeProperty(prop);
         }),
         restore: () => {
-            for (const [prop, value] of saved) {
-                if (value) element.style.setProperty(prop, value);
+            for (const [prop, value, priority] of saved) {
+                if (value) element.style.setProperty(prop, value, priority);
+                else element.style.removeProperty(prop);
             }
         },
     };
@@ -857,9 +858,9 @@ function clearYouTubeVideoElementInset(video: HTMLVideoElement | undefined): voi
     youtubeVideoElementInsetStyles.delete(video);
 }
 
-type GenericInsetProperty = 'width' | 'height' | 'maxWidth' | 'maxHeight' | 'minWidth' | 'minHeight' | 'marginLeft' | 'marginRight' | 'justifySelf' | 'objectFit' | 'boxSizing';
+type GenericInsetProperty = typeof GENERIC_TARGET_INSET_PROPS[number];
 
-const genericVideoInsetStyles = new WeakMap<HTMLElement, Partial<Record<GenericInsetProperty, string>>>();
+const genericVideoInsetStyles = new WeakMap<HTMLElement, Map<GenericInsetProperty, { value: string; priority: string }>>();
 const genericVideoInsetBaseRects = new WeakMap<HTMLElement, { left: number; right: number; height: number }>();
 const genericVideoInsetTargets = new WeakMap<HTMLVideoElement, HTMLElement>();
 
@@ -887,18 +888,17 @@ function rememberGenericVideoInsetStyles(target: HTMLElement): void {
     if (genericVideoInsetStyles.has(target)) return;
     const rect = target.getBoundingClientRect();
     genericVideoInsetBaseRects.set(target, { left: rect.left, right: rect.right, height: rect.height });
-    genericVideoInsetStyles.set(target, {
-        width: target.style.width,
-        height: target.style.height,
-        maxWidth: target.style.maxWidth,
-        maxHeight: target.style.maxHeight,
-        minWidth: target.style.minWidth,
-        minHeight: target.style.minHeight,
-        marginLeft: target.style.marginLeft,
-        marginRight: target.style.marginRight,
-        justifySelf: target.style.justifySelf,
-        objectFit: target.style.objectFit,
-        boxSizing: target.style.boxSizing,
+    genericVideoInsetStyles.set(target, new Map(GENERIC_TARGET_INSET_PROPS.map(property => [property, {
+        value: target.style.getPropertyValue(property),
+        priority: target.style.getPropertyPriority(property),
+    }])));
+}
+
+function genericVideoInsetSnapshot(target: HTMLElement): VideoInsetSnapshot {
+    return elementStyleSnapshot(target, GENERIC_TARGET_INSET_PROPS, () => {
+        if (!restoreGenericInsetStyleProperties(target, GENERIC_TARGET_INSET_PROPS)) return;
+        const rect = target.getBoundingClientRect();
+        genericVideoInsetBaseRects.set(target, { left: rect.left, right: rect.right, height: rect.height });
     });
 }
 
@@ -928,10 +928,13 @@ function applyGenericSideInset(target: HTMLElement, side: SubtitleVideoInsetSide
     // player height and the card's overflow:hidden cropped it ("wide and cropped
     // out"). Clamp to the base width so a left/right dock only shrinks or shifts.
     const baseWidth = Math.max(0, baseRect.right - baseRect.left);
-    const width = Math.round(Math.min(size, baseWidth || size));
     const margin = side === 'left'
         ? Math.max(0, Math.round(inset - baseRect.left))
         : Math.max(0, Math.round(Math.min(baseRect.right, visibleViewportWidth()) - (visibleViewportWidth() - inset)));
+    // A host sidebar still owns the space beyond the player's original right
+    // edge. A left dock consumes the player's own column, including its shift.
+    const availableWidth = Math.max(0, baseWidth - (side === 'left' ? margin : 0));
+    const width = Math.round(Math.min(size, availableWidth));
     const stableHeight = sideInsetStableHeight(target, height);
     // baseRect.{width,height} are border-box (getBoundingClientRect) measurements,
     // so pin the target to border-box too; otherwise setting a content-box width
@@ -969,23 +972,11 @@ function applyContainedVideoHeight(video: HTMLVideoElement, height: number): voi
 }
 
 function restoreGenericSideInsetStyles(target: HTMLElement): void {
-    restoreGenericInsetStyleProperties(target, [
-        'width',
-        'height',
-        'maxWidth',
-        'maxHeight',
-        'minWidth',
-        'minHeight',
-        'marginLeft',
-        'marginRight',
-        'justifySelf',
-        'objectFit',
-        'boxSizing',
-    ]);
+    restoreGenericInsetStyleProperties(target, GENERIC_TARGET_INSET_PROPS);
 }
 
 function restoreGenericBottomInsetStyles(target: HTMLElement): void {
-    restoreGenericInsetStyleProperties(target, ['height', 'maxHeight', 'minHeight']);
+    restoreGenericInsetStyleProperties(target, ['height', 'max-height', 'min-height']);
 }
 
 function clearGenericVideoInset(video: HTMLVideoElement): void {
@@ -996,28 +987,18 @@ function clearGenericVideoInset(video: HTMLVideoElement): void {
 }
 
 function clearGenericVideoInsetTarget(target: HTMLElement): void {
-    if (!restoreGenericInsetStyleProperties(target, [
-        'width',
-        'height',
-        'maxWidth',
-        'maxHeight',
-        'minWidth',
-        'minHeight',
-        'marginLeft',
-        'marginRight',
-        'justifySelf',
-        'objectFit',
-        'boxSizing',
-    ])) return;
+    if (!restoreGenericInsetStyleProperties(target, GENERIC_TARGET_INSET_PROPS)) return;
     genericVideoInsetStyles.delete(target);
     genericVideoInsetBaseRects.delete(target);
 }
 
-function restoreGenericInsetStyleProperties(target: HTMLElement, properties: GenericInsetProperty[]): boolean {
+function restoreGenericInsetStyleProperties(target: HTMLElement, properties: readonly GenericInsetProperty[]): boolean {
     const previous = genericVideoInsetStyles.get(target);
     if (!previous) return false;
     properties.forEach(property => {
-        setRestoredStyleProperty(target, stylePropertyName(property), previous[property]);
+        const saved = previous.get(property);
+        if (saved?.value) target.style.setProperty(property, saved.value, saved.priority);
+        else target.style.removeProperty(property);
     });
     return true;
 }

@@ -1,4 +1,5 @@
 import type { SubtitleCue } from './subtitle-cues';
+import type { SubtitleTranslationOutcome } from './subtitle-translate';
 import { normalizedSubtitleUrl, type PageSubtitleSource } from './subtitle-sources';
 import {
     compareSubtitleTrackOptions,
@@ -26,6 +27,7 @@ export interface SubtitleTrackOption {
     loadingState?: SubtitleTrackLoadingState;
     translatedFromTrackId?: string;
     timingOffsetSeconds?: number;
+    translationOutcome?: SubtitleTranslationOutcome;
 }
 
 export interface LoadedSubtitleTrackSelection {
@@ -73,6 +75,7 @@ export function compareNativeOverlaySubtitleTrackOptions(a: SubtitleTrackOption,
         || compareSubtitleTrackOptions(a, b);
 }
 
-export function loadedTrackState(cues: SubtitleCue[]): SubtitleTrackLoadingState {
-    return cues.length ? 'ready' : 'waiting';
+export function loadedTrackState(cues: SubtitleCue[], track: SubtitleTrackOption): SubtitleTrackLoadingState {
+    if (cues.length) return track.translationOutcome === 'partial' ? 'partial' : 'ready';
+    return track.translatedFromTrackId || track.sourceType === 'translation' ? 'error' : 'waiting';
 }

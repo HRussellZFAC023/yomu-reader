@@ -429,6 +429,7 @@ import {
     type EnrichmentSurface,
 } from './enrichment-policy';
 import { HoverPointerIntent } from '../lookup/hover-pointer-intent';
+import { PointerLookupTap } from '../ui/pointer-lookup-tap';
 import { HoverWordOwnership } from './hover-word-ownership';
 import {
     DeferredPublicJitenReadingCoordinator,
@@ -1021,7 +1022,7 @@ export class ReaderApp {
     private pageHasJapaneseText = false;
     private embeddedFrame = false;
     private pressLookup?: PressLookupState;
-    private tapLookup?: { id: number; x: number; y: number; word?: HTMLElement };
+    private readonly tapLookup = new PointerLookupTap();
     private linkPressLookup?: { id: number; x: number; y: number; word: HTMLElement; timer: number };
     private suppressLinkContextMenuUntil = 0;
     private suppressMiddleAuxClickUntil = 0;
@@ -3242,6 +3243,7 @@ export class ReaderApp {
 
     private handleDocumentClick(event: MouseEvent): void {
         if (!isTrustedReaderInteraction(event)) return;
+        if (this.tapLookup.consumeCompatibilityClick(event)) return;
         const target = this.documentClickTarget(event);
         if (!target) return;
         if (this.handleDocumentReaderWordClick(event, target)) return;
@@ -3262,10 +3264,10 @@ export class ReaderApp {
         this.handleReaderWordClick(event, word);
         return true;
     }
-    private handleDocumentNonWordClick(event: MouseEvent): void {
+    private handleDocumentNonWordClick(event: MouseEvent): boolean {
         const insideActivePopover = this.activePopoverMode === 'modal' && this.isInsideActivePopover(event.target as Node | null);
-        if (this.pauseForSubtitleSurfaceTap(event)) return;
-        this.handleDocumentLookupCandidateClick(event, insideActivePopover);
+        if (this.pauseForSubtitleSurfaceTap(event)) return true;
+        return this.handleDocumentLookupCandidateClick(event, insideActivePopover);
     }
     private handleDocumentKeyup(event: KeyboardEvent): void {
         this.pressedKeys.delete(normalizePressedKey(event.key));
@@ -3277,11 +3279,11 @@ export class ReaderApp {
         return Boolean(this.settings.shortcuts.hoverLookup?.trim()) && !this.shouldLookupOnHover(event);
     }
 
-    private handleDocumentLookupCandidateClick(event: MouseEvent, insideActivePopover: boolean): void {
-        if (this.settings.popupActivationMode === 'off' && !insideActivePopover) return;
-        if (!this.settings.lookupOnClick && !insideActivePopover) return;
+    private handleDocumentLookupCandidateClick(event: MouseEvent, insideActivePopover: boolean): boolean {
+        if (this.settings.popupActivationMode === 'off' && !insideActivePopover) return false;
+        if (!this.settings.lookupOnClick && !insideActivePopover) return false;
         const candidate = this.lookupCandidateFromPoint(event.clientX, event.clientY, event.target);
-        if (!candidate) return;
+        if (!candidate) return false;
         event.preventDefault();
         event.stopPropagation();
         this.prepareModalLookupFromPointer(event);
@@ -3290,6 +3292,7 @@ export class ReaderApp {
             preservePosition: insideActivePopover,
             userGesture: true,
         });
+        return true;
     }
 
     private handleReaderWordClick(event: MouseEvent, word: HTMLElement): void {
@@ -3299,43 +3302,39 @@ export class ReaderApp {
     }
 
     private beginTapLookup(event: PointerEvent): void {
-        this.tapLookup = undefined;
+        this.tapLookup.reset();
         if (this.isDestroyed
             || event.button !== 0
             || event.isPrimary === false
             || (event.pointerType !== 'touch' && event.pointerType !== 'pen')
             || this.isInsideActivePopover(event.target as Node | null)) return;
-        // Seed the tap even when NO word resolves at pointerdown. A near-miss on a
-        // small target (or the gap between two kana) often resolves cleanly at
-        // pointerup, whose geometry is authoritative. Without this the only
-        // fallback opener was the browser's ~300ms synthetic click — by which
-        // point the cue had advanced (the reported "press twice, opens late").
-        // Only bail if a word DID resolve but is not lookupable (e.g. a native
-        // link we must not hijack).
+        // Release geometry may resolve an initial near-miss or streamed text
+        // that has not received an annotation yet.
         const word = this.readerWordForPointerEvent(event, { clickLookup: true });
         if (word && this.isNativeWord(word)) return;
         if (word && !this.readerWordClickSurfaces(event, word)) return;
-        this.tapLookup = { id: event.pointerId, x: event.clientX, y: event.clientY, word: word ?? undefined };
+        this.tapLookup.begin(event, word ?? undefined);
         if (word) this.primeLookupAudioFromGesture();
     }
 
     private updateTapLookup(event: PointerEvent): void {
-        const tap = this.tapLookup;
-        if (!tap || tap.id !== event.pointerId) return;
-        if (Math.hypot(event.clientX - tap.x, event.clientY - tap.y) > 12) this.tapLookup = undefined;
+        this.tapLookup.update(event);
     }
 
     private finishTapLookup(event: PointerEvent): void {
-        const tap = this.tapLookup;
-        if (!tap || tap.id !== event.pointerId) return;
-        this.tapLookup = undefined;
+        const tap = this.tapLookup.finish(event);
+        if (!tap) return;
         const releaseWord = this.readerWordForPointerEvent(event, { clickLookup: true });
         const fallbackWord = tap.word?.isConnected
             && this.readerWordMatchesPointerGeometry(tap.word, event.clientX, event.clientY)
             ? tap.word
             : undefined;
         const word = releaseWord ?? fallbackWord;
-        if (!word?.isConnected) return;
+        if (!word?.isConnected) {
+            if (Date.now() - tap.startedAt >= LINK_PRESS_LOOKUP_MS || !this.documentClickTarget(event)) return;
+            if (this.handleDocumentNonWordClick(event)) this.tapLookup.suppressCompatibilityClick(event);
+            return;
+        }
         const surfaces = this.readerWordClickSurfaces(event, word);
         if (!surfaces) return;
         // Suppress the trailing synthetic click BEFORE opening so the ~300ms
@@ -3346,8 +3345,7 @@ export class ReaderApp {
     }
 
     private cancelTapLookup(event: PointerEvent): void {
-        const tap = this.tapLookup;
-        if (tap && tap.id === event.pointerId) this.tapLookup = undefined;
+        this.tapLookup.cancel(event);
     }
 
     // Native controls keep their short tap. A stationary hold opens lookup

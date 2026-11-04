@@ -98,6 +98,19 @@ describe('generic Google translation transport', () => {
         expect(fetchMock).toHaveBeenCalledTimes(1);
     });
 
+    it('keeps format rejection local to its subscriber while preserving shared transport', async () => {
+        const fetch = vi.fn(async () => new Response(JSON.stringify({ sentences: [{ trans: 'One line' }] }), {
+            status: 200, headers: { 'Content-Type': 'application/json' },
+        }));
+        vi.stubGlobal('fetch', fetch);
+        const languages = { sourceLanguage: 'ja', outputLanguage: 'en' };
+        const formatted = translateText('一行\n二行', { ...languages, acceptResult: result => result.includes('\n') });
+        const ordinary = translateText('一行\n二行', languages);
+        await expect(formatted).rejects.toThrow('requested format');
+        await expect(ordinary).resolves.toBe('One line');
+        expect(fetch).toHaveBeenCalledTimes(1);
+    });
+
     it('keeps shared translation work alive for remaining subscribers and caches only the live result', async () => {
         let resolveFetch!: (response: Response) => void;
         let requestSignal: AbortSignal | undefined;

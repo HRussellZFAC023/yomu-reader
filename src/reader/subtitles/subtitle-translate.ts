@@ -11,10 +11,13 @@ const TRANSLATION_SEPARATOR = '\n';
 
 const log = Logger.scope('SubtitleTranslate');
 
+export type SubtitleTranslationOutcome = 'complete' | 'partial' | 'failed';
+
 interface TranslateSubtitleCueOptions {
     batchSize?: number;
     encodedCharBudget?: number;
     signal?: AbortSignal;
+    onProgress?: (cues: SubtitleCue[]) => void;
 }
 
 export async function translateSubtitleCues(
@@ -25,31 +28,41 @@ export async function translateSubtitleCues(
 ): Promise<SubtitleCue[]> {
     throwIfSubtitleTranslationAborted(options.signal);
     if (!cues.length) return [];
-    const texts = cues.map(cue => cue.text.trim());
+    // A newline separates cues on the wire; source line wrapping must not
+    // become another cue or shift every following translation.
+    const texts = cues.map(cue => cue.text.replace(/\s*[\r\n]+\s*/g, ' ').trim());
     const batches = batchTexts(
         texts,
         options.batchSize ?? TRANSLATION_BATCH_SIZE,
         options.encodedCharBudget ?? TRANSLATION_BATCH_ENCODED_CHAR_BUDGET,
     );
-    const translated = await translateSubtitleBatches(batches, sourceLanguage, outputLanguage, options.signal);
+    const translated = await translateSubtitleBatches(batches, sourceLanguage, outputLanguage, options.signal,
+        results => options.onProgress?.(translatedCueResults(cues, results)));
     throwIfSubtitleTranslationAborted(options.signal);
-    return cues.map((cue, index) => ({
-        ...cue,
-        text: translated[index] || cue.text,
-    }));
+    return translatedCueResults(cues, translated);
+}
+
+function translatedCueResults(cues: SubtitleCue[], translated: Array<string | undefined>): SubtitleCue[] {
+    return cues.flatMap((cue, index) => {
+        const text = translated[index];
+        // Source word offsets and originalText describe another language.
+        return text ? [{ start: cue.start, end: cue.end, text, transcriptEligible: cue.transcriptEligible }] : [];
+    });
 }
 
 async function translateSubtitleBatches(
     batches: string[][],
     sourceLanguage: string,
     outputLanguage: string,
-    signal?: AbortSignal,
-): Promise<string[]> {
-    const translated: string[] = [];
+    signal: AbortSignal | undefined,
+    onProgress: (results: Array<string | undefined>) => void,
+): Promise<Array<string | undefined>> {
+    const translated: Array<string | undefined> = [];
     for (const [index, batch] of batches.entries()) {
         if (index > 0) await waitForTranslationTurn(signal);
         const results = await translateBatch(batch, sourceLanguage, outputLanguage, signal);
         translated.push(...results);
+        onProgress(translated);
     }
     return translated;
 }
@@ -79,7 +92,7 @@ async function translateBatch(
     sourceLanguage: string,
     outputLanguage: string,
     signal?: AbortSignal,
-): Promise<string[]> {
+): Promise<Array<string | undefined>> {
     const joined = texts.join(TRANSLATION_SEPARATOR);
     const done = log.time('Translate subtitle batch', { count: texts.length });
     try {
@@ -88,15 +101,16 @@ async function translateBatch(
             outputLanguage,
             timeoutMs: TRANSLATION_TIMEOUT_MS,
             signal,
+            acceptResult: result => texts.length === 1 || result.split(TRANSLATION_SEPARATOR).length === texts.length,
         });
         throwIfSubtitleTranslationAborted(signal);
-        const lines = result.split(TRANSLATION_SEPARATOR);
+        const lines = texts.length === 1 ? [result] : result.split(TRANSLATION_SEPARATOR);
         log.info('Subtitle batch translated', { count: texts.length, resultCount: lines.length });
-        return padTranslationResults(lines, texts);
+        return lines.map(text => text.trim() || undefined);
     } catch (error) {
         throwIfSubtitleTranslationCancelled(signal, error);
         log.warn('Subtitle batch translation failed', { count: texts.length, error });
-        return texts;
+        return texts.map(() => undefined);
     } finally {
         done();
     }
@@ -124,10 +138,4 @@ function throwIfSubtitleTranslationCancelled(signal: AbortSignal | undefined, er
 
 function throwIfSubtitleTranslationAborted(signal?: AbortSignal): void {
     if (signal?.aborted) throw abortSignalReason(signal);
-}
-
-function padTranslationResults(translated: string[], originals: string[]): string[] {
-    const result = translated.map(text => text.trim());
-    while (result.length < originals.length) result.push(originals[result.length]);
-    return result;
 }

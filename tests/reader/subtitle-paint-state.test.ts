@@ -29,4 +29,13 @@ describe('subtitle painted pair', () => {
         expect(state.pair).toBeUndefined();
         expect(state.advance(cue(1))).toBe(false);
     });
+
+    it('bounds a retained pair across a stalled run of contiguous cues', () => {
+        const state = new SubtitlePaintCommit();
+        state.advance(cue(0), 0);
+        state.commit(cue(0), undefined);
+        expect(state.advance(cue(1), 100)).toBe(true);
+        expect(state.advance(cue(2), 1000)).toBe(true);
+        expect(state.advance(cue(3), 1300)).toBe(false);
+    });
 });

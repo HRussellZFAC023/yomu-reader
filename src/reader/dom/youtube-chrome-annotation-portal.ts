@@ -2,6 +2,7 @@ import { sourceSharesDocumentScroll } from './composed-tree';
 import { withProjectedReadingBatch } from './detached-reading-overlay';
 import { safeComputedStyle } from './decoration-policy';
 import { setImportantStyleIfChanged as setImportantStyle, stableCssPixels } from './inline-style';
+import { copySourceTypography } from './source-preserving-typography';
 
 export const DOCUMENT_ANNOTATION_PORTAL_MIRROR_CLASS = 'jpdb-reader-document-annotation-portal';
 const DOCUMENT_ANNOTATION_PORTAL_PAINT_CLASS = 'jpdb-reader-document-annotation-paint';
@@ -107,6 +108,7 @@ export function styleDocumentAnnotationPortalMirror(mirror: HTMLElement, host: H
         ].join(';');
         const paint = documentAnnotationPortalPaint(mirror);
         paint.style.cssText = [
+            'all:inherit!important',
             'display:block!important',
             'position:absolute!important',
             'inset:0 auto auto 0!important',
@@ -120,11 +122,8 @@ export function styleDocumentAnnotationPortalMirror(mirror: HTMLElement, host: H
         ].join(';');
         structurallyStyledPortalMirrors.add(mirror);
     }
-    mirror.style.setProperty('font', style.font, 'important');
-    mirror.style.setProperty('font-size', style.fontSize, 'important');
-    mirror.style.setProperty('font-weight', style.fontWeight, 'important');
+    copySourceTypography(mirror, style, 'important');
     mirror.style.setProperty('line-height', style.lineHeight, 'important');
-    mirror.style.setProperty('letter-spacing', style.letterSpacing, 'important');
     mirror.style.setProperty('direction', style.direction, 'important');
     mirror.style.setProperty('writing-mode', style.writingMode, 'important');
     mirror.style.setProperty('color', style.color, 'important');
