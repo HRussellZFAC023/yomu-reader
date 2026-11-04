@@ -102,9 +102,13 @@ describe('mirror and text-layer paint roots and handover cover every word', () =
 
     it('includes a mirror mounted on a host above the source', async () => {
         document.body.innerHTML = '<div><yt-formatted-string id="host"><span id="source">日本<b>語</b>の本</span></yt-formatted-string></div>';
-        const target = onlyTarget(collectFragmentTextTargetsIn(document.getElementById('source')!, 40, false));
+        const source = document.getElementById('source')!;
+        const bold = source.querySelector('b');
+        const target = onlyTarget(collectFragmentTextTargetsIn(source, 40, false));
         const roots = await paint({ ...target, nonDestructive: true });
         expect(document.querySelector('#host > .jpdb-reader-text-mirror .jpdb-reader-word')).not.toBeNull();
+        expect(document.getElementById('source')).toBe(source);
+        expect(source.querySelector('b')).toBe(bold);
         expect(wordsOutside(roots)).toEqual([]);
     });
 

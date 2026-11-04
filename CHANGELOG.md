@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.3.2] - 2026-11-04
+
+### Fixed
+
+- Native and file-loaded subtitles remove formatting tags consistently. Escaped dialogue stays readable, and native fullscreen preserves literal text safely.
+- A left-docked transcript keeps the player within the space available before the site's neighbouring panels. Closing restores the saved host styles and priorities. Narrow layouts can use the bottom drawer.
+- Bilingual captions keep readable source text while parsing or translation is pending. Translation batches preserve cue boundaries, publish progress, report incomplete results and allow retry instead of labelling source text as a successful translation.
+- Caption backgrounds leave balanced room around readings and text, with tighter spacing between wrapped lines. Underlines follow font changes and wrapped words, while glyph baselines stay steady as annotations arrive.
+- Page annotations preserve proportional text spacing and the styling of links within a paragraph, without painting duplicate readings.
+- A stationary touchscreen tap can look up unannotated or newly streamed Japanese text. Subtitle pause, scrolling, holds and native controls keep their existing behaviour.
+
 ## [2.3.1] - 2026-11-04
 
 ### Added

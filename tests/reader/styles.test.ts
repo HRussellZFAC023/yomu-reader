@@ -48,8 +48,11 @@ it('lifts subtitle readings clear of the kanji by layout, not by a transform', (
         .map(match => match[1])
         .join(';');
     expect(declarations).toMatch(/line-height:\s*1;/u);
-    const lift = Number(declarations.match(/margin-top:\s*-(\d*\.?\d+)em;/u)?.[1]);
+    const playerDefaults = css.match(/\.jpdb-subtitle-player\s*\{([^}]*)\}/u)?.[1] ?? '';
+    const lift = Number(playerDefaults.match(/--subtitle-reading-rise:\s*(\d*\.?\d+);/u)?.[1]);
+    expect(lift).toBe(1.3);
     expect(lift).toBeGreaterThan(1);
+    expect(declarations).toMatch(/margin-top:\s*calc\(var\(--subtitle-reading-rise\)\s*\*\s*-1em\);/u);
     expect(declarations).not.toMatch(/transform:/u);
 });
 
@@ -392,7 +395,7 @@ describe('reader stylesheet loading', () => {
     it('keeps annotated words in the host page\'s face against host span and ruby rules', () => {
         // The computed result in real engines: scripts/annotation-typography-smoke.mjs.
         const css = readFileSync('src/reader/styles/reader-words-ocr.css', 'utf8');
-        const rule = css.match(/\.jpdb-reader-word\.jpdb-reader-scan-word,\n\.jpdb-reader-word\.jpdb-reader-scan-word ruby:where\(\.jpdb-reader-ruby\),\n\.jpdb-reader-word\.jpdb-reader-scan-word \.jpdb-reader-ruby-base \{[^}]*\}/)?.[0] ?? '';
+        const rule = css.match(/\.jpdb-reader-word\.jpdb-reader-scan-word,\r?\n\.jpdb-reader-word\.jpdb-reader-scan-word ruby:where\(\.jpdb-reader-ruby\),\r?\n\.jpdb-reader-word\.jpdb-reader-scan-word \.jpdb-reader-detached-ruby,\r?\n\.jpdb-reader-word\.jpdb-reader-scan-word \.jpdb-reader-ruby-base \{[^}]*\}/)?.[0] ?? '';
         for (const property of ['font-family', 'font-size', 'font-style', 'font-weight', 'font-feature-settings', 'letter-spacing']) {
             expect(rule).toContain(`${property}: inherit;`);
         }

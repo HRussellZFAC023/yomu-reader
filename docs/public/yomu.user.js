@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 2.3.1
+// @version 2.3.2
 // @author Henry Russell
 // @description Japanese pop-up dictionary with furigana, pitch accent, audio, subtitles, OCR and Study.
 // @license MIT
@@ -11,8 +11,8 @@
 // @updateURL https://update.greasyfork.org/scripts/581653/%E3%82%88%E3%82%80.meta.js
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-runtime.7af0989a2e25.user.js#sha256=evCYmi4ldY0PTRG0kjst/uaQRWTqrPhz4lW0syhA7Bo=
-// @resource yomuCss  https://yomureader.com/yomu.2f5e4cd86c3f.css#sha256=L15M2Gw/xpqAwPZBGLqUBSWHqd6p3DFpdfY061dHvXs=
+// @require https://yomureader.com/greasyfork/yomu-runtime.b92523c11f63.user.js#sha256=uSUjwR9jeVB40igfcSqbRwzt2DQWunrq581l2r6l3I8=
+// @resource yomuCss  https://yomureader.com/yomu.95df5389e4e2.css#sha256=ld9TieTiWI71U5VET+3pFj8/1duCA0ngHnfm7W2TM3Q=
 // @connect api.jiten.moe
 // @connect api.tatoeba.org
 // @connect tatoeba.org
@@ -6335,6 +6335,49 @@ return source === "jiten" ? card.jitenReadingIndex ?? card.sid : card.sid;
 function yieldToNextTask() {
 return new Promise((resolve) => window.setTimeout(resolve, 0));
 }
+function setImportantStyleIfChanged(element, property, value) {
+setInlineStyleIfChanged(element, property, value, "important");
+}
+function setInlineStyleIfChanged(element, property, value, priority2 = "") {
+if (element.style.getPropertyValue(property) === value && element.style.getPropertyPriority(property) === priority2) return;
+element.style.setProperty(property, value, priority2);
+}
+const CSS_PIXEL_SIGNIFICANT_DIGITS = 6;
+const CSS_PIXEL_MINIMUM = 1e-6;
+function stableCssPixels(value) {
+if (!Number.isFinite(value) || Math.abs(value) < CSS_PIXEL_MINIMUM) return "0px";
+const magnitude = Math.floor(Math.log10(Math.abs(value)));
+const decimalPlaces = Math.max(0, Math.min(12, CSS_PIXEL_SIGNIFICANT_DIGITS - magnitude - 1));
+const rounded = Number(value.toFixed(decimalPlaces));
+return `${Object.is(rounded, -0) ? 0 : rounded}px`;
+}
+const FONT_PROPERTIES = [
+"font-family",
+"font-size",
+"font-style",
+"font-weight",
+"font-stretch",
+"font-variant",
+"font-feature-settings",
+"font-kerning",
+"letter-spacing",
+"word-spacing"
+];
+const INLINE_PRESENTATION_PROPERTIES = [...FONT_PROPERTIES, "line-height", "color", "direction", "writing-mode"];
+function typographyRequiresSourceProjection(style) {
+let enabled = false;
+for (const match of (style.fontFeatureSettings || "normal").matchAll(/["']palt["'](?:\s+(on|off|\d+))?/gu)) {
+const value = match[1];
+enabled = value === void 0 || value === "on" || Number(value) > 0;
+}
+return enabled;
+}
+function sameSourcePresentation(first, second) {
+return INLINE_PRESENTATION_PROPERTIES.every((property) => first.getPropertyValue(property) === second.getPropertyValue(property));
+}
+function copySourceTypography(element, style, priority2 = "") {
+FONT_PROPERTIES.forEach((property) => setInlineStyleIfChanged(element, property, style.getPropertyValue(property), priority2));
+}
 const READER_ROOT_SELECTOR$3 = "[data-jpdb-reader-root]";
 function runtime() {
 const targetRuntime = yomuLearningTargetRuntime();
@@ -6494,22 +6537,6 @@ if (/transform|filter|perspective/.test(style.willChange) || /layout|paint|stric
 }
 return true;
 }
-function setImportantStyleIfChanged(element, property, value) {
-setInlineStyleIfChanged(element, property, value, "important");
-}
-function setInlineStyleIfChanged(element, property, value, priority2 = "") {
-if (element.style.getPropertyValue(property) === value && element.style.getPropertyPriority(property) === priority2) return;
-element.style.setProperty(property, value, priority2);
-}
-const CSS_PIXEL_SIGNIFICANT_DIGITS = 6;
-const CSS_PIXEL_MINIMUM = 1e-6;
-function stableCssPixels(value) {
-if (!Number.isFinite(value) || Math.abs(value) < CSS_PIXEL_MINIMUM) return "0px";
-const magnitude = Math.floor(Math.log10(Math.abs(value)));
-const decimalPlaces = Math.max(0, Math.min(12, CSS_PIXEL_SIGNIFICANT_DIGITS - magnitude - 1));
-const rounded = Number(value.toFixed(decimalPlaces));
-return `${Object.is(rounded, -0) ? 0 : rounded}px`;
-}
 function withProjectedReadingBatch(document2, callback) {
 const companion = yomuAnnotationsCompanion();
 return companion ? companion.withProjectedReadingBatch(document2, callback) : callback();
@@ -6537,7 +6564,7 @@ const detachedRubies = elementsWithin(roots, ".jpdb-reader-detached-ruby");
 if (!detachedRubies.length) return;
 const hostStyle = safeComputedStyle(host);
 const hostFontSize = Number.parseFloat(hostStyle.fontSize) || 16;
-const readingFontSize = Math.max(10, hostFontSize * 0.6);
+const readingFontSize = typographyRequiresSourceProjection(hostStyle) ? Math.max(8, hostFontSize * 0.5) : Math.max(10, hostFontSize * 0.6);
 for (const wrapper of detachedRubies) {
 setInlineStyleIfChanged(wrapper, "position", "relative", "important");
 setInlineStyleIfChanged(wrapper, "display", "inline-block", "important");
@@ -6588,6 +6615,7 @@ mirror.style.cssText = [
 ].join(";");
 const paint = documentAnnotationPortalPaint(mirror);
 paint.style.cssText = [
+"all:inherit!important",
 "display:block!important",
 "position:absolute!important",
 "inset:0 auto auto 0!important",
@@ -6601,11 +6629,8 @@ paint.style.cssText = [
 ].join(";");
 structurallyStyledPortalMirrors.add(mirror);
 }
-mirror.style.setProperty("font", style.font, "important");
-mirror.style.setProperty("font-size", style.fontSize, "important");
-mirror.style.setProperty("font-weight", style.fontWeight, "important");
+copySourceTypography(mirror, style, "important");
 mirror.style.setProperty("line-height", style.lineHeight, "important");
-mirror.style.setProperty("letter-spacing", style.letterSpacing, "important");
 mirror.style.setProperty("direction", style.direction, "important");
 mirror.style.setProperty("writing-mode", style.writingMode, "important");
 mirror.style.setProperty("color", style.color, "important");
@@ -9481,7 +9506,7 @@ return false;
 }
 function scanHostRequiresSourcePreservingMirror(host) {
 if (host.closest('[contenteditable="true"]')) return false;
-return elementIsFrameworkManaged(host);
+return elementIsFrameworkManaged(host) || typographyRequiresSourceProjection(safeComputedStyle(host));
 }
 function stampTargetDecoration(target, host) {
 const decoration = target.decoration;
@@ -9513,10 +9538,10 @@ return scanTargetPaintRoots(sourceScope, applyTokensToReactiveLeafMirrors(target
 }
 const nonDestructiveHost = nonDestructiveScanHost(target);
 stampTargetDecoration(target, nonDestructiveHost);
-const sourcePreservingFrameworkHost = !target.nonDestructive && scanHostRequiresSourcePreservingMirror(nonDestructiveHost);
-const repaintLooping = !target.nonDestructive && !target.suppressRepaintLoopMirror && !sourcePreservingFrameworkHost ? scanHostIsRepaintLooping(nonDestructiveHost, target.text) : false;
+const sourcePreservingHost = !target.nonDestructive && scanHostRequiresSourcePreservingMirror(nonDestructiveHost);
+const repaintLooping = !target.nonDestructive && !target.suppressRepaintLoopMirror && !sourcePreservingHost ? scanHostIsRepaintLooping(nonDestructiveHost, target.text) : false;
 const canUseRequestedNonDestructiveMirror = target.nonDestructive && !nonDestructiveTargetShouldRenderInline(target, nonDestructiveHost);
-if ((!target.forceInlineRender || repaintLooping) && (canUseRequestedNonDestructiveMirror || sourcePreservingFrameworkHost || repaintLooping)) {
+if ((!target.forceInlineRender || repaintLooping) && (canUseRequestedNonDestructiveMirror || sourcePreservingHost || repaintLooping)) {
 applyTokensToNonDestructiveScanTarget(target, tokens, settings2);
 return scanTargetPaintRoots(sourceScope, [currentTextMirror(nonDestructiveHost)]);
 }
@@ -9534,13 +9559,17 @@ function targetRequiresReactiveLeafMirrors(target) {
 const parents = target.fragments.map((fragment) => fragment.node.parentElement).filter((parent) => Boolean(parent));
 const uniqueParents = [...new Set(parents)];
 if (uniqueParents.length < 2) return false;
-if (uniqueParents.some((parent) => uniqueParents.every((candidate) => parent.contains(candidate)))) return false;
-return Boolean(target.nonDestructive) || uniqueParents.some((parent) => scanHostRequiresSourcePreservingMirror(parent));
+const preservesSource = Boolean(target.nonDestructive) || uniqueParents.some((parent) => scanHostRequiresSourcePreservingMirror(parent));
+if (!preservesSource) return false;
+const common = uniqueParents.find((parent) => uniqueParents.every((candidate) => parent.contains(candidate)));
+const proportional = uniqueParents.some((parent) => typographyRequiresSourceProjection(safeComputedStyle(parent)));
+if (common && uniqueParents.every((parent) => parent.closest(PASSIVE_INTERACTION_SELECTOR) === common.closest(PASSIVE_INTERACTION_SELECTOR) && (!proportional || sameSourcePresentation(safeComputedStyle(common), safeComputedStyle(parent))))) return false;
+return true;
 }
 function applyTokensToReactiveLeafMirrors(target, tokens, settings2) {
 const mirrors = [];
 const indexed = indexTextFragments(target.fragments);
-for (const run of reactiveLeafRuns(indexed)) {
+for (const run of reactiveLeafRuns(indexed, target.parent)) {
 const text2 = target.text.slice(run.globalStart, run.globalEnd);
 const runTokens = tokens.map((token) => tokenPieceForReactiveLeaf(token, run.globalStart, run.globalEnd)).filter((token) => token !== null);
 if (!runTokens.length || !isTargetLanguageText(text2)) continue;
@@ -9567,11 +9596,12 @@ mirrors.push(currentTextMirror(host));
 }
 return mirrors;
 }
-function reactiveLeafRuns(fragments) {
+function reactiveLeafRuns(fragments, boundary) {
 const runs = [];
 for (const fragment of fragments) {
-const parent = fragment.node.parentElement;
-if (!parent) continue;
+const element = fragment.node.parentElement;
+if (!element) continue;
+const parent = sourceInlineOwner(element, boundary);
 const previous = runs[runs.length - 1];
 if (previous?.parent === parent && previous.globalEnd === fragment.globalStart) {
 previous.fragments.push(fragment);
@@ -9586,6 +9616,19 @@ globalEnd: fragment.globalEnd
 }
 }
 return runs;
+}
+function sourceInlineOwner(element, boundary) {
+let owner = element;
+while (owner !== boundary && owner.parentElement) {
+const parent = owner.parentElement;
+const style = safeComputedStyle(owner);
+const parentStyle = safeComputedStyle(parent);
+if (style.display && style.display !== "inline" && style.display !== "contents") break;
+if (/(?:flex|grid|table)/u.test(parentStyle.display)) break;
+if (owner.closest(PASSIVE_INTERACTION_SELECTOR) !== parent.closest(PASSIVE_INTERACTION_SELECTOR) || !sameSourcePresentation(style, parentStyle)) break;
+owner = parent;
+}
+return owner;
 }
 function tokenPieceForReactiveLeaf(token, runStart, runEnd) {
 const start = Math.max(token.start, runStart);
@@ -11447,11 +11490,8 @@ mirror.style.setProperty("height", "auto");
 mirror.style.setProperty("overflow", "visible");
 mirror.style.setProperty("pointer-events", "none");
 mirror.style.setProperty("white-space", style.whiteSpace);
-mirror.style.setProperty("font", style.font);
-mirror.style.setProperty("font-size", style.fontSize);
-mirror.style.setProperty("font-weight", style.fontWeight);
+copySourceTypography(mirror, style);
 mirror.style.setProperty("line-height", hasRuby ? rubyFriendlyMirrorLineHeight(style) : style.lineHeight);
-mirror.style.setProperty("letter-spacing", style.letterSpacing);
 mirror.style.setProperty("text-align", style.textAlign);
 mirror.style.setProperty("z-index", "1");
 if (hasRuby) mirror.dataset.jpdbReaderHasRuby = "true";
@@ -29313,11 +29353,16 @@ const sourceLanguage = normalizeTranslationLanguage(options.sourceLanguage, { al
 const outputLanguage = normalizeTranslationLanguage(options.outputLanguage);
 if (sourceLanguage !== "auto" && sourceLanguage.toLowerCase() === outputLanguage.toLowerCase()) return original;
 const cacheKey = `${sourceLanguage}:${outputLanguage}:${original}`;
-return resolveTranslationRequest(cacheKey, original, {
+const translated = await resolveTranslationRequest(cacheKey, original, {
 ...options,
 sourceLanguage,
 outputLanguage
 });
+if (options.acceptResult && !options.acceptResult(translated)) {
+if (translationCache.get(cacheKey) === translated) translationCache.delete(cacheKey);
+throw new Error("Translation did not match the requested format.");
+}
+return translated;
 }
 function resolveTranslationRequest(cacheKey, original, options) {
 const cached = translationCache.get(cacheKey);
@@ -35522,6 +35567,7 @@ trackKindLoadedFile	読み込んだファイル
 trackStatusLoading	読み込み中
 trackStatusWaiting	字幕待機中
 trackStatusFailed	失敗
+trackStatusPartial	一部翻訳済み
 showKanji	漢字を表示
 strokePractice	筆順と練習
 practiceDrawing	手書き練習
@@ -37368,8 +37414,8 @@ function collapseWhitespace(value) {
 return value.replace(/\/\*[\s\S]*?\*\//gu, " ").replace(/\s+/gu, " ").trim();
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"2.3.1"}`;
-const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"2.3.1"}`;
+const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"2.3.2"}`;
+const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"2.3.2"}`;
 const READER_CSS_CACHE_KEY = "yomu:reader-css-cache:v3";
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
@@ -37512,7 +37558,7 @@ try {
 const url = new URL(href);
 if (!isHostedYomuPage(url)) return null;
 const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-return `${new URL(path, url.origin).href}?v=${"2.3.1"}`;
+return `${new URL(path, url.origin).href}?v=${"2.3.2"}`;
 } catch {
 return null;
 }
@@ -39391,6 +39437,52 @@ isStationary(point) {
 return Boolean(point && this.point && Math.abs(this.point.x - point.x) < 0.01 && Math.abs(this.point.y - point.y) < 0.01);
 }
 }
+const TAP_MOVEMENT_PX = 12;
+class PointerLookupTap {
+pending;
+completed;
+reset() {
+this.pending = void 0;
+this.completed = void 0;
+}
+begin(event, word) {
+this.pending = { id: event.pointerId, x: event.clientX, y: event.clientY, word, startedAt: Date.now() };
+}
+update(event) {
+const tap = this.pending;
+if (!tap || tap.id !== event.pointerId) return;
+if (!this.containsRelease(tap, event)) this.reset();
+}
+finish(event) {
+const tap = this.pending;
+if (!tap || tap.id !== event.pointerId) return void 0;
+this.reset();
+return this.containsRelease(tap, event) ? tap : void 0;
+}
+cancel(event) {
+const tap = this.pending;
+if (tap && tap.id === event.pointerId) this.reset();
+}
+suppressCompatibilityClick(event) {
+this.completed = { target: event.target, x: event.clientX, y: event.clientY, expiresAt: Date.now() + 700 };
+}
+consumeCompatibilityClick(event) {
+const tap = this.completed;
+if (!tap) return false;
+if (Date.now() > tap.expiresAt) {
+this.completed = void 0;
+return false;
+}
+if (!event.detail || event.target !== tap.target || Math.hypot(event.clientX - tap.x, event.clientY - tap.y) > 25) return false;
+this.completed = void 0;
+event.preventDefault();
+event.stopPropagation();
+return true;
+}
+containsRelease(tap, event) {
+return Math.hypot(event.clientX - tap.x, event.clientY - tap.y) <= TAP_MOVEMENT_PX;
+}
+}
 function currentFullscreenElement(sourceDocument = document) {
 const fullscreenDocument = sourceDocument;
 return sourceDocument.fullscreenElement ?? fullscreenDocument.webkitFullscreenElement ?? fullscreenDocument.mozFullScreenElement ?? fullscreenDocument.msFullscreenElement ?? null;
@@ -40823,7 +40915,7 @@ suppressPenHoverUntil = 0;
 pageHasJapaneseText = false;
 embeddedFrame = false;
 pressLookup;
-tapLookup;
+tapLookup = new PointerLookupTap();
 linkPressLookup;
 suppressLinkContextMenuUntil = 0;
 suppressMiddleAuxClickUntil = 0;
@@ -42532,6 +42624,7 @@ if (this.activePopoverMode === "hover") this.scheduleHoverClose(0, { ignoreCssHo
 }
 handleDocumentClick(event) {
 if (!isTrustedReaderInteraction(event)) return;
+if (this.tapLookup.consumeCompatibilityClick(event)) return;
 const target = this.documentClickTarget(event);
 if (!target) return;
 if (this.handleDocumentReaderWordClick(event, target)) return;
@@ -42554,8 +42647,8 @@ return true;
 }
 handleDocumentNonWordClick(event) {
 const insideActivePopover = this.activePopoverMode === "modal" && this.isInsideActivePopover(event.target);
-if (this.pauseForSubtitleSurfaceTap(event)) return;
-this.handleDocumentLookupCandidateClick(event, insideActivePopover);
+if (this.pauseForSubtitleSurfaceTap(event)) return true;
+return this.handleDocumentLookupCandidateClick(event, insideActivePopover);
 }
 handleDocumentKeyup(event) {
 this.pressedKeys.delete(normalizePressedKey(event.key));
@@ -42567,10 +42660,10 @@ shouldCloseHoverAfterKeyup(event) {
 return Boolean(this.settings.shortcuts.hoverLookup?.trim()) && !this.shouldLookupOnHover(event);
 }
 handleDocumentLookupCandidateClick(event, insideActivePopover) {
-if (this.settings.popupActivationMode === "off" && !insideActivePopover) return;
-if (!this.settings.lookupOnClick && !insideActivePopover) return;
+if (this.settings.popupActivationMode === "off" && !insideActivePopover) return false;
+if (!this.settings.lookupOnClick && !insideActivePopover) return false;
 const candidate = this.lookupCandidateFromPoint(event.clientX, event.clientY, event.target);
-if (!candidate) return;
+if (!candidate) return false;
 event.preventDefault();
 event.stopPropagation();
 this.prepareModalLookupFromPointer(event);
@@ -42579,6 +42672,7 @@ navigation: insideActivePopover ? "push-current" : "reset",
 preservePosition: insideActivePopover,
 userGesture: true
 });
+return true;
 }
 handleReaderWordClick(event, word) {
 const surfaces = this.readerWordClickSurfaces(event, word);
@@ -42586,27 +42680,28 @@ if (!surfaces) return;
 this.openReaderWordFromPointer(event, word, surfaces);
 }
 beginTapLookup(event) {
-this.tapLookup = void 0;
+this.tapLookup.reset();
 if (this.isDestroyed || event.button !== 0 || event.isPrimary === false || event.pointerType !== "touch" && event.pointerType !== "pen" || this.isInsideActivePopover(event.target)) return;
 const word = this.readerWordForPointerEvent(event, { clickLookup: true });
 if (word && this.isNativeWord(word)) return;
 if (word && !this.readerWordClickSurfaces(event, word)) return;
-this.tapLookup = { id: event.pointerId, x: event.clientX, y: event.clientY, word: word ?? void 0 };
+this.tapLookup.begin(event, word ?? void 0);
 if (word) this.primeLookupAudioFromGesture();
 }
 updateTapLookup(event) {
-const tap = this.tapLookup;
-if (!tap || tap.id !== event.pointerId) return;
-if (Math.hypot(event.clientX - tap.x, event.clientY - tap.y) > 12) this.tapLookup = void 0;
+this.tapLookup.update(event);
 }
 finishTapLookup(event) {
-const tap = this.tapLookup;
-if (!tap || tap.id !== event.pointerId) return;
-this.tapLookup = void 0;
+const tap = this.tapLookup.finish(event);
+if (!tap) return;
 const releaseWord = this.readerWordForPointerEvent(event, { clickLookup: true });
 const fallbackWord = tap.word?.isConnected && this.readerWordMatchesPointerGeometry(tap.word, event.clientX, event.clientY) ? tap.word : void 0;
 const word = releaseWord ?? fallbackWord;
-if (!word?.isConnected) return;
+if (!word?.isConnected) {
+if (Date.now() - tap.startedAt >= LINK_PRESS_LOOKUP_MS || !this.documentClickTarget(event)) return;
+if (this.handleDocumentNonWordClick(event)) this.tapLookup.suppressCompatibilityClick(event);
+return;
+}
 const surfaces = this.readerWordClickSurfaces(event, word);
 if (!surfaces) return;
 this.suppressWordClickUntil = Date.now() + 700;
@@ -42614,8 +42709,7 @@ if (word) this.primeLookupAudioFromGesture();
 this.openReaderWordFromPointer(event, word, surfaces);
 }
 cancelTapLookup(event) {
-const tap = this.tapLookup;
-if (tap && tap.id === event.pointerId) this.tapLookup = void 0;
+this.tapLookup.cancel(event);
 }
 beginLinkPressLookup(event) {
 this.clearLinkPressLookup();

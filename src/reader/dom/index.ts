@@ -2022,8 +2022,11 @@ function targetRequiresReactiveLeafMirrors(target: FragmentTextTarget): boolean 
     // split genuinely independent leaves; otherwise later discontiguous runs on
     // the same outer parent would replace the earlier mirror and lose a glyph.
     const common = uniqueParents.find(parent => uniqueParents.every(candidate => parent.contains(candidate)));
+    // Legacy inline emphasis keeps its component host. Proportional shaping
+    // additionally needs one uniform font source for each projected leaf.
+    const proportional = uniqueParents.some(parent => typographyRequiresSourceProjection(safeComputedStyle(parent)));
     if (common && uniqueParents.every(parent => parent.closest(PASSIVE_INTERACTION_SELECTOR) === common.closest(PASSIVE_INTERACTION_SELECTOR)
-        && sameSourcePresentation(safeComputedStyle(common), safeComputedStyle(parent)))) return false;
+        && (!proportional || sameSourcePresentation(safeComputedStyle(common), safeComputedStyle(parent))))) return false;
     // Explicit non-destructive profiles (including generic dynamic-page
     // adapters) carry the same source-preservation promise even when a
     // framework exposes no private ownership marker. Never flatten their

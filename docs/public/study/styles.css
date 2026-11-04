@@ -7046,6 +7046,7 @@ button.jpdb-reader-newtab-study-hint-btn:active {
 .jpdb-reader-number-bind.jpdb-reader-number-bind,
 .jpdb-reader-word.jpdb-reader-scan-word,
 .jpdb-reader-word.jpdb-reader-scan-word ruby:where(.jpdb-reader-ruby),
+.jpdb-reader-word.jpdb-reader-scan-word .jpdb-reader-detached-ruby,
 .jpdb-reader-word.jpdb-reader-scan-word .jpdb-reader-ruby-base {
   font-family: inherit;
   font-size: inherit;
@@ -18294,6 +18295,8 @@ html.jpdb-reader-doodle-active * {
   --subtitle-background-rgba: rgba(0, 0, 0, .75);
   --subtitle-family: var(--jpdb-reader-font);
   --subtitle-weight: 760;
+  --subtitle-reading-scale: .58;
+  --subtitle-reading-rise: 1.3;
 }
 .jpdb-subtitle-player[hidden] {
   display: none !important;
@@ -18348,15 +18351,23 @@ html.jpdb-reader-doodle-active * {
   pointer-events: none;
 }
 .jpdb-subtitle-primary-row {
+  --subtitle-reading-lane: calc(var(--subtitle-reading-scale) * var(--subtitle-reading-rise));
+  --subtitle-active-reading-lane: 0;
+  --subtitle-primary-leading: max(.36, var(--subtitle-active-reading-lane));
+  --subtitle-primary-line-height: calc(1 + var(--subtitle-primary-leading));
+  --subtitle-edge-space: calc((max(.36, var(--subtitle-reading-lane)) - var(--subtitle-primary-leading)) * .5em);
   min-width: 0;
   grid-row: 1;
-  padding: .18em .45em 0;
+  padding: calc(var(--subtitle-active-reading-lane) * 1em + var(--subtitle-edge-space)) .45em var(--subtitle-edge-space);
   border-radius: .25em;
   background: var(--subtitle-background-rgba);
-  /* A full reading lane on EVERY line, including plain/loading/kana cues. */
-  line-height: 2.2;
+  /* Reserve the reading's ascent on each eligible line and before the first.
+     Equal edge leading keeps the last base baseline stable when readings hide. */
+  line-height: var(--subtitle-primary-line-height);
   word-break: normal;
 }
+.jpdb-subtitle-primary-row.jpdb-subtitle-has-kanji { --subtitle-active-reading-lane: var(--subtitle-reading-lane); }
+.yomu-furi-off .jpdb-subtitle-primary-row { --subtitle-active-reading-lane: 0; }
 .jpdb-subtitle-primary-row > .jpdb-subtitle-primary { display: block; }
 .jpdb-subtitle-lines:not(.jpdb-subtitle-has-primary) .jpdb-subtitle-primary-row { display: none; }
 .jpdb-subtitle-lines.jpdb-subtitle-has-secondary .jpdb-subtitle-primary-row { border-radius: .25em .25em 0 0; }
@@ -18551,7 +18562,7 @@ html.jpdb-subtitle-yt-sheet-open .asbplayer-subtitles-container-bottom.jpdb-subt
 /* Captions over footage keep their larger, bold reading; on-page readings
    are half-size and regular (reader-words-ocr.css). */
 .jpdb-subtitle-primary .jpdb-reader-furi {
-  font-size: .58em !important;
+  font-size: calc(var(--subtitle-reading-scale) * 1em) !important;
   font-weight: 700;
 }
 .jpdb-subtitle-primary:empty {
@@ -18679,7 +18690,27 @@ html.jpdb-subtitle-yt-sheet-open .asbplayer-subtitles-container-bottom.jpdb-subt
   paint-order: stroke fill;
 }
 .jpdb-subtitle-primary .jpdb-reader-word::after {
+  /* The caption row reserves a reading lane in its line-height. That leading
+     spaces lines, but is not part of the base glyph's underline position. */
+  inset-block-end: calc((var(--subtitle-primary-line-height, 1.36) - 1) * .5em);
+  inset-block-end: calc((1lh - 1em) / 2);
   text-shadow: none !important;
+}
+.jpdb-subtitle-primary .jpdb-reader-word[data-yomu-subtitle-wrapped]::after {
+  display: none;
+}
+.jpdb-subtitle-primary [data-yomu-subtitle-fragment] {
+  height: 0;
+  background: none;
+}
+.jpdb-reader-subtitle-underline-pitch .jpdb-subtitle-primary
+  .jpdb-reader-word[data-pitch-components="true"] [data-yomu-subtitle-fragment]::after {
+  height: var(--jpdb-reader-word-underline-thickness);
+  border-block-end: 0;
+  background-image: var(--jpdb-reader-inline-pitch-gradient);
+  background-repeat: no-repeat;
+  background-size: var(--jpdb-reader-source-gradient-width) 100%;
+  background-position: var(--jpdb-reader-source-gradient-offset) 0;
 }
 
 /* Touch/pen tap targets for subtitle words. any-pointer:coarse (not the primary
@@ -18908,7 +18939,7 @@ html.jpdb-subtitle-yt-sheet-open .asbplayer-subtitles-container-bottom.jpdb-subt
      reading from 17.6 to 4.2. Measured by
      scripts/subtitle-furigana-outline-scale-smoke.mjs. */
   line-height: 1;
-  margin-top: -1.3em;
+  margin-top: calc(var(--subtitle-reading-rise) * -1em);
   text-align: center;
 }
 /* Second selector matches the same element in light mode at higher specificity
