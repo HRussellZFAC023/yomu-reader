@@ -96,7 +96,7 @@ printPolicy();
 
 function printPolicy() {
     console.log(
-        `[content-retention] policy: current built + hosted headers, latest ${RELEASE_RETENTION_COUNT} release tags, `
+        `[content-retention] policy: current built + hosted headers, ${RELEASE_RETENTION_COUNT} prior release tags, `
         + `${RELEASE_RETENTION_COUNT} recent hosted headers, and ${SUPPORTED_RELEASE_REFS.join(', ')} `
         + `(source: ${shallow ? RETENTION_MANIFEST_PATH : 'git history'}).`,
     );

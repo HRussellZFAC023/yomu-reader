@@ -24,6 +24,7 @@ const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     'Paste text': 'テキストを貼り付ける',
     'in the lookup window. Wayland uses this fallback too. よむ does not press Copy, change your clipboard, or watch it in the background. Selections are limited to 20,000 characters and are discarded when the lookup window closes.': '。Waylandでもこの方法を使います。よむはコピーのキー操作、クリップボードの変更、バックグラウンドでの監視を行いません。選択は2万文字以内で、検索ウィンドウを閉じると破棄されます。',
     'Screen reading uses Google Lens and needs a connection. Settings can switch to your own Cloud Vision key or a local OCR server. Selected-text lookup skips OCR; dictionary services follow your saved settings.': '画面読み取りはGoogle Lensを使うため接続が必要です。設定で自分のCloud VisionキーやローカルOCRサーバーに変更できます。選択テキストの検索ではOCRを使わず、辞書サービスは保存した設定に従います。',
+    "The userscript and website reached 2.3.0, but the tagged GitHub and browser-store release did not complete. The complete release ships in 2.3.1.": "ユーザースクリプトとウェブサイトは2.3.0になりましたが、GitHubとブラウザーストア向けのタグ付きリリースは完了しませんでした。完全なリリースは2.3.1で公開します。",
     "The tagged 2.2.1 release did not complete. The fixes ship in 2.2.2.": "2.2.1のタグによるリリースは完了しませんでした。修正は2.2.2に含まれます。",
     "Firefox lookup recognizes complete inflected words before question particles, including 決まりました in 決まりましたか. Hovering or clicking opens the full word. (": "Firefoxでも、「決まりましたか」の「決まりました」など、疑問を表す助詞の前にある活用語を正しく認識するようにしました。ホバーまたはクリックすると、単語全体の検索結果が開きます。 (",
     "Opening Settings no longer starts a Study review or flashes a cached card. Closing Settings starts Study normally. (": "設定を開いても学習ページの復習が始まらず、キャッシュ済みのカードも一瞬表示されなくなりました。設定を閉じると、通常どおり学習が始まります。 (",
