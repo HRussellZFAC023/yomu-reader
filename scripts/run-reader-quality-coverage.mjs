@@ -28,7 +28,7 @@ const scopes = {
             'jpdb/01-jpdb-api-deck-parse', 'content-addressed-retention',
             'subtitle-cue-markup', 'subtitle-host-column', 'subtitle-word-geometry',
             'subtitle-paint-state', 'subtitle-paint-commit', 'subtitle-youtube-loader-policy',
-            'source-preserving-typography',
+            'source-preserving-typography', 'visible-page-scanner-word-handover',
         ],
         directories: ['subtitles-controller'],
     },
