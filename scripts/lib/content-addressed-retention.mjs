@@ -93,7 +93,7 @@ export function contentAddressedRetentionManifest(root) {
  *
  * This used to demand byte equality with a freshly computed manifest, which made
  * the gate fail on ordinary release churn: the window is "the latest
- * RELEASE_RETENTION_COUNT release tags", so every release shifts it, the committed
+ * RELEASE_RETENTION_COUNT prior release tags", so every release shifts it, the committed
  * file stops matching, and `check:release` went red at its second stage for
  * everyone until somebody ran `npm run assets:prune`. It blocked two multilingual
  * waves and was misdiagnosed once as missing pinned assets (A43).
@@ -194,8 +194,8 @@ export function contentAddressedRetentionReport(root) {
 function supportedHeaders(root) {
     const headers = workingHeaders(root);
     const currentHeaderCodes = new Set(headers.map(header => header.code.trim()));
-    const releaseTags = reachableReleaseTags(root).slice(0, RELEASE_RETENTION_COUNT);
-    for (const ref of new Set([...releaseTags, ...SUPPORTED_RELEASE_REFS])) {
+    headers.push(...recentReleaseHeaders(root, currentHeaderCodes));
+    for (const ref of SUPPORTED_RELEASE_REFS) {
         if (!hasGitRef(root, ref)) continue;
         headers.push(...gitHeader(root, ref, 'dist/yomu.user.js'));
     }
@@ -209,6 +209,21 @@ function supportedHeaders(root) {
         headers.push(header);
     }
     return headers;
+}
+
+function recentReleaseHeaders(root, currentHeaderCodes) {
+    const historical = [];
+    let releases = 0;
+    for (const ref of reachableReleaseTags(root)) {
+        const headers = gitHeader(root, ref, 'dist/yomu.user.js');
+        // Current pins are retained separately; publishing their tag must not
+        // consume a historical slot and prune an unrelated prior release.
+        if (headers.some(header => currentHeaderCodes.has(header.code.trim()))) continue;
+        historical.push(...headers);
+        releases += 1;
+        if (releases === RELEASE_RETENTION_COUNT) break;
+    }
+    return historical;
 }
 
 function workingHeaders(root) {

@@ -74,10 +74,12 @@ function cloneRepository(source: string, options: string[]): string {
 }
 
 function writeNextBuild(root: string): void {
-    const next = header('555555555555', '666666666666');
+    writeCurrentBuild(root, header('555555555555', '666666666666'));
+}
+
+function writeCurrentBuild(root: string, next: string): void {
     write(root, 'dist/yomu.user.js', next); write(root, 'docs/public/yomu.user.js', next);
-    write(root, 'docs/public/greasyfork/yomu-runtime.555555555555.user.js');
-    write(root, 'docs/public/yomu.666666666666.css');
+    for (const path of pinnedArtifactPaths(next)) write(root, path);
 }
 
 function expectPriorReleaseBytes(root: string): void {
@@ -156,6 +158,47 @@ describe('content-addressed artifact retention', () => {
             'docs/public/greasyfork/yomu-runtime.aaaaaaaaaaaa.user.js',
             'docs/public/yomu.bbbbbbbbbbbb.css',
         ]);
+    });
+
+    it('keeps the same historical release pins when the current header receives its release tag', () => {
+        const root = mkdtempSync(join(tmpdir(), 'yomu-retention-tag-transition-'));
+        repositories.push(root);
+        git(root, 'init', '--quiet');
+        git(root, 'config', 'user.name', 'retention test');
+        git(root, 'config', 'user.email', 'retention@example.test');
+        const oldest = header('111111111111', '222222222222');
+        const hosted = header('333333333333', '444444444444');
+        write(root, 'dist/yomu.user.js', oldest);
+        write(root, 'docs/public/yomu.user.js', hosted);
+        for (const path of pinnedArtifactPaths(oldest + hosted)) write(root, path);
+        git(root, 'add', '.'); git(root, 'commit', '--quiet', '-m', 'oldest release has a unique dist-only pin');
+        git(root, '-c', 'tag.gpgSign=false', 'tag', 'v1.0.0');
+
+        write(root, 'dist/yomu.user.js', hosted);
+        git(root, 'add', '.'); git(root, 'commit', '--quiet', '-m', 'later historical release');
+        for (let index = 1; index < RELEASE_RETENTION_COUNT; index += 1) {
+            git(root, '-c', 'tag.gpgSign=false', 'tag', `v1.0.${index}`);
+        }
+        const current = header('555555555555', '666666666666').replace('// ==UserScript==', '// ==UserScript==\n// @version 2.3.1');
+        writeCurrentBuild(root, current);
+        git(root, 'add', '.'); git(root, 'commit', '--quiet', '-m', 'current release before publication');
+        const before = contentAddressedRetentionManifest(root);
+        const report = contentAddressedRetentionReport(root);
+        expect(before.retainedPaths).toEqual(expect.arrayContaining([...pinnedArtifactPaths(oldest)]));
+        expect(report.stale).toEqual([]);
+
+        git(root, '-c', 'tag.gpgSign=false', 'tag', 'v2.3.1');
+
+        expect(contentAddressedRetentionManifest(root)).toEqual(before);
+        expect(contentAddressedRetentionReport(root)).toEqual(report);
+
+        const rebuilt = header('777777777777', '888888888888').replace('// ==UserScript==', '// ==UserScript==\n// @version 2.3.1');
+        writeCurrentBuild(root, rebuilt);
+        git(root, 'add', '.'); git(root, 'commit', '--quiet', '-m', 'different current bytes under the same version');
+
+        const rebuiltReport = contentAddressedRetentionReport(root);
+        expect(rebuiltReport.stale).toEqual([...pinnedArtifactPaths(oldest)].sort());
+        expect(rebuiltReport.retained).toEqual(expect.arrayContaining([...pinnedArtifactPaths(current)]));
     });
 
     it('fails closed when a supported header pins a file that is absent', () => {
