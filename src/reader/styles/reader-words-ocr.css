@@ -69,6 +69,7 @@
 .jpdb-reader-number-bind.jpdb-reader-number-bind,
 .jpdb-reader-word.jpdb-reader-scan-word,
 .jpdb-reader-word.jpdb-reader-scan-word ruby:where(.jpdb-reader-ruby),
+.jpdb-reader-word.jpdb-reader-scan-word .jpdb-reader-detached-ruby,
 .jpdb-reader-word.jpdb-reader-scan-word .jpdb-reader-ruby-base {
   font-family: inherit;
   font-size: inherit;

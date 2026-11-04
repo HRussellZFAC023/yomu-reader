@@ -24,10 +24,11 @@ export const AOZORA_CSS_URL = new URL('../../aozora.css', loadRecording(AOZORA_S
 export function aozoraParagraphsMechanismFixture() {
     const html = loadRecording(AOZORA_SLUG).documentHtml();
     const { start, end } = mainTextBounds(html);
-    const body = html.slice(start, end).split('\n').map(line => {
+    const body = html.slice(start, end).split(/\r?\n/u).map(line => {
         const text = line.match(PARAGRAPH_LINE)?.[1];
         return text ? `<p>${text}</p>` : line;
     }).join('\n');
+    if (!body.includes('<p>')) throw new Error(`${AOZORA_SLUG}: no paragraph lines extracted from the recording`);
     return fulfilled(`${html.slice(0, start)}<article>${body}</article>${html.slice(end)}`.replace('</head>', '<style>.main_text p{margin:0}</style></head>'));
 }
 
@@ -52,7 +53,9 @@ body{margin:0;font-family:serif}
 function aozoraParagraphHtml() {
     const html = loadRecording(AOZORA_SLUG).documentHtml();
     const { start, end } = mainTextBounds(html);
-    return html.slice(start, end).split('\n').flatMap(line => line.match(PARAGRAPH_LINE)?.[1] ?? []);
+    const paragraphs = html.slice(start, end).split(/\r?\n/u).flatMap(line => line.match(PARAGRAPH_LINE)?.[1] ?? []);
+    if (!paragraphs.length) throw new Error(`${AOZORA_SLUG}: no paragraph lines extracted from the recording`);
+    return paragraphs;
 }
 
 function mainTextBounds(html) {

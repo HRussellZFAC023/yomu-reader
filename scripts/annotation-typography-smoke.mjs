@@ -29,6 +29,8 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { chromium, webkit } from 'playwright';
+import { build } from 'esbuild';
+import { fitReadingLane } from '../src/reader/dom/reading-lane-layout.ts';
 import {
     addGmStorageBridgeInitScript,
     assert,
@@ -50,6 +52,10 @@ const DIST = process.env.YOMU_TYPOGRAPHY_DIST ? path.resolve(process.env.YOMU_TY
 const SCRIPT_PATH = path.join(DIST, 'yomu.user.js');
 const CSS_PATH = path.join(DIST, 'yomu.css');
 const OUT = path.join(paths.artifacts, 'annotation-typography');
+const projectionLookupProbe = (await build({ bundle: true, write: false, format: 'iife', platform: 'browser', logLevel: 'silent', stdin: {
+    resolveDir: paths.root,
+    contents: 'import { projectedReadingWordAtPoint } from "./src/reader/dom/detached-reading-overlay.ts"; Object.assign(window, { __yomuTypographyReadingOwner: projectedReadingWordAtPoint });',
+} })).outputFiles[0].text;
 const ENGINES = (process.env.YOMU_TYPOGRAPHY_ENGINES ?? 'chromium,webkit').split(',').map(name => name.trim()).filter(Boolean);
 const THEMES = { light: { paper: '#ffffff', ink: '#202122' }, dark: { paper: '#101418', ink: '#eaecf0' } };
 
@@ -213,19 +219,25 @@ async function checkScenario(browser, engine, theme) {
             return measured;
         }, OVERHANG_SPANS);
         await addScriptTagWithCspFallback(page, SCRIPT_PATH);
-        await page.waitForFunction(() => document.querySelectorAll('#sentence .jpdb-reader-word').length >= 10
+        await page.addScriptTag({ content: projectionLookupProbe });
+        await page.waitForFunction(() => {
+            const sentence = document.querySelector('#sentence');
+            const scope = sentence.querySelector('.jpdb-reader-word') ? sentence
+                : Array.from(document.querySelectorAll('.jpdb-reader-text-mirror')).find(mirror => mirror.dataset.sourceText === sentence.textContent);
+            return scope?.querySelectorAll('.jpdb-reader-word').length >= 10
             && document.querySelectorAll('#linked .jpdb-reader-word').length >= 5
             && document.querySelectorAll('#overhang rt').length >= 6
             && document.querySelector('#line-head rt')
             && document.querySelector('#line-tail rt')
             && document.querySelector('#vertical rt')
-            && document.querySelector('#sentence .jpdb-reader-word.jpdb-new')?.style.getPropertyValue('--jpdb-reader-word-accessible-underline'),
+            && scope.querySelector('.jpdb-reader-word.jpdb-new')?.style.getPropertyValue('--jpdb-reader-word-accessible-underline');
+        },
         null, { timeout: 30_000 });
         await page.waitForTimeout(600);
         await page.mouse.move(2, 2);
         await page.waitForTimeout(200);
         await page.locator('main').screenshot({ path: path.join(OUT, `${id}.png`) });
-        const measured = await page.evaluate(measurePage);
+        const measured = await page.evaluate(measurePage, OVERHANG_SPANS);
         measured.sourceSpans = sourceSpans;
         report.runs[id] = measured;
         judge(id, measured, paper);
@@ -237,7 +249,7 @@ async function checkScenario(browser, engine, theme) {
             document.body.style.color = ink;
         }, opposite);
         await page.waitForTimeout(200);
-        const switched = await page.evaluate(measurePage);
+        const switched = await page.evaluate(measurePage, OVERHANG_SPANS);
         report.runs[`${id}-theme-switch`] = switched;
         judgeReadings(`${id}-theme-switch`, switched);
         judgeStudyState(`${id}-theme-switch`, switched, opposite.paper);
@@ -276,7 +288,23 @@ function judgeReadings(id, measured) {
         if (reading.letterSpacing !== 'normal' && Number.parseFloat(reading.letterSpacing) !== 0) fail(`${id}: reading ${reading.text} is not set solid (${reading.letterSpacing}).`, reading);
         if (reading.fontFeatureSettings !== 'normal') fail(`${id}: reading ${reading.text} takes host font features (${reading.fontFeatureSettings}).`, reading);
         if (reading.color !== reading.baseColor) fail(`${id}: reading ${reading.text} uses ${reading.color}, not its base word's ink (${reading.baseColor}).`, reading);
-        if (Math.abs(reading.centre - reading.baseCentre - (reading.marginStart - reading.marginEnd) / 2) > 1.5) fail(`${id}: reading ${reading.text} is off its word's centre by ${(reading.centre - reading.baseCentre).toFixed(1)}px.`, reading);
+        if (reading.inFlow && Math.abs(reading.centre - reading.baseCentre - (reading.marginStart - reading.marginEnd) / 2) > 1.5) fail(`${id}: reading ${reading.text} is off its word's centre by ${(reading.centre - reading.baseCentre).toFixed(1)}px.`, reading);
+    }
+    const lanes = new Map();
+    for (const reading of measured.readings.filter(reading => !reading.inFlow)) {
+        const lane = lanes.get(reading.column) ?? [];
+        lane.push(reading);
+        lanes.set(reading.column, lane);
+    }
+    for (const lane of lanes.values()) {
+        lane.sort((a, b) => a.projectedAnchor.left - b.projectedAnchor.left);
+        const fitted = fitReadingLane(lane.map(reading => ({ left: reading.projectedAnchor.left,
+            right: reading.projectedAnchor.left + reading.projectedAnchor.width, width: reading.naturalWidth })));
+        lane.forEach((reading, index) => {
+            const placement = fitted[index];
+            if (!(placement.scaleX > 0) || Math.abs(reading.centre - placement.centre) > 1.5
+                || Math.abs(reading.paintScale - placement.scaleX) > .01) fail(`${id}: projected ${reading.text} left its fitted source lane.`, { reading, placement });
+        });
     }
     for (const [left, right] of measured.readingNeighbours) {
         if (left.inlineEnd > right.inlineStart + 0.5) fail(`${id}: readings ${left.text} and ${right.text} overlap.`, { left, right });
@@ -338,9 +366,11 @@ function fail(message, details) {
 function fixturePage(paper, ink) {
     // Match an installed Japanese face on each runner. An unnamed serif
     // fallback can choose different glyph metrics in plain and ruby runs.
+    // Include Windows faces too; its unnamed serif fallback has proportional
+    // kana, so the fixed-em overhang and line-edge fixtures would not form.
     // IPAGothic is installed by Playwright's Linux browser dependencies.
     return `<!doctype html><html lang="ja"><head><meta charset="utf-8"><title>Yomu annotation typography smoke</title>
-<style>body{margin:0;padding:24px;background:${paper};color:${ink};font:20px/1.9 "Hiragino Mincho ProN","Noto Serif CJK JP","IPAGothic",serif}a{color:${ink === '#202122' ? '#3366cc' : '#88a3e8'}}${HOSTILE_CSS}</style>
+<style>body{margin:0;padding:24px;background:${paper};color:${ink};font:20px/1.9 "Hiragino Mincho ProN","Noto Serif CJK JP","Yu Mincho","Yu Gothic",Meiryo,"IPAGothic",serif}a{color:${ink === '#202122' ? '#3366cc' : '#88a3e8'}}${HOSTILE_CSS}</style>
 </head><body><main><p id="sentence" class="tracked">${SENTENCE}</p><p id="linked">${LINKED}</p><p id="overhang">${OVERHANG}</p><p id="tracked-overhang" class="tracked">${OVERHANG}</p><p id="one-sided">${ONE_SIDED}</p><p id="line-head" style="width:6.5em">${LINE_HEAD}</p><p id="line-tail" style="width:4.6em">学校教育で</p><p id="vertical" style="writing-mode:vertical-rl;height:16em">の間で学習を行う</p></main></body></html>`;
 }
 
@@ -356,18 +386,37 @@ function handleRequest(request) {
 }
 
 // Runs in the page.
-function measurePage() {
+function measurePage(definitions) {
     const PROPS = ['fontFamily', 'fontSize', 'fontStyle', 'fontWeight', 'fontStretch', 'fontVariant', 'fontFeatureSettings', 'fontKerning', 'letterSpacing', 'wordSpacing'];
+    const nativeHosts = Array.from(document.querySelectorAll('main p,main a'));
+    const nativeText = host => {
+        const walker = document.createTreeWalker(host, NodeFilter.SHOW_TEXT);
+        let text = '';
+        for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+            if (!node.parentElement.closest('rt,rp,.jpdb-reader-text-mirror')) text += node.data;
+        }
+        return text;
+    };
     const hostOf = element => {
+        const mirror = element.closest('.jpdb-reader-text-mirror');
+        if (mirror) {
+            const style = getComputedStyle(mirror);
+            const host = nativeHosts.find(host => nativeText(host) === mirror.dataset.sourceText
+                && getComputedStyle(host).letterSpacing === style.letterSpacing
+                && getComputedStyle(host).fontSize === style.fontSize);
+            if (!host) throw new Error('Projected word lost its native typography fixture host');
+            return host;
+        }
         let host = element.parentElement;
         while (host?.closest('.jpdb-reader-word')) host = host.parentElement;
         return host;
     };
-    const words = Array.from(document.querySelectorAll('main .jpdb-reader-word, main .jpdb-reader-number-bind')).map(word => {
+    const wordNodes = Array.from(document.querySelectorAll('main .jpdb-reader-word,main .jpdb-reader-number-bind,.jpdb-reader-document-annotation-portal .jpdb-reader-word'));
+    const words = wordNodes.map(word => {
         const base = word.querySelector('.jpdb-reader-ruby-base') ?? word;
         const own = getComputedStyle(base);
         const host = getComputedStyle(hostOf(word));
-        const after = getComputedStyle(word, '::after');
+        const after = getComputedStyle(word.querySelector('.jpdb-reader-source-fragment') ?? word, '::after');
         const drawn = after.borderBottomWidth !== '0px' && !/rgba\([^)]*, 0\)|transparent/.test(after.borderBottomColor);
         return {
             text: word.dataset.expression || word.textContent.trim(),
@@ -378,13 +427,28 @@ function measurePage() {
             underline: drawn ? { style: after.borderBottomStyle, color: after.borderBottomColor, width: after.borderBottomWidth } : { style: 'none' },
         };
     });
-    const readings = Array.from(document.querySelectorAll('main .jpdb-reader-furi')).filter(reading => {
+    const readings = Array.from(document.querySelectorAll('main .jpdb-reader-furi,[data-yomu-projected-reading]')).filter(reading => {
         const style = getComputedStyle(reading);
         return style.display !== 'none' && style.visibility !== 'hidden' && reading.getBoundingClientRect().width > 0;
     }).map(reading => {
-        const word = reading.closest('.jpdb-reader-word');
+        const readingBox = reading.getBoundingClientRect();
+        let word = reading.closest('.jpdb-reader-word') ?? window.__yomuTypographyReadingOwner(document,
+            (readingBox.left + readingBox.right) / 2, (readingBox.top + readingBox.bottom) / 2);
         const ruby = reading.closest('ruby');
-        const base = ruby?.querySelector('.jpdb-reader-ruby-base, rb') ?? word;
+        let base = ruby?.querySelector('.jpdb-reader-ruby-base, rb') ?? word;
+        if (reading.tagName !== 'RT') {
+            if (!word) throw new Error('Visible projected reading has no hit-resolved source owner');
+            const candidates = Array.from(word.querySelectorAll('.jpdb-reader-detached-ruby'))
+                .filter(wrapper => wrapper.querySelector('.jpdb-reader-detached-furi')?.textContent === reading.textContent)
+                .map(wrapper => ({ word, base: wrapper, box: wrapper.getBoundingClientRect() }));
+            candidates.sort((a, b) => {
+                const distance = candidate => Math.hypot((candidate.box.left + candidate.box.right) / 2 - Number(reading.dataset.yomuSourceLeft) - Number(reading.dataset.yomuSourceWidth) / 2,
+                    candidate.box.top - Number(reading.dataset.yomuSourceTop));
+                return distance(a) - distance(b);
+            });
+            ({ word, base } = candidates[0] ?? {});
+            if (!word || !base) throw new Error('Visible projected reading has no source word/base fixture');
+        }
         const style = getComputedStyle(reading);
         const baseStyle = getComputedStyle(base);
         const vertical = /^(vertical|sideways)/.test(style.writingMode);
@@ -392,12 +456,12 @@ function measurePage() {
         // an overhanging reading narrower than its text.
         const inkRange = document.createRange();
         inkRange.selectNodeContents(reading);
-        const rect = inkRange.getBoundingClientRect();
+        const rect = reading.tagName === 'RT' ? inkRange.getBoundingClientRect() : readingBox;
         const baseRect = (ruby?.firstChild?.nodeType === Node.TEXT_NODE ? ruby : base).getBoundingClientRect();
         return {
             text: reading.textContent,
             word: word?.dataset.expression,
-            paragraph: reading.closest('p')?.id,
+            paragraph: hostOf(word).closest('p')?.id,
             inFlow: reading.tagName === 'RT',
             color: style.color,
             fontSize: Number.parseFloat(style.fontSize),
@@ -418,6 +482,16 @@ function measurePage() {
             inlineEnd: vertical ? rect.bottom : rect.right,
             centre: vertical ? (rect.top + rect.bottom) / 2 : (rect.left + rect.right) / 2,
             baseCentre: vertical ? (baseRect.top + baseRect.bottom) / 2 : (baseRect.left + baseRect.right) / 2,
+            baseBox: baseRect.toJSON(),
+            baseHtml: base.outerHTML.slice(0, 1200),
+            readingBox: reading.getBoundingClientRect().toJSON(),
+            readingHtml: reading.tagName === 'RT' ? '' : reading.outerHTML.slice(0, 1600),
+            projectedAnchor: reading.dataset.yomuSourceLeft ? { left: Number(reading.dataset.yomuSourceLeft), width: Number(reading.dataset.yomuSourceWidth),
+                top: Number(reading.dataset.yomuSourceTop), height: Number(reading.dataset.yomuSourceHeight) } : null,
+            paintScale: reading.tagName === 'RT' ? 1 : Math.abs(new DOMMatrix(style.transform).a),
+            naturalWidth: reading.tagName === 'RT' ? rect.width : rect.width / Math.abs(new DOMMatrix(style.transform).a),
+            transform: style.transform,
+            positionedLeft: style.left,
             marginStart: Number.parseFloat(style.marginInlineStart) || 0,
             marginEnd: Number.parseFloat(style.marginInlineEnd) || 0,
         };
@@ -441,7 +515,7 @@ function measurePage() {
         const walker = document.createTreeWalker(paragraph, NodeFilter.SHOW_TEXT);
         const range = document.createRange();
         for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-            if (node.parentElement.closest('rt, rp, ruby')) continue;
+            if (node.parentElement.closest('rt,rp,.jpdb-reader-text-mirror')) continue;
             for (let index = 0; index < node.data.length; index += 1) {
                 range.setStart(node, index);
                 range.setEnd(node, index + 1);
@@ -450,9 +524,16 @@ function measurePage() {
             }
         }
         spans[paragraph.id] = {};
-        for (let index = 1; index < glyphs.length; index += 1) {
-            const [left, right] = [glyphs[index - 1], glyphs[index]];
-            if (left.column === right.column) spans[paragraph.id][`${left.text}${right.text}`] ??= right.inlineStart - left.inlineStart;
+        const text = glyphs.map(glyph => glyph.text).join('');
+        for (const [id, before, after, count] of definitions) {
+            if (id !== paragraph.id) continue;
+            let start = -1;
+            while ((start = text.indexOf(before, start + 1)) >= 0
+                && text.slice(start + before.length + count, start + before.length + count + after.length) !== after) {}
+            if (start < 0) throw new Error(`Missing annotated span ${id}: ${before}/${after}`);
+            const left = glyphs[start + before.length - 1];
+            const right = glyphs[start + before.length + count];
+            if (left.column === right.column) spans[paragraph.id][`${before}${after}`] = right.inlineStart - left.inlineStart;
         }
     }
     const lineHeadParagraph = document.querySelector('#line-head');
@@ -481,6 +562,11 @@ function measurePage() {
     return {
         lineHead,
         lineTail,
+        mirrors: Array.from(document.querySelectorAll('.jpdb-reader-text-mirror')).map(mirror => ({
+            source: mirror.dataset.sourceText, portal: mirror.classList.contains('jpdb-reader-document-annotation-portal'),
+            nativeParent: mirror.parentElement.tagName + '#' + mirror.parentElement.id,
+            words: Array.from(mirror.querySelectorAll('.jpdb-reader-word')).map(word => ({ text: word.dataset.expression, start: word.dataset.yomuSourceStart, end: word.dataset.yomuSourceEnd })),
+        })),
         words,
         readings,
         readingNeighbours,

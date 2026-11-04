@@ -17,8 +17,9 @@
 //   readings on       furigana on, every word known, so no Yomu reading is
 //                     due: the same two checks.
 //   readings shown    furigana on for every word: every page ruby keeps its
-//                     computed line height, its rt's, and its own box. Yomu's
-//                     readings may grow lines.
+//                     computed line height and its rt's. Only genuinely
+//                     fragmented ruby can rewrap; its glyph/font metrics and
+//                     fragment thickness still hold. Yomu readings may grow lines.
 //
 // Layouts: WebKit with the page's own style; WebKit with .main_text paged in
 // CSS columns; Chromium and WebKit with .main_text vertical-rl and paged in
@@ -48,6 +49,8 @@ import { openRecordedPage, releaseProduct, worktreeProduct } from './lib/recorde
 const PARAGRAPHS = 60;
 const PAGE_RUBY = 200;
 const TOLERANCE_PX = 0.5;
+const GLYPH_TYPOGRAPHY_PROPERTIES = ['font-family', 'font-size', 'font-weight', 'font-style', 'font-stretch',
+    'font-feature-settings', 'font-variant', 'font-kerning', 'font-variation-settings', 'font-optical-sizing', 'letter-spacing', 'word-spacing'];
 const SETTLE_MAX_MS = 25_000;
 const SETTLE_STABLE_MS = 2_500;
 // A reader app sets its own type and leaves ruby to the browser: it does not
@@ -109,9 +112,39 @@ function judge(label, subject, bare, annotated) {
     else check(annotated.yomuReadings > 0, `${label}: Yomu readings are on screen (${annotated.yomuReadings})`);
     const changed = annotated.pageRuby
         .map((ruby, index) => [ruby, bare.pageRuby[index]])
-        .filter(([after, before]) => !sameRubyMetrics(after, before));
+        .filter(([after, before]) => !sameRubyMetrics(after, before, !subject.paragraphsHold));
     check(annotated.pageRuby.length === bare.pageRuby.length && changed.length === 0,
         `${label}: the page's ruby keeps its metrics (${changed.length} of ${bare.pageRuby.length} changed${changed.length ? `, e.g. ${changed[0][0].text}: ${JSON.stringify(changed[0][1])} → ${JSON.stringify(changed[0][0])}` : ''})`);
+    const controlIndex = annotated.pageRuby.findIndex((ruby, index) => !fragmentedRuby(ruby, bare.pageRuby[index])
+        && sameRubyMetrics(ruby, bare.pageRuby[index], !subject.paragraphsHold));
+    check(controlIndex >= 0, `${label}: an unfragmented metric control is present`);
+    if (controlIndex >= 0) {
+        const control = annotated.pageRuby[controlIndex];
+        for (const property of ['rubyBlockSize', 'rtBlockSize', 'rtInlineSize']) {
+            check(!sameRubyMetrics({ ...control, [property]: control[property] + 10 }, bare.pageRuby[controlIndex], !subject.paragraphsHold),
+                `${label}: the oracle rejects a 10px ${property} regression`);
+        }
+    }
+    const fragmentIndex = annotated.pageRuby.findIndex((ruby, index) => fragmentedRuby(ruby, bare.pageRuby[index])
+        && sameRubyMetrics(ruby, bare.pageRuby[index], !subject.paragraphsHold));
+    if (fragmentIndex >= 0 && !subject.paragraphsHold) {
+        const control = annotated.pageRuby[fragmentIndex];
+        for (const property of ['baseGlyphs', 'readingGlyphs']) {
+            const glyphs = control[property].map((glyph, index) => index ? glyph : { ...glyph, block: glyph.block + 10 });
+            check(!sameRubyMetrics({ ...control, [property]: glyphs }, bare.pageRuby[fragmentIndex], !subject.paragraphsHold),
+                `${label}: the fragmented oracle rejects a 10px ${property} regression`);
+        }
+        for (const property of ['rubyFragmentBlocks', 'rtFragmentBlocks']) {
+            check(!sameRubyMetrics({ ...control, [property]: control[property].map(size => size + 10) }, bare.pageRuby[fragmentIndex], !subject.paragraphsHold),
+                `${label}: the fragmented oracle rejects a 10px ${property} regression`);
+        }
+        for (const property of GLYPH_TYPOGRAPHY_PROPERTIES) {
+            check(Object.hasOwn(control.baseGlyphs[0].font, property), `${label}: the glyph oracle captures ${property}`);
+            const baseGlyphs = control.baseGlyphs.map((glyph, index) => index ? glyph : { ...glyph, font: { ...glyph.font, [property]: 'corrupted' } });
+            check(!sameRubyMetrics({ ...control, baseGlyphs }, bare.pageRuby[fragmentIndex], true),
+                `${label}: the fragmented oracle rejects changed ${property}`);
+        }
+    }
     if (!subject.paragraphsHold) return;
     const moved = annotated.paragraphs
         .map((rects, index) => ({ index, before: bare.paragraphs[index], after: rects }))
@@ -130,14 +163,30 @@ function sameBox(a, b) {
     return [x1 - x2, y1 - y2, w1 - w2, h1 - h2].every(delta => Math.abs(delta) <= TOLERANCE_PX);
 }
 
-function sameRubyMetrics(after, before) {
+function fragmentedRuby(after, before) {
+    return [after, before].some(ruby => ruby && (ruby.rubyFragmentBlocks.length > 1 || ruby.rtFragmentBlocks.length > 1));
+}
+
+function sameRubyMetrics(after, before, readingsCanReflow = false) {
     if (!before || after.text !== before.text) return false;
     const styles = ['rubyLineHeight', 'rtLineHeight', 'rtFontSize', 'rubyDisplay', 'rtDisplay'].every(key => after[key] === before[key]);
-    // Yomu readings on screen may grow the line around the ruby, never the
-    // ruby. Where the ruby sits is the paragraph check's business: a word
-    // boundary can move a glyph along its line (engines snap text runs).
-    const ownBox = ['rubyBlockSize', 'rtBlockSize', 'rtInlineSize'].every(key => Math.abs(after[key] - before[key]) <= TOLERANCE_PX);
-    return styles && ownBox;
+    // Visible Yomu readings may grow lines and rewrap an author's ruby. Its
+    // union box then includes different inter-line gaps, and its rt box can
+    // stretch to fit a newly unbroken base. Compare fragment thickness and each
+    // glyph's font and block extent. Native ruby justification can redistribute
+    // inline advances when it rewraps, without changing the glyph's typography.
+    const sameThickness = (a, b) => a.every(size => b.some(other => Math.abs(size - other) <= TOLERANCE_PX))
+        && b.every(size => a.some(other => Math.abs(size - other) <= TOLERANCE_PX));
+    const sameGlyphs = (a, b) => a.length === b.length && a.every((glyph, index) => glyph.text === b[index].text
+        && glyph.block > 0 && b[index].block > 0
+        && JSON.stringify(glyph.font) === JSON.stringify(b[index].font) && Math.abs(glyph.block - b[index].block) <= TOLERANCE_PX);
+    const ownBoxes = ['rubyBlockSize', 'rtBlockSize', 'rtInlineSize'].every(key => Math.abs(after[key] - before[key]) <= TOLERANCE_PX);
+    const fragmentationCanReflow = readingsCanReflow && fragmentedRuby(after, before);
+    if (!fragmentationCanReflow) return styles && ownBoxes;
+    return styles && after.baseGlyphs.length > 0 && after.readingGlyphs.length > 0
+        && sameThickness(after.rubyFragmentBlocks, before.rubyFragmentBlocks)
+        && sameThickness(after.rtFragmentBlocks, before.rtFragmentBlocks)
+        && sameGlyphs(after.baseGlyphs, before.baseGlyphs) && sameGlyphs(after.readingGlyphs, before.readingGlyphs);
 }
 
 async function measure(browser, layout, subject, testCase) {
@@ -156,7 +205,7 @@ async function measure(browser, layout, subject, testCase) {
         if (LAYOUTS[layout].css) await run.page.addInitScript(hostStyle, LAYOUTS[layout].css);
         await run.page.goto(run.recording.manifest.url, { waitUntil: 'load' });
         if (subject) await settle(run.page);
-        const read = await run.page.evaluate(readPage, { paragraphs: PARAGRAPHS, pageRuby: PAGE_RUBY, vertical: LAYOUTS[layout].vertical });
+        const read = await run.page.evaluate(readPage, { paragraphs: PARAGRAPHS, pageRuby: PAGE_RUBY, vertical: LAYOUTS[layout].vertical, fontProperties: GLYPH_TYPOGRAPHY_PROPERTIES });
         return { ...read, pageErrors: run.pageErrors.slice(0, 3) };
     } finally {
         await run.close();
@@ -191,13 +240,38 @@ async function settle(page) {
 
 // Runs in the page. A page ruby is one whose reading is not Yomu's: 2.1.6
 // wrote its own ruby without the jpdb-reader-ruby class.
-function readPage({ paragraphs, pageRuby, vertical }) {
+function readPage({ paragraphs, pageRuby, vertical, fontProperties }) {
     const main = document.querySelector('.main_text');
     const round = value => Math.round(value * 100) / 100;
     const box = rect => `${round(rect.left)},${round(rect.top)}@${round(rect.width)}x${round(rect.height)}`;
     const isPageRuby = ruby => !ruby.querySelector(':scope > rt.jpdb-reader-furi');
     const block = rect => round(vertical ? rect?.width ?? 0 : rect?.height ?? 0);
     const inline = rect => round(vertical ? rect?.height ?? 0 : rect?.width ?? 0);
+    const glyphMetrics = (root, excludeReadings = false) => {
+        if (!root) return [];
+        const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+        const glyphs = [];
+        for (let text = walker.nextNode(); text; text = walker.nextNode()) {
+            if (excludeReadings && text.parentElement.closest('rt,rp')) continue;
+            let offset = 0;
+            for (const char of text.data) {
+                const range = document.createRange();
+                range.setStart(text, offset);
+                range.setEnd(text, offset + char.length);
+                // A one-character Range at a native ruby line boundary may
+                // include an empty caret fragment on the preceding line. Its
+                // union is not a glyph box. Ignore empty fragments, then use
+                // the actual glyph's smallest block extent.
+                const rects = [...range.getClientRects()].filter(rect => rect.width > 0 && rect.height > 0);
+                const rect = rects.sort((a, b) => block(a) - block(b))[0];
+                const style = getComputedStyle(text.parentElement);
+                const font = Object.fromEntries(fontProperties.map(property => [property, style.getPropertyValue(property)]));
+                glyphs.push({ text: char, block: block(rect), inline: inline(rect), font });
+                offset += char.length;
+            }
+        }
+        return glyphs;
+    };
     const rubies = [...main.querySelectorAll('ruby')].filter(isPageRuby).slice(0, pageRuby).map(ruby => {
         const rt = ruby.querySelector(':scope > rt');
         const rubyStyle = getComputedStyle(ruby);
@@ -214,6 +288,10 @@ function readPage({ paragraphs, pageRuby, vertical }) {
             rubyBlockSize: block(rubyRect),
             rtBlockSize: block(rtRect),
             rtInlineSize: inline(rtRect),
+            rubyFragmentBlocks: [...ruby.getClientRects()].map(block),
+            rtFragmentBlocks: rt ? [...rt.getClientRects()].map(block) : [],
+            baseGlyphs: glyphMetrics(ruby, true),
+            readingGlyphs: [...ruby.querySelectorAll(':scope > rt')].flatMap(reading => glyphMetrics(reading)),
         };
     });
     return {
