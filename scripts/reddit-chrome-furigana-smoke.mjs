@@ -1379,10 +1379,10 @@ async function exerciseCompensatedPuckDrag(page, endpointPageScale) {
             : 1;
         // GTK's fixed-zoom Y origin differs from the other ports. Position the
         // fixture by its measured overlay rect so every port tests the CI case.
-        for (const property of ['left', 'top']) {
-            button.style.setProperty(property, `${Number.parseFloat(button.style[property])
-                + fixtureOrigin[property] - box[property] * compensatedRectScale}px`);
-        }
+        button.style.setProperty('left', `${Number.parseFloat(button.style.left)
+            + fixtureOrigin.left - box.left * compensatedRectScale}px`);
+        button.style.setProperty('top', `${Number.parseFloat(button.style.top)
+            + fixtureOrigin.top - box.top * compensatedRectScale}px`);
         box = button.getBoundingClientRect();
         const rawRect = {
             left: box.left,
