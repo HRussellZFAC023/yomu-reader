@@ -53,6 +53,45 @@ describe('opt-in dictionary translation lifecycle (fixture provider responses)',
         expect(root.querySelector('.jpdb-reader-definition-original')?.textContent).toContain('to read');
     });
 
+    it.each(['fetch', 'userscript manager'])('translates popover definitions through %s using the working standard Google protocol', async transport => {
+        // Deterministic replay of the live 4 November protocol comparison:
+        // dj=1 returned 429; the same direct endpoint without it returned arrays.
+        const root = popup();
+        const requests: URL[] = [];
+        const providerReply = (input: string) => {
+            const url = new URL(input);
+            requests.push(url);
+            return url.searchParams.has('dj')
+                ? { status: 429, response: 'Rate limited' }
+                : { status: 200, response: [[['읽기', 'to read', null, null, 3]], null, 'en'] };
+        };
+        const fetch = vi.fn(async (input: unknown) => {
+            const reply = providerReply(String(input));
+            return new Response(JSON.stringify(reply.response), { status: reply.status });
+        });
+        vi.stubGlobal('fetch', fetch);
+        if (transport === 'userscript manager') {
+            const gm: UserscriptHttpRequest = details => {
+                const reply = providerReply(details.url);
+                queueMicrotask(() => details.onload?.({ ...reply, responseText: JSON.stringify(reply.response) }));
+                return { abort: () => undefined };
+            };
+            vi.stubGlobal('GM_xmlhttpRequest', gm);
+        }
+
+        await installDefinitionTranslationBehaviors(root, settings());
+
+        expect(root.querySelector('[lang="ko"]')?.textContent).toBe('읽기');
+        expect(root.querySelector('[data-definition-translation-state="ready"]')).not.toBeNull();
+        expect(root.querySelector('.jpdb-reader-definition-failure')).toBeNull();
+        expect(root.querySelector('.jpdb-reader-definition-original')?.textContent).toContain('to read');
+        expect(requests).toHaveLength(1);
+        expect(requests[0]?.hostname).toBe('translate.googleapis.com');
+        expect(requests[0]?.searchParams.get('sl')).toBe('en');
+        expect(requests[0]?.searchParams.get('tl')).toBe('ko');
+        expect(fetch).toHaveBeenCalledTimes(transport === 'fetch' ? 1 : 0);
+    });
+
     it('translates Japanese monolingual glossary to English without changing the headword or reading', async () => {
         const dictionary = '[JA-JA] 大辞泉';
         setInnerHtml(document.body, renderLocalDefinitionSourcesSection([dictionary], new Map([[dictionary, [{ dictionary, expression: '読む', reading: 'よむ', definitionTags: '', rules: '', score: 1, glossary: ['文字を見て、その意味を理解する。'], sequence: 1, termTags: '' }]]]), settings([dictionary], 'en'), () => 'open', value => value));

@@ -20,10 +20,6 @@ const log = Logger.scope('GoogleTranslation');
 const translationCache = new Map<string, string>();
 const translationInFlight = new Map<string, SharedAbortableOperation<string>>();
 
-interface GoogleTranslateResponse {
-    sentences?: Array<{ trans?: string }>;
-}
-
 export interface TranslateTextOptions {
     sourceLanguage: string;
     /**
@@ -121,7 +117,6 @@ export function googleTranslationUrl(text: string, options: TranslateTextOptions
         sl: sourceProviderLanguage,
         tl: outputLanguage,
         dt: 't',
-        dj: '1',
         q: text,
     });
     if (options.includeDictionaryData) params.append('dt', 'bd');
@@ -205,9 +200,8 @@ async function performTranslation(text: string, options: TranslateTextOptions): 
             failureLabel: 'Translation request',
             timeoutLabel: 'Translation timed out.',
             signal: options.signal,
-        }) as GoogleTranslateResponse;
-        const translated = (json.sentences ?? []).map(item => item.trans ?? '').join('').trim();
-        if (!translated) throw new Error('No translation returned.');
+        });
+        const translated = readGoogleTranslation(json);
         throwIfTranslationAborted(options.signal);
         translationCache.set(`${options.sourceLanguage}:${options.outputLanguage}:${text}`, translated);
         pruneOldestCacheEntries(translationCache, TRANSLATION_CACHE_LIMIT);
@@ -215,4 +209,22 @@ async function performTranslation(text: string, options: TranslateTextOptions): 
     } finally {
         done();
     }
+}
+
+function readGoogleTranslation(response: unknown): string {
+    const sentences: unknown = Array.isArray(response)
+        ? response[0]
+        : response !== null && typeof response === 'object' && 'sentences' in response
+            ? response.sentences : undefined;
+    if (!Array.isArray(sentences)) throw new Error('No translation returned.');
+    const translated = sentences.map((sentence: unknown) => {
+        const text: unknown = Array.isArray(response)
+            ? Array.isArray(sentence) ? sentence[0] : undefined
+            : sentence !== null && typeof sentence === 'object' && 'trans' in sentence
+                ? sentence.trans : undefined;
+        if (typeof text !== 'string') throw new Error('Invalid translation response.');
+        return text;
+    }).join('').trim();
+    if (!translated) throw new Error('No translation returned.');
+    return translated;
 }

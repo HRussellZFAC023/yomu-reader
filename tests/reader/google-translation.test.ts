@@ -32,6 +32,7 @@ describe('generic Google translation transport', () => {
         expect(url.searchParams.get('tl')).toBe('ko');
         expect(url.searchParams.get('q')).toBe('「読む」');
         expect(url.searchParams.getAll('dt')).toEqual(['t', 'bd']);
+        expect(url.searchParams.has('dj')).toBe(false);
     });
 
     it('keeps logical language tags separate from provider-specific transport codes', () => {
@@ -96,6 +97,43 @@ describe('generic Google translation transport', () => {
         ];
         await expect(Promise.all(requests)).resolves.toEqual(['읽다', '읽다']);
         expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    it('reads the standard Google response, preserving segment order and line breaks', async () => {
+        const fetch = vi.fn(async () => new Response(JSON.stringify([
+            [[' First line\n', '一行目', null, null, 3], ['Second line ', '二行目', null, null, 3]],
+            [['noun', ['dictionary data is not translation text']]], 'ja', null, null, null, null, [],
+        ])));
+        vi.stubGlobal('fetch', fetch);
+
+        await expect(translateText('一行目\n二行目', { sourceLanguage: 'ja', outputLanguage: 'en', includeDictionaryData: true }))
+            .resolves.toBe('First line\nSecond line');
+        await expect(translateText('一行目\n二行目', { sourceLanguage: 'ja', outputLanguage: 'en' }))
+            .resolves.toBe('First line\nSecond line');
+        expect(fetch).toHaveBeenCalledTimes(1);
+    });
+
+    it.each([
+        null, [], [[]], [[[' ']]], [[[42]]], [[['partial'], null]],
+        { sentences: [{ trans: 42 }] }, { sentences: [{ trans: 'partial' }, null] },
+    ].map(payload => ({ payload })))('rejects empty or malformed provider data without caching it: $payload', async ({ payload }) => {
+        const fetch = vi.fn()
+            .mockResolvedValueOnce(new Response(JSON.stringify(payload)))
+            .mockResolvedValueOnce(new Response(JSON.stringify([[['Recovered translation', '回復']]])));
+        vi.stubGlobal('fetch', fetch);
+
+        await expect(translateText('回復', { sourceLanguage: 'ja', outputLanguage: 'en' })).rejects.toThrow();
+        await expect(translateText('回復', { sourceLanguage: 'ja', outputLanguage: 'en' }))
+            .resolves.toBe('Recovered translation');
+        expect(fetch).toHaveBeenCalledTimes(2);
+    });
+
+    it('does not retry a rate-limited Google request automatically', async () => {
+        const fetch = vi.fn(async () => new Response('Rate limited', { status: 429 }));
+        vi.stubGlobal('fetch', fetch);
+
+        await expect(translateText('猫', { sourceLanguage: 'ja', outputLanguage: 'en' })).rejects.toThrow('(429)');
+        expect(fetch).toHaveBeenCalledTimes(1);
     });
 
     it('keeps format rejection local to its subscriber while preserving shared transport', async () => {

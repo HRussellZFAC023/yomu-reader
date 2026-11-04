@@ -4,6 +4,7 @@
 
 ### Fixed
 
+- Dictionary definitions and other automatic translations can read Google's standard response instead of showing Translation unavailable.
 - Native and file-loaded subtitles remove formatting tags consistently. Escaped dialogue stays readable, and native fullscreen preserves literal text safely.
 - A left-docked transcript keeps the player within the space available before the site's neighbouring panels. Closing restores the saved host styles and priorities. Narrow layouts can use the bottom drawer.
 - Bilingual captions keep readable source text while parsing or translation is pending. Translation batches preserve cue boundaries, publish progress, report incomplete results and allow retry instead of labelling source text as a successful translation.
