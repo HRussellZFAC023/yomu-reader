@@ -30,8 +30,9 @@ export class PointerLookupTap {
     }
 
     update(event: PointerEvent): void {
-        if (this.pending?.id !== event.pointerId) return;
-        if (!this.containsRelease(this.pending, event)) this.reset();
+        const tap = this.pending;
+        if (!tap || tap.id !== event.pointerId) return;
+        if (!this.containsRelease(tap, event)) this.reset();
     }
 
     finish(event: PointerEvent): LookupTapStart | undefined {
@@ -42,7 +43,8 @@ export class PointerLookupTap {
     }
 
     cancel(event: PointerEvent): void {
-        if (this.pending?.id === event.pointerId) this.reset();
+        const tap = this.pending;
+        if (tap && tap.id === event.pointerId) this.reset();
     }
 
     suppressCompatibilityClick(event: PointerEvent): void {

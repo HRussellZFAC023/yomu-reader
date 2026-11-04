@@ -97,6 +97,41 @@ describe('unannotated text touch lookup', () => {
         expect(shown).not.toHaveBeenCalled();
     });
 
+    it.each(['empty', 'canceled'] as const)('ignores ID-less movement with an %s gesture', state => {
+        const { pointer, target, shown } = fixture();
+        const errors: ErrorEvent[] = [];
+        const recordError = (event: ErrorEvent): void => { errors.push(event); };
+        window.addEventListener('error', recordError);
+        cleanups.push(() => window.removeEventListener('error', recordError));
+        if (state === 'canceled') {
+            pointer('pointerdown');
+            pointer('pointercancel');
+        }
+        target.dispatchEvent(new MouseEvent('pointermove', { bubbles: true, clientX: 30, clientY: 30 }));
+        expect(errors).toEqual([]);
+        expect(shown).not.toHaveBeenCalled();
+        pointer('pointerdown');
+        pointer('pointerup');
+        expect(shown).toHaveBeenCalledTimes(1);
+    });
+
+    it('ignores ID-less movement while retaining an active touch', () => {
+        const { pointer, target, shown } = fixture();
+        pointer('pointerdown');
+        target.dispatchEvent(new MouseEvent('pointermove', { bubbles: true, clientX: 90, clientY: 90 }));
+        pointer('pointerup');
+        expect(shown).toHaveBeenCalledTimes(1);
+    });
+
+    it('ignores ID-less cancellation after a completed touch', () => {
+        const { pointer, target, click, shown } = fixture();
+        pointer('pointerdown');
+        pointer('pointerup');
+        target.dispatchEvent(new MouseEvent('pointercancel', { bubbles: true }));
+        expect(click().defaultPrevented).toBe(true);
+        expect(shown).toHaveBeenCalledTimes(1);
+    });
+
     it('opens on release even when the host never dispatches a compatibility click', () => {
         const { pointer, shown, target } = fixture();
         pointer('pointerdown');
