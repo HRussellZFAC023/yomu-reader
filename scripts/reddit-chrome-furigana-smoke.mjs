@@ -1365,6 +1365,9 @@ async function exerciseCompensatedVideoAvoidance(page) {
 
 async function exerciseCompensatedPuckDrag(page, endpointPageScale) {
     const puck = page.locator('.jpdb-reader-fab');
+    // Video avoidance clears a 160ms transform transition. Await its actual
+    // completion before placing and measuring the fractional drag fixture.
+    await puck.evaluate(button => Promise.all(button.getAnimations().map(animation => animation.finished)));
     const before = await puck.evaluate((button, fixtureOrigin) => {
         button.style.setProperty('left', `${fixtureOrigin.left}px`);
         button.style.setProperty('top', `${fixtureOrigin.top}px`);
