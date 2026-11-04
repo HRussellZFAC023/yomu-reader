@@ -7933,18 +7933,17 @@ export class SubtitlePlayerController {
     }
 
     private maxSideTranscriptWidthForVideo(
-        _placement: Exclude<ReaderSettings['subtitleTranscriptPlacement'], 'bottom'>,
+        placement: Exclude<ReaderSettings['subtitleTranscriptPlacement'], 'bottom'>,
         options: SubtitleDrawerLayoutOptions,
         videoRect: DOMRect,
     ): number {
         if (videoRect.width <= 0) return 0;
         const margin = options.compactPanel ? 0 : TRANSCRIPT_PANEL_MARGIN;
         const minimumPlayerWidth = minimumSideTranscriptPlayerWidth(videoRect.width);
-        // Both placements share the same span (videoRect.left → viewport edge):
-        // when docking left the player shifts right, so the available panel width
-        // is symmetric. Using videoRect.right for left wrongly assumed the player
-        // stayed put, which forced the bottom fallback on smaller screens.
-        return Math.floor(options.viewportWidth - videoRect.left - margin * 2 - minimumPlayerWidth);
+        const nativeLeftDock = placement === 'left' && !isYouTubePage();
+        const rightEdge = nativeLeftDock
+            ? Math.min(options.viewportWidth, videoRect.right) : options.viewportWidth;
+        return Math.floor(rightEdge - (nativeLeftDock ? margin : videoRect.left) - margin * 2 - minimumPlayerWidth);
     }
 
     private clampStoredSideWidthForCurrentVideo(placement: Exclude<ReaderSettings['subtitleTranscriptPlacement'], 'bottom'>): void {
@@ -7978,8 +7977,9 @@ export class SubtitlePlayerController {
     }
 
     private shouldUseBottomTranscriptLayout(layout: TranscriptPanelLayout, videoRect = this.videoLayoutRect()): boolean {
-        if (!isYouTubePage()) return false;
         if (layout.placement === 'bottom' || !this.video) return false;
+        if (!isYouTubePage()) return layout.placement === 'left'
+            && shouldUseBottomTranscriptLayoutForAvailableWidth(videoRect.width, this.availablePlayerWidthForSideLayout(layout, videoRect));
         if (shouldHonorExplicitYouTubeSideLayout(layout)) return false;
         if (isYouTubeTheaterMode()) return true;
         if (videoRect.width <= 0) return false;
@@ -8070,16 +8070,12 @@ export class SubtitlePlayerController {
     }
 
     private availablePlayerWidthForSideLayout(layout: TranscriptPanelLayout, videoRect: DOMRect): number {
-        // For left docking the player shifts right toward the viewport edge, so
-        // measure the room from the panel's right edge to the viewport. Live
-        // YouTube can report an oversized pre-inset player rect during iPad
-        // layout/bootstrap, so using videoRect.right here can make the shifted
-        // player spill far past the visible viewport.
-        // The extra margin matches the doubled left-side inset gap applied by
-        // the video inset adapter so the shifted player still fits on screen.
+        // YouTube owns the full watch layout; other players must keep room for
+        // the host's adjacent columns when a left dock shifts their frame.
         const viewportWidth = this.transcriptViewportWidth();
+        const rightEdge = isYouTubePage() ? viewportWidth : Math.min(viewportWidth, videoRect.right);
         return layout.placement === 'left'
-            ? viewportWidth - (layout.left + layout.width + layout.margin * 2)
+            ? rightEdge - (layout.left + layout.width + layout.margin * 2)
             : layout.left - videoRect.left - layout.margin;
     }
 
