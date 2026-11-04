@@ -25,8 +25,7 @@ export interface SubtitlePrimaryRenderInput {
 }
 
 export interface SubtitlePrimaryRenderResult {
-    // Empty means this cue has no settled markup yet. The controller can
-    // retain an abutting previous cue until the new visual commit is ready.
+    // Pending annotation retains readable source text in the same cue pair.
     html: string;
     karaokeActive: boolean;
     shouldRequestParse: boolean;
@@ -93,7 +92,7 @@ const SUBTITLE_PRIMARY_RENDERERS: Record<SubtitlePrimaryRenderMode, (input: Subt
     parsed: input => input.parsedHtml ?? '',
     karaoke: input => renderSubtitleKaraokeCue(input.cue, input.time),
     'cached-parser': input => input.lastRenderedHtml,
-    'pending-parser': () => '',
+    'pending-parser': input => escapeWithBreaks(input.text),
     plain: input => escapeWithBreaks(input.text),
 };
 

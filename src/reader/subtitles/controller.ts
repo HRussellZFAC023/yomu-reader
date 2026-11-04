@@ -7,7 +7,6 @@ import { escapeHtml, remintRenderedWordPrivateTokens, renderTokensToHtml, setInn
 import {
     cueHasExactWordTimings,
     escapeWithBreaks,
-    findActiveSubtitleCue,
     findAlignedCue,
     normalizeSubtitleCues,
     parseSubtitleText,
@@ -116,7 +115,9 @@ import {
     renderSubtitlePrimary,
     syncSubtitleSecondaryBlurState,
 } from './subtitle-rendering';
-import { SubtitlePaintCommit } from './subtitle-paint-commit';
+import { SubtitlePaintCommit, SUBTITLE_PENDING_PAINT_BUDGET_MS } from './subtitle-paint-commit';
+import { promiseWithTimeout } from '../core/async-utils';
+import { loadedSubtitlePair } from './subtitle-loaded-pair';
 import {
     isStalePageSubtitleTrack,
     loadedTrackState,
@@ -606,16 +607,6 @@ function backwardIndexes(start: number, endInclusive: number): number[] {
     const indexes: number[] = [];
     for (let index = start; index >= endInclusive; index--) indexes.push(index);
     return indexes;
-}
-
-function shouldReplaceLoadedCue(next: SubtitleCue | undefined, current: SubtitleCue | undefined): next is SubtitleCue {
-    return Boolean(next && next !== current);
-}
-
-function shouldClearLoadedCue(next: SubtitleCue | undefined, current: SubtitleCue | undefined, time: number): boolean {
-    // Outside the cue's window (grace for boundary flicker): past its end, before
-    // its start (a backward seek into a gap), or no content time at all (NaN).
-    return Boolean(!next && current && !(time >= current.start - 0.12 && time <= current.end + 0.12));
 }
 
 function normalizeSubtitleTimingOffsetSeconds(value: number | undefined): number {
@@ -2399,9 +2390,9 @@ export class SubtitlePlayerController {
         // During a YouTube ad the element's clock is the ad's, so there is no content
         // time: NaN (as for an unknown duration) matches no cue window and keeps none.
         const time = isYouTubeAdPlaying(this.video) ? Number.NaN : this.subtitlePlaybackTime(this.video);
-        const secondary = this.secondaryTrackId ? findActiveSubtitleCue(this.secondaryCues, time) : undefined;
-        const cue = this.selectedTrackId ? this.findRenderablePrimaryCue(time, secondary) : undefined;
-        if (this.updateLoadedCueState(cue, secondary, time)) this.afterLoadedCueStateChanged();
+        const pair = loadedSubtitlePair({ tracks: this.tracks, selectedTrackId: this.selectedTrackId, secondaryTrackId: this.secondaryTrackId,
+            primaryCues: this.cues, secondaryCues: this.secondaryCues, currentPrimary: this.currentCue, time });
+        if (this.updateLoadedCueState(pair.primary, pair.secondary)) this.afterLoadedCueStateChanged();
         else if (!Number.isNaN(time)) this.warmParseOnGapAnchorJump();
     }
 
@@ -2409,20 +2400,6 @@ export class SubtitlePlayerController {
         return this.bufferingPlayback?.video === video
             ? this.bufferingPlayback.time
             : video.currentTime;
-    }
-
-    private findRenderablePrimaryCue(time: number, activeSecondary?: SubtitleCue): SubtitleCue | undefined {
-        // Auto-generated YouTube captions and their `&tlang=` translations are
-        // segmented independently, so the primary (JP) cue often begins a beat
-        // after — or falls into a gap relative to — the native (EN) line that's
-        // already active. That left no primary cue at the playhead while a native
-        // cue was active, showing the native line alone (user-reported). When the
-        // direct lookup misses but a native cue is active, surface the primary
-        // aligned to it so the pair appears together. Mirrors
-        // primaryHeldByActiveSecondary for the not-yet-shown direction.
-        const direct = findActiveSubtitleCue(this.cues, time);
-        if (direct || !activeSecondary || !this.cues.length) return direct;
-        return findAlignedCue(this.cues, activeSecondary);
     }
 
     // A repeated seek that lands in another inter-cue gap changes no cue
@@ -2434,11 +2411,11 @@ export class SubtitlePlayerController {
         this.warmParseAroundActiveCue();
     }
 
-    private updateLoadedCueState(cue: SubtitleCue | undefined, secondary: SubtitleCue | undefined, time: number): boolean {
+    private updateLoadedCueState(cue: SubtitleCue | undefined, secondary: SubtitleCue | undefined): boolean {
         // Evaluate both, not `||`: short-circuiting skipped the secondary
         // update on any tick the primary also changed, so a freshly active
         // line showed its translation only one tick later (lines out of sync).
-        const primaryChanged = this.updateLoadedPrimaryCue(cue, time);
+        const primaryChanged = this.updateLoadedPrimaryCue(cue);
         const secondaryChanged = this.updateLoadedSecondaryCue(secondary);
         return primaryChanged || secondaryChanged;
     }
@@ -2452,24 +2429,9 @@ export class SubtitlePlayerController {
         this.scheduleTranscriptCacheWarmup();
     }
 
-    private updateLoadedPrimaryCue(cue: SubtitleCue | undefined, time: number): boolean {
-        if (shouldReplaceLoadedCue(cue, this.currentCue)) return this.replaceLoadedPrimaryCue(cue);
-        if (shouldClearLoadedCue(cue, this.currentCue, time) && !this.primaryHeldByActiveSecondary(time)) {
-            return this.clearLoadedPrimaryCue();
-        }
-        return false;
-    }
-
-    private primaryHeldByActiveSecondary(time: number): boolean {
-        // Auto-generated YouTube captions and their `&tlang=` translations are
-        // normalized independently (text-overlap rolling-cue merge), so the
-        // primary line's cue often ends a beat before its translation's does.
-        // Clearing the primary on its own boundary left the translation showing
-        // alone (user-reported). Hold the primary while the still-active secondary
-        // cue is the one aligned to it, so the pair appears and clears as a unit.
-        if (!this.secondaryTrackId || !this.currentCue || !this.secondaryCues.length) return false;
-        const activeSecondary = findActiveSubtitleCue(this.secondaryCues, time);
-        return Boolean(activeSecondary && findAlignedCue(this.secondaryCues, this.currentCue) === activeSecondary);
+    private updateLoadedPrimaryCue(cue: SubtitleCue | undefined): boolean {
+        if (cue === this.currentCue) return false;
+        return cue ? this.replaceLoadedPrimaryCue(cue) : this.clearLoadedPrimaryCue();
     }
 
     private replaceLoadedPrimaryCue(cue: SubtitleCue): boolean {
@@ -2727,7 +2689,7 @@ export class SubtitlePlayerController {
         // Abutting cues have no empty visual state. Retain the committed pair
         // while the next parse settles; a real gap still clears in renderEmpty.
         const contiguous = this.currentCue && this.paintCommit.advance(this.currentCue);
-        if (!primary.html && primary.shouldRequestParse && contiguous
+        if (primary.shouldRequestParse && contiguous
             && this.subtitleEl.querySelector('.jpdb-subtitle-primary')?.textContent) {
             this.holdingPrimaryCue = true;
             this.syncSubtitleTextSize();
@@ -2737,7 +2699,7 @@ export class SubtitlePlayerController {
         const changed = this.applyPrimaryRow(primary.html);
         this.applySecondaryLine(settings);
         this.applyRenderedPrimarySubtitle(primary, text, settings);
-        this.paintCommit.commit(primary.html ? this.currentCue : undefined, this.secondaryCue);
+        this.paintCommit.commit(primary.html ? this.currentCue : undefined, this.secondaryCue, primary.shouldRequestParse);
         void this.autoCopyCurrentCue();
         // Re-applying state colors only matters when the DOM was rebuilt;
         // re-notifying on identical renders made pitch/state highlights
@@ -2916,7 +2878,7 @@ export class SubtitlePlayerController {
         }
 
         try {
-            const html = await this.parseCueHtml(text, settings, { enrichBeforeRender: true, requireEnrichedProvisional: true });
+            const html = await promiseWithTimeout(this.parseCueHtml(text, settings, { enrichBeforeRender: true, requireEnrichedProvisional: true }), SUBTITLE_PENDING_PAINT_BUDGET_MS, 'Subtitle annotation timed out.');
             this.applyParsedPrimaryHtml(key, text, html, serial);
         } catch {
             if (!this.htmlCache.isCurrentParseKey(key)) return;
@@ -4945,8 +4907,8 @@ export class SubtitlePlayerController {
     // auto-showing an overlay for the whole video; keep the track listed for
     // manual selection but withdraw the automatic pick.
     private revertSingleCueAutoSelection(role: 'primary' | 'secondary', loaded: LoadedSubtitleTrackSelection): boolean {
-        if (loaded.cues.length > 1) return false;
-        if (loaded.track) loaded.track.loadingState = 'ready';
+        if (loaded.cues.length > 1 || loaded.track?.translationOutcome === 'partial') return false;
+        if (loaded.track) loaded.track.loadingState = loadedTrackState(loaded.cues, loaded.track);
         if (role === 'primary' && this.selectedTrackId === loaded.trackId) {
             this.selectedTrackId = '';
             this.cues = [];
@@ -5028,6 +4990,13 @@ export class SubtitlePlayerController {
                 transcriptEligible: request.transcriptEligible,
                 translationFallback: this.translationFallbackModeForSelection(request, selected),
                 signal,
+                onTranslationProgress: (track, cues) => {
+                    const selection = this.loadedTrackSelection(request, track, cues);
+                    if (!selection) return;
+                    if (request.role === 'primary') this.applyPrimaryTrackSelection(selection);
+                    else this.applySecondaryTrackSelection(selection);
+                    this.finishTrackSelection();
+                },
             });
             return this.loadedTrackSelection(request, loaded.track, loaded.cues);
         } catch (error) {
@@ -5074,7 +5043,7 @@ export class SubtitlePlayerController {
         if (selection.track) selection.track.cues = selection.cues;
         this.cues = offsetSubtitleCues(selection.cues, this.trackTimingOffsetSeconds(selection.trackId));
         this.applyYouTubeCaptionFallback(selection.track, selection.trackId);
-        if (selection.track) selection.track.loadingState = loadedTrackState(this.cues);
+        if (selection.track) selection.track.loadingState = loadedTrackState(this.cues, selection.track);
     }
 
     private applyYouTubeCaptionFallback(track: SubtitleTrackOption | undefined, trackId: string): void {
@@ -5132,7 +5101,7 @@ export class SubtitlePlayerController {
         if (selection.trackId !== this.secondaryTrackId) this.secondaryTrackId = selection.trackId;
         if (selection.track) selection.track.cues = selection.cues;
         this.secondaryCues = offsetSubtitleCues(selection.cues, this.trackTimingOffsetSeconds(selection.trackId));
-        if (selection.track) selection.track.loadingState = loadedTrackState(this.secondaryCues);
+        if (selection.track) selection.track.loadingState = loadedTrackState(this.secondaryCues, selection.track);
     }
 
     private finishTrackSelection(): void {
@@ -5187,22 +5156,12 @@ export class SubtitlePlayerController {
         return Boolean(settings.subtitlePlayerEnabled
             && settings.subtitleOverlayVisible
             && this.video
-            && this.hasVisualCommitForCurrentCue(settings));
+            && this.hasVisualCommitForCurrentCue());
     }
 
-    private hasVisualCommitForCurrentCue(settings: ReaderSettings): boolean {
-        const text = this.currentCue?.text.trim() ?? '';
-        if (!text) return false;
-        // With annotations paused (or no parser source), the plain synchronous
-        // frame is final and can own captions immediately.
-        if (!this.shouldParseSubtitles(settings)) return true;
-        return this.holdingPrimaryCue || this.primaryVisualCommitMatches(text, settings);
-    }
-
-    private primaryVisualCommitMatches(text: string, settings: ReaderSettings): boolean {
-        return this.lastRenderedPrimaryKey === this.parseCacheKey(text, settings)
-            && this.lastRenderedPrimaryText === text
-            && Boolean(this.lastRenderedPrimaryHtml);
+    private hasVisualCommitForCurrentCue(): boolean {
+        return Boolean(this.currentCue?.text.trim()
+            && (this.holdingPrimaryCue || this.paintCommit.pair?.primary === this.currentCue));
     }
 
     private async discoverYouTubeTracksThrottled(force = false): Promise<void> {

@@ -351,7 +351,7 @@ describe('reader helpers', () => {
             karaokeMode: false,
             time: 0,
         });
-        expect(pending.html).toBe('');
+        expect(pending.html).toBe('今日は読む');
         expect(pending.shouldRequestParse).toBe(true);
 
         const parsed = renderSubtitlePrimary({
@@ -446,7 +446,7 @@ describe('reader helpers', () => {
             hasParser: true,
             time: 0,
         });
-        expect(changedSettings.html).toBe('');
+        expect(changedSettings.html).toBe('本を読む');
 
         // A different cue must never inherit the previous cue's annotated html,
         // even when the stale key happens to match.
@@ -463,7 +463,7 @@ describe('reader helpers', () => {
             hasParser: true,
             time: 0,
         });
-        expect(otherCue.html).toBe('');
+        expect(otherCue.html).toBe('違う行');
 
         const pendingOtherCue = renderControllerPrimarySubtitle({
             cue: { start: 2, end: 4, text: '違う行' },
@@ -478,7 +478,7 @@ describe('reader helpers', () => {
             hasParser: true,
             time: 2,
         });
-        expect(pendingOtherCue.html).toBe('');
+        expect(pendingOtherCue.html).toBe('違う行');
         expect(pendingOtherCue.shouldRequestParse).toBe(true);
     });
 

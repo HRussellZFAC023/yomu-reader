@@ -1,7 +1,7 @@
 import { isAbortError } from '../core/errors';
 import { targetSubtitleLanguageTag } from '../languages/resolve';
 import { normalizeSubtitleCues, parseSubtitleText, stripWebVttCueMarkup, type SubtitleCue } from './subtitle-cues';
-import { translateSubtitleCues } from './subtitle-translate';
+import { translateSubtitleCues, type SubtitleTranslationOutcome } from './subtitle-translate';
 import {
     hasFreshYouTubeCaptionSemanticMiss,
     loadFirstUsableYouTubeSibling,
@@ -19,6 +19,7 @@ export interface SubtitleTrackLoadable extends YouTubeSubtitleTrack {
     url?: string;
     translatedFromTrackId?: string;
     targetLanguage?: string;
+    translationOutcome?: SubtitleTranslationOutcome;
 }
 
 export interface SubtitleTrackLoadOptions<T extends SubtitleTrackLoadable> {
@@ -30,6 +31,7 @@ export interface SubtitleTrackLoadOptions<T extends SubtitleTrackLoadable> {
     onRemoteEmpty?: (track: T) => void;
     onRemoteError?: (track: T, error: unknown) => void;
     onYouTubeRequestError?: YouTubeTrackLoadOptions<T>['onRequestError'];
+    onTranslationProgress?: (track: T, cues: SubtitleCue[]) => void;
 }
 
 export async function loadSubtitleTrackCues<T extends SubtitleTrackLoadable>(
@@ -37,7 +39,7 @@ export async function loadSubtitleTrackCues<T extends SubtitleTrackLoadable>(
     options: SubtitleTrackLoadOptions<T>,
 ): Promise<{ track: T; cues: SubtitleCue[] }> {
     throwIfSubtitleTrackLoadAborted(options.signal);
-    if (track.cues?.length) return { track, cues: track.cues };
+    if (track.cues?.length && track.translationOutcome !== 'partial') return { track, cues: track.cues };
     
     if (track.translatedFromTrackId) {
         return loadTranslatedTrackCues(track, options);
@@ -66,11 +68,10 @@ async function loadTranslatedTrackCues<T extends SubtitleTrackLoadable>(
     if (!sourceTrack) return { track, cues: [] };
     const { cues: sourceCues } = await loadSubtitleTrackCues(sourceTrack, options);
     throwIfSubtitleTrackLoadAborted(options.signal);
-    const translatedCues = await translateSubtitleCues(
+    const translatedCues = await translateTrackCues(track, options,
         sourceCues,
         translatedSourceTag(track, sourceTrack),
         targetSubtitleLanguageTag(track),
-        { signal: options.signal },
     );
     throwIfSubtitleTrackLoadAborted(options.signal);
     track.cues = translatedCues;
@@ -151,12 +152,29 @@ async function loadYouTubeTranslationSourceFallback<T extends SubtitleTrackLoada
     if (!plan) return [];
     const { cues: sourceCues } = await loadSubtitleTrackCues(plan.sourceTrack, options);
     if (!sourceCues.length) return [];
-    return translateSubtitleCues(
+    return translateTrackCues(track, options,
         sourceCues,
         youtubeTranslationSourceLanguage(plan),
         plan.targetLanguage,
-        { signal: options.signal },
     );
+}
+
+async function translateTrackCues<T extends SubtitleTrackLoadable>(
+    track: T,
+    options: SubtitleTrackLoadOptions<T>,
+    sourceCues: SubtitleCue[],
+    sourceLanguage: string,
+    outputLanguage: string,
+): Promise<SubtitleCue[]> {
+    const publish = (cues: SubtitleCue[]): void => {
+        throwIfSubtitleTrackLoadAborted(options.signal);
+        track.translationOutcome = cues.length === sourceCues.length ? 'complete' : cues.length ? 'partial' : 'failed';
+        track.cues = cues;
+        options.onTranslationProgress?.(track, cues);
+    };
+    const cues = await translateSubtitleCues(sourceCues, sourceLanguage, outputLanguage, { signal: options.signal, onProgress: publish });
+    publish(cues);
+    return cues;
 }
 
 interface YouTubeTranslationSourcePlan<T extends SubtitleTrackLoadable> {

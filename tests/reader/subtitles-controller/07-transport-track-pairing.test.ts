@@ -460,7 +460,7 @@ describe('SubtitlePlayerController — subtitle transport & track pairing', () =
         }
     });
 
-    it('settles a translated track with source cues after timeout and retries instead of caching the miss', async () => {
+    it('settles a timed-out translation as failed, preserves its source and retries the missing target', async () => {
         vi.useFakeTimers();
         const fetchMock = vi.fn()
             .mockImplementationOnce((_input: RequestInfo | URL, init?: RequestInit) => new Promise<Response>((_resolve, reject) => {
@@ -506,11 +506,11 @@ describe('SubtitlePlayerController — subtitle transport & track pairing', () =
             await vi.advanceTimersByTimeAsync(8_000);
             await timedOutSelection;
 
-            expect(translatedTrack.loadingState).toBe('ready');
-            expect(translatedTrack.cues?.map(cue => cue.text)).toEqual(['翻訳期限九百二']);
-            expect(internals.cues.map(cue => cue.text)).toEqual(['翻訳期限九百二']);
+            expect(translatedTrack.loadingState).toBe('error');
+            expect(translatedTrack.cues).toEqual([]);
+            expect(internals.cues).toEqual([]);
+            expect(sourceTrack.cues).toBe(sourceCues);
 
-            translatedTrack.cues = undefined;
             await internals.selectTrack(sourceTrack.id);
             await internals.selectTrack(translatedTrack.id);
 

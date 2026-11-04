@@ -631,10 +631,9 @@ describe('SubtitlePlayerController — transcript hydration, karaoke & authorita
             internals.currentCue = cue;
             controller.refresh();
             expect(parseJapanese).toHaveBeenCalledTimes(1);
-            // The parser owns the final shape of this cue, so a cache miss has
-            // no paintable primary frame yet. In particular, the final words
-            // are not exposed plain and then decorated later.
-            expect(document.querySelector('.jpdb-subtitle-primary')?.textContent).toBe('');
+            // Source text stays readable while annotation prepares its marks.
+            expect(document.querySelector('.jpdb-subtitle-primary')?.textContent).toBe('読む');
+            expect(document.querySelector('.jpdb-subtitle-primary .jpdb-reader-word')).toBeNull();
 
             settings.annotationsPaused = true;
             controller.refresh();
@@ -686,7 +685,7 @@ describe('SubtitlePlayerController — transcript hydration, karaoke & authorita
             kind: 'native' as const,
             pageUrl: 'https://example.test/video',
             track: nativeVisualCommitTrack,
-            expectPendingOwner: (): void => { expect(nativeVisualCommitTrack.mode).toBe('showing'); },
+            expectPendingOwner: (): void => { expect(nativeVisualCommitTrack.mode).toBe('hidden'); },
             expectCommittedOwner: (): void => { expect(nativeVisualCommitTrack.mode).toBe('hidden'); },
             expectReleasedOwner: (): void => { expect(nativeVisualCommitTrack.mode).toBe('disabled'); },
         },
@@ -697,7 +696,7 @@ describe('SubtitlePlayerController — transcript hydration, karaoke & authorita
             pageUrl: 'https://www.youtube.com/watch?v=visual-commit',
             track: undefined,
             expectPendingOwner: (): void => {
-                expect(document.documentElement.classList.contains('jpdb-subtitle-yomu-captions-active')).toBe(false);
+                expect(document.documentElement.classList.contains('jpdb-subtitle-yomu-captions-active')).toBe(true);
             },
             expectCommittedOwner: (): void => {
                 expect(document.documentElement.classList.contains('jpdb-subtitle-yomu-captions-active')).toBe(true);
@@ -706,7 +705,7 @@ describe('SubtitlePlayerController — transcript hydration, karaoke & authorita
                 expect(document.documentElement.classList.contains('jpdb-subtitle-yomu-captions-active')).toBe(false);
             },
         },
-    ])('publishes the first $surface frame only after async annotation enrichment settles', async surface => {
+    ])('keeps the first $surface text readable and publishes marks after enrichment settles', async surface => {
         const { id, kind, pageUrl, track, expectPendingOwner, expectCommittedOwner, expectReleasedOwner } = surface;
         const originalLocation = window.location;
         Object.defineProperty(window, 'location', {
@@ -758,7 +757,8 @@ describe('SubtitlePlayerController — transcript hydration, karaoke & authorita
         try {
             controller.refresh();
             expect(parseJapanese).toHaveBeenCalledTimes(1);
-            expect(internals.subtitleEl.querySelector('.jpdb-subtitle-primary')?.textContent).toBe('');
+            expect(internals.subtitleEl.querySelector('.jpdb-subtitle-primary')?.textContent).toBe('読む');
+            expect(internals.subtitleEl.querySelector('.jpdb-reader-word')).toBeNull();
             expectPendingOwner();
 
             parsed.resolve([makeSubtitleToken('読む', {
@@ -767,7 +767,8 @@ describe('SubtitlePlayerController — transcript hydration, karaoke & authorita
                 rubies: [{ start: 0, end: 1, length: 1, text: 'よ' }],
             })]);
             await vi.waitFor(() => expect(beforeRenderTokens).toHaveBeenCalledTimes(1));
-            expect(internals.subtitleEl.querySelector('.jpdb-subtitle-primary')?.textContent).toBe('');
+            expect(internals.subtitleEl.querySelector('.jpdb-subtitle-primary')?.textContent).toBe('読む');
+            expect(internals.subtitleEl.querySelector('.jpdb-reader-word')).toBeNull();
 
             enrichment.resolve();
             await vi.waitFor(() => {
@@ -780,7 +781,9 @@ describe('SubtitlePlayerController — transcript hydration, karaoke & authorita
             expect(primary.querySelector('.jpdb-reader-word')?.classList.contains('jpdb-pitch-heiban')).toBe(true);
             const visibleFrames = paintedFrames.filter(frame => frame.trim());
             expect(visibleFrames.length).toBeGreaterThan(0);
-            expect(visibleFrames.every(frame => frame.includes('jpdb-reader-word') && frame.includes('jpdb-reader-furi'))).toBe(true);
+            expect(visibleFrames).toContain('読む');
+            expect(visibleFrames.some(frame => frame.includes('jpdb-reader-word') && frame.includes('jpdb-reader-furi'))).toBe(true);
+            expect(visibleFrames.every(frame => !frame.includes('jpdb-reader-word') || frame.includes('jpdb-reader-furi'))).toBe(true);
             expectCommittedOwner();
 
             controller.destroy();
@@ -957,10 +960,10 @@ describe('SubtitlePlayerController — transcript hydration, karaoke & authorita
 
         try {
             controller.refresh();
-            expect(internals.subtitleEl.querySelector('.jpdb-subtitle-primary')?.textContent).toBe('');
+            expect(internals.subtitleEl.querySelector('.jpdb-subtitle-primary')?.textContent).toBe('読む');
             expect(parseJapanese).toHaveBeenCalledTimes(1);
             parsed.reject(new Error('enrichment unavailable'));
-            await vi.waitFor(() => expect(internals.subtitleEl.querySelector('.jpdb-subtitle-primary')?.textContent).toBe('読む'));
+            await vi.waitFor(() => expect(internals.htmlCache.freshEmptyParsedHtml(key)).toBe('読む'));
             const committed = internals.subtitleEl.querySelector('.jpdb-subtitle-primary');
             expect(committed?.querySelector('.jpdb-reader-word')).toBeNull();
             expect(paintedFrames).toEqual(['読む']);
