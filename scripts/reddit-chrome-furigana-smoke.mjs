@@ -56,6 +56,9 @@ const REQUIRED_COMPANION_PATHS = userscriptCompanionPaths(SCRIPT_PATH);
 // Browser DOMRects include the font line box. Directly stacked reading/base
 // glyphs can therefore report up to 3px of contact without visibly overlapping.
 const MAX_FONT_BOX_CONTACT_PX = 3.5;
+// Preserve the fractional puck origin that exposed WebKit's mouse-input
+// quantization on the 760px surface / 475px layout viewport in CI.
+const PUCK_DRAG_FIXTURE_ORIGIN = { left: 532.2250366210938, top: 933.8500366210938 };
 
 const VOCABULARY = [
     ['投稿', '投稿', 'とうこう', 'post', ['noun'], 100, ['not-in-deck'], ['LHHH']],
@@ -578,6 +581,9 @@ async function runEngine(engineName, browser) {
         assertCompensatedVideoAvoidance(engineName, videoAvoidance);
         const puckDrag = await exerciseCompensatedPuckDrag(page);
         assertCompensatedPuckDrag(engineName, puckDrag);
+        const puckDragWrongScale = engineName === 'webkit'
+            ? await assertWrongScalePuckDragRejected(page, engineName)
+            : null;
         const mirrorRemovalFallback = await page.evaluate(() => {
             const row = document.querySelector('reddit-clipped-title').shadowRoot.querySelector('#clipped-reader-row');
             row.querySelector('.jpdb-reader-text-mirror')?.remove();
@@ -606,6 +612,7 @@ async function runEngine(engineName, browser) {
             fixedChrome,
             videoAvoidance,
             puckDrag,
+            puckDragWrongScale,
             mirrorRemovalFallback,
             lateLocalizedSignIn,
             annotatedControls,
@@ -1356,10 +1363,27 @@ async function exerciseCompensatedVideoAvoidance(page) {
     return { marked, moved };
 }
 
-async function exerciseCompensatedPuckDrag(page) {
+async function exerciseCompensatedPuckDrag(page, endpointPageScale) {
     const puck = page.locator('.jpdb-reader-fab');
-    const before = await puck.evaluate(button => {
-        const box = button.getBoundingClientRect();
+    const before = await puck.evaluate((button, fixtureOrigin) => {
+        button.style.setProperty('left', `${fixtureOrigin.left}px`);
+        button.style.setProperty('top', `${fixtureOrigin.top}px`);
+        button.style.setProperty('right', 'auto', 'important');
+        button.style.setProperty('bottom', 'auto', 'important');
+        let box = button.getBoundingClientRect();
+        const pageScale = outerWidth / innerWidth;
+        const measured = button.offsetWidth ? box.width / button.offsetWidth : 1;
+        const compensatedRectScale = pageScale > 1
+            && Math.abs(measured - 1 / pageScale) < Math.abs(measured - 1)
+            ? pageScale
+            : 1;
+        // GTK's fixed-zoom Y origin differs from the other ports. Position the
+        // fixture by its measured overlay rect so every port tests the CI case.
+        for (const property of ['left', 'top']) {
+            button.style.setProperty(property, `${Number.parseFloat(button.style[property])
+                + fixtureOrigin[property] - box[property] * compensatedRectScale}px`);
+        }
+        box = button.getBoundingClientRect();
         const rawRect = {
             left: box.left,
             top: box.top,
@@ -1368,12 +1392,6 @@ async function exerciseCompensatedPuckDrag(page) {
             width: box.width,
             height: box.height,
         };
-        const pageScale = outerWidth / innerWidth;
-        const measured = button.offsetWidth ? rawRect.width / button.offsetWidth : 1;
-        const compensatedRectScale = pageScale > 1
-            && Math.abs(measured - 1 / pageScale) < Math.abs(measured - 1)
-            ? pageScale
-            : 1;
         return {
             rawRect,
             rect: scalePlainRect(rawRect, compensatedRectScale),
@@ -1387,12 +1405,23 @@ async function exerciseCompensatedPuckDrag(page) {
         function scalePlainRect(rect, scale) {
             return Object.fromEntries(Object.entries(rect).map(([key, value]) => [key, value * scale]));
         }
-    });
+    }, PUCK_DRAG_FIXTURE_ORIGIN);
+    assert(pointDistance({ x: before.rect.left, y: before.rect.top }, {
+        x: PUCK_DRAG_FIXTURE_ORIGIN.left,
+        y: PUCK_DRAG_FIXTURE_ORIGIN.top,
+    }) <= 0.01, 'Fractional puck drag fixture did not reproduce the CI origin', before);
     const start = {
         x: (before.rect.left + before.rect.right) / 2,
         y: (before.rect.top + before.rect.bottom) / 2,
     };
-    await page.mouse.move(start.x / before.pageScale, start.y / before.pageScale);
+    // WebKit truncates fractional injected layout coordinates before mapping
+    // them to the scaled surface. Pick a whole layout point near the center;
+    // the strict event and final-position assertions below still use geometry.
+    const inputStart = {
+        x: Math.round(start.x / before.pageScale),
+        y: Math.round(start.y / before.pageScale),
+    };
+    await page.mouse.move(inputStart.x, inputStart.y);
     await puck.evaluate(button => {
         window.__redditPuckPointerLog = [];
         const record = event => window.__redditPuckPointerLog.push({
@@ -1406,8 +1435,8 @@ async function exerciseCompensatedPuckDrag(page) {
     });
     await page.mouse.down();
     await page.mouse.move(
-        before.target.x / before.pageScale,
-        before.target.y / before.pageScale,
+        before.target.x / (endpointPageScale ?? before.pageScale),
+        before.target.y / (endpointPageScale ?? before.pageScale),
         { steps: 6 },
     );
     await page.mouse.up();
@@ -1435,7 +1464,19 @@ async function exerciseCompensatedPuckDrag(page) {
                 top: Number.parseFloat(button.style.top),
             },
         };
-    }, { ...before, start });
+    }, { ...before, start, inputStart });
+}
+
+async function assertWrongScalePuckDragRejected(page, engineName) {
+    const result = await exerciseCompensatedPuckDrag(page, 1);
+    try {
+        assertCompensatedPuckDrag(engineName, result);
+    } catch (error) {
+        assert(String(error).includes('pointer endpoint did not map to the browser surface'),
+            'Wrong-scale drag failed before the endpoint conversion assertion', { error: String(error), result });
+        return { endpointPageScale: 1, rejected: true, result };
+    }
+    throw new Error(`${engineName}: incorrect pointer endpoint scale passed the drag assertions`);
 }
 
 function assertCompensatedVideoAvoidance(engineName, result) {
