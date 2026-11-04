@@ -77,6 +77,14 @@ Hiding the よむ subtitle overlay leaves YouTube’s native captions available.
 
 Subtitles keep a steady baseline as readings appear, with a dark background for the Japanese line, readings and translation. Site dialogs and word lookup stay above them. The subtitle style button changes the font and background.
 
+Subtitle formatting tags are removed before display. Source captions stay readable while parsing or translation is pending. Incomplete translations remain available for retry.
+
+Subtitle underlines follow the text through wrapping and font changes. Caption backgrounds leave balanced room around readings and text. Opening a left-docked transcript keeps the video clear of neighbouring site panels. Closing it restores the site's layout.
+
+Page annotations keep the page's original proportional spacing and link styling.
+
+On touchscreens, tap newly loaded Japanese text to open the dictionary, including before annotations appear.
+
 Words can still be looked up without a coloured underline. Search and comment fields keep their normal typing behavior.
 
 OCR text and corner marks on ordinary page images scroll with the image. Decorative blurred copies do not get a second mark.

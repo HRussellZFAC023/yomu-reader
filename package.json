@@ -1,6 +1,6 @@
 {
   "name": "yomu-reader",
-  "version": "2.3.1",
+  "version": "2.3.2",
   "private": true,
   "type": "module",
   "description": "よむ: Japanese pop-up dictionary with furigana, pitch accent, subtitles, OCR, and Study.",
@@ -280,7 +280,7 @@
     "smoke:nightly": "node scripts/run-nightly-smokes.mjs",
     "smoke:reddit-chrome": "node scripts/reddit-chrome-furigana-smoke.mjs",
     "smoke:layout-neutral-scan": "node scripts/layout-neutral-page-scan-smoke.mjs",
-    "smoke:layout-regressions": "npm run smoke:ignored-words && npm run smoke:layout-neutral-scan && npm run smoke:prose-portal && npm run smoke:fractional-projection && npm run smoke:ruby-overhang-scope && npm run smoke:chip-mirror && npm run smoke:private-deck-status && npm run smoke:annotation-scroll && npm run smoke:constrained-gate && npm run smoke:reddit-chrome && npm run smoke:drag-handle && npm run smoke:native-editing-shortcuts && npm run smoke:trusted-form-submit-order && npm run smoke:subtitle-highlight && npm run smoke:subtitle-furigana-outline && npm run smoke:host-css-armour && npm run smoke:ocr-line-register && npm run smoke:gaming-ocr-hit-target && npm run smoke:ocr-transform-register && npm run smoke:ocr-scroll-perf && npm run smoke:ocr-viewport-scroll && npm run smoke:youtube-paused-frame-register && npm run smoke:youtube-ipad-playback && npm run smoke:subtitle-stability && npm run smoke:reading-collision",
+    "smoke:layout-regressions": "npm run smoke:ignored-words && npm run smoke:layout-neutral-scan && npm run smoke:prose-portal && npm run smoke:fractional-projection && npm run smoke:ruby-overhang-scope && npm run smoke:chip-mirror && npm run smoke:private-deck-status && npm run smoke:annotation-scroll && npm run smoke:constrained-gate && npm run smoke:reddit-chrome && npm run smoke:drag-handle && npm run smoke:native-editing-shortcuts && npm run smoke:trusted-form-submit-order && npm run smoke:subtitle-highlight && npm run smoke:subtitle-furigana-outline && npm run smoke:host-css-armour && npm run smoke:ocr-line-register && npm run smoke:gaming-ocr-hit-target && npm run smoke:ocr-transform-register && npm run smoke:ocr-scroll-perf && npm run smoke:ocr-viewport-scroll && npm run smoke:youtube-paused-frame-register && npm run smoke:youtube-ipad-playback && npm run smoke:subtitle-stability && npm run smoke:reading-collision && npm run smoke:subtitle-annotation-geometry && npm run smoke:source-preserving-typography",
     "manual:settings-layout": "node scripts/manual/settings-layout-smoke.mjs",
     "manual:subtitle-live-sites": "node scripts/manual/subtitle-live-video-site-smoke.mjs",
     "manual:subtitle-live-compat": "YOMU_LIVE_VIDEO_SITE_SET=compat node scripts/manual/subtitle-live-video-site-smoke.mjs",
@@ -344,7 +344,9 @@
     "quality:reader-coverage": "node scripts/run-reader-quality-coverage.mjs",
     "quality:gaming-coverage": "node scripts/run-reader-quality-coverage.mjs gaming",
     "smoke:private-deck-status": "node scripts/private-deck-status-smoke.mjs",
-    "manual:gaming-selected-text": "node scripts/manual/gaming-selected-text-proof.mjs"
+    "manual:gaming-selected-text": "node scripts/manual/gaming-selected-text-proof.mjs",
+    "smoke:subtitle-annotation-geometry": "node scripts/subtitle-annotation-geometry-smoke.mjs",
+    "smoke:source-preserving-typography": "node scripts/source-preserving-typography-smoke.mjs"
   },
   "dependencies": {
     "aws4fetch": "^1.0.20",
