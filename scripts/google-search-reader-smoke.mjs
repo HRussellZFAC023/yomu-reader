@@ -21,6 +21,7 @@ import {
     YOMU_SETTINGS_KEY,
 } from './lib/smoke-harness.mjs';
 import { addScriptTagWithCspFallback, installUserscriptCssResource } from './lib/smoke-test-helpers.mjs';
+import { runGoogleAiMobileFixture } from './lib/google-ai-mobile-fixture.mjs';
 
 const { scriptPath: SCRIPT_PATH, cssPath: CSS_PATH, root: ROOT, artifacts: ARTIFACTS } = createSmokePaths(import.meta.dirname);
 assertBuiltArtifacts([SCRIPT_PATH, CSS_PATH], ROOT);
@@ -42,29 +43,29 @@ const LANGUAGE_PROFILE_ID = 'google-search-smoke';
 const CHIP_READING_LAG_BUDGET_MS = 800;
 
 const VOCABULARY = [
-    ['アプリ', 'アプリ', 'アプリ', 'app', 'n', 100, ['not-in-deck'], ['LHH']],
-    ['使用', '使用', 'しよう', 'use', 'n', 100, ['known'], ['LHH']],
-    ['あらゆる', 'あらゆる', 'あらゆる', 'all kinds of', 'adj', 100, ['known'], ['LHHH']],
-    ['ページ', 'ページ', 'ページ', 'page', 'n', 100, ['known'], ['LHH']],
-    ['主要', '主要', 'しゅよう', 'main', 'adj', 100, ['known'], ['LHHH']],
-    ['要素', '要素', 'ようそ', 'element', 'n', 100, ['known'], ['LHH']],
-    ['数秒', '数秒', 'すうびょう', 'seconds', 'n', 100, ['known'], ['LHHH']],
-    ['分析', '分析', 'ぶんせき', 'analysis', 'n', 100, ['known'], ['LHHH']],
-    ['理解', '理解', 'りかい', 'understanding', 'n', 100, ['known'], ['LHH']],
-    ['あなた', 'あなた', 'あなた', 'you', 'pn', 100, ['known'], ['LHH']],
-    ['担当者', '担当者', 'たんとうしゃ', 'person in charge', 'n', 100, ['known'], ['LHHHH']],
-    ['開発者', '開発者', 'かいはつしゃ', 'developer', 'n', 100, ['known'], ['LHHHH']],
-    ['検索結果', '検索結果', 'けんさくけっか', 'search result', 'n', 100, ['known'], ['LHHHHH']],
-    ['表示', '表示', 'ひょうじ', 'display', 'n', 100, ['known'], ['LHH']],
-    ['質問', '質問', 'しつもん', 'question', 'n', 100, ['known'], ['LHH']],
-    ['辞書', '辞書', 'じしょ', 'dictionary', 'n', 100, ['known'], ['LHH']],
-    ['英語', '英語', 'えいご', 'English', 'n', 100, ['known'], ['LHH']],
-    ['意味', '意味', 'いみ', 'meaning', 'n', 100, ['known'], ['LH']],
-    ['使い方', '使い方', 'つかいかた', 'usage', 'n', 100, ['known'], ['LHHH']],
-    ['読み方', '読み方', 'よみかた', 'reading', 'n', 100, ['known'], ['LHHH']],
-    ['英和辞書', '英和辞書', 'えいわじしょ', 'English-Japanese dictionary', 'n', 100, ['known'], ['LHHHH']],
+    ['アプリ', 'アプリ', 'アプリ', 'app', ['n'], 100, ['not-in-deck'], ['LHH']],
+    ['使用', '使用', 'しよう', 'use', ['n'], 100, ['known'], ['LHH']],
+    ['あらゆる', 'あらゆる', 'あらゆる', 'all kinds of', ['adj'], 100, ['known'], ['LHHH']],
+    ['ページ', 'ページ', 'ページ', 'page', ['n'], 100, ['known'], ['LHH']],
+    ['主要', '主要', 'しゅよう', 'main', ['adj'], 100, ['known'], ['LHHH']],
+    ['要素', '要素', 'ようそ', 'element', ['n'], 100, ['known'], ['LHH']],
+    ['数秒', '数秒', 'すうびょう', 'seconds', ['n'], 100, ['known'], ['LHHH']],
+    ['分析', '分析', 'ぶんせき', 'analysis', ['n'], 100, ['known'], ['LHHH']],
+    ['理解', '理解', 'りかい', 'understanding', ['n'], 100, ['known'], ['LHH']],
+    ['あなた', 'あなた', 'あなた', 'you', ['pn'], 100, ['known'], ['LHH']],
+    ['担当者', '担当者', 'たんとうしゃ', 'person in charge', ['n'], 100, ['known'], ['LHHHH']],
+    ['開発者', '開発者', 'かいはつしゃ', 'developer', ['n'], 100, ['known'], ['LHHHH']],
+    ['検索結果', '検索結果', 'けんさくけっか', 'search result', ['n'], 100, ['known'], ['LHHHHH']],
+    ['表示', '表示', 'ひょうじ', 'display', ['n'], 100, ['known'], ['LHH']],
+    ['質問', '質問', 'しつもん', 'question', ['n'], 100, ['known'], ['LHH']],
+    ['辞書', '辞書', 'じしょ', 'dictionary', ['n'], 100, ['known'], ['LHH']],
+    ['英語', '英語', 'えいご', 'English', ['n'], 100, ['known'], ['LHH']],
+    ['意味', '意味', 'いみ', 'meaning', ['n'], 100, ['known'], ['LH']],
+    ['使い方', '使い方', 'つかいかた', 'usage', ['n'], 100, ['known'], ['LHHH']],
+    ['読み方', '読み方', 'よみかた', 'reading', ['n'], 100, ['known'], ['LHHH']],
+    ['英和辞書', '英和辞書', 'えいわじしょ', 'English-Japanese dictionary', ['n'], 100, ['known'], ['LHHHH']],
     // Structurally valid token over punctuation only: renderer must discard it.
-    ['...', '日本語', 'にほんご', 'invalid punctuation token', 'n', 100, ['known'], ['LHHH']],
+    ['...', '日本語', 'にほんご', 'invalid punctuation token', ['n'], 100, ['known'], ['LHHH']],
 ];
 
 const settings = createReaderSmokeSettings({
@@ -180,6 +181,15 @@ const server = await startLoopbackServer((_request, response) => {
 }, 'Could not bind Google Search smoke server');
 
 try {
+    const mobileResults = {};
+    for (const [name, browserType] of [['webkit', webkit], ['chromium', chromium]]) {
+        const mobileBrowser = await launchSmokeBrowser(browserType, name, { headless: true });
+        try {
+            mobileResults[name] = await runGoogleAiMobileFixture(mobileBrowser, { settings, scriptPath: SCRIPT_PATH, cssPath: CSS_PATH, mockRequest: mockedYomuBridgeRequest });
+        } finally {
+            await mobileBrowser.close();
+        }
+    }
     const chromiumResult = await runGoogleSearchCase('chromium', chromium);
     // The same contract on a slow device. 2.0.8's apply slices failed this case
     // at 4x CPU and on CI, so 2.0.9 reverted them, but the chip never lost its
@@ -190,7 +200,7 @@ try {
     const slowChromiumResult = await runGoogleSearchCase('chromium', chromium, { cpuThrottle: 4 });
     const keylessPitchResult = await runKeylessGooglePitchCase('chromium', chromium);
     const webkitResult = await runOptionalGoogleSearchCase('webkit', webkit);
-    console.log(JSON.stringify({ chromium: chromiumResult, slowChromium: slowChromiumResult, keylessPitch: keylessPitchResult, webkit: webkitResult }, null, 2));
+    console.log(JSON.stringify({ mobile: mobileResults, chromium: chromiumResult, slowChromium: slowChromiumResult, keylessPitch: keylessPitchResult, webkit: webkitResult }, null, 2));
     console.log('google-search-reader smoke passed');
 } finally {
     await server.close();

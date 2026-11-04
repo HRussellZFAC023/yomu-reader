@@ -18,7 +18,7 @@ const scopes = {
             'reading-media-boundary', 'detached-reading-overlay', 'reading-lane-layout',
             'projected-reading-crowding', 'projected-reading-scheduling', 'additive-mirror-source-projection',
             'synthetic-mirror-source-ranges', 'projection-sibling-realign', 'furigana-tap-band',
-            'subtitle-control-rail', 'hover-lookup', 'decoration-policy', 'mirror-page-reveal',
+            'subtitle-control-rail', 'hover-lookup', 'tap-text-lookup', 'decoration-policy', 'mirror-page-reveal',
             'mirror-observer-leak', 'repaint-loop-mirror', 'recycled-mirror-projection', 'hosted-runtime-graph',
             'collection-save-diagnostics', 'translation-language', 'hosted-settings-live-sync',
             'storage-bridge-ready-retry', 'parser-span-authority-contract',
