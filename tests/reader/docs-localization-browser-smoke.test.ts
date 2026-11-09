@@ -180,12 +180,15 @@ describe('docs localization browser smoke readiness', () => {
             SMOKE_SOURCE.indexOf('assert.deepEqual(hydrationMessages'),
         );
         const coldAssertion = functionBody('assertAcademyReaderCold');
+        const titleAssertion = functionBody('assertAcademyTitleAnnotation');
         const runtimeAssertion = functionBody('assertHostedRuntimeOrder');
 
         expect(academyFlow).toMatch(
-            /navigateToAcademyShell\(page, \{ assertPreviewTransport: BROWSER_NAME === 'chromium' \}\);[\s\S]*assertAcademyReaderCold\(page\);[\s\S]*navigateToAcademyShell\(page\);[\s\S]*assertHostedRuntimeOrder\(page,/u,
+            /navigateToAcademyShell\(page, \{ assertPreviewTransport: BROWSER_NAME === 'chromium' \}\);[\s\S]*assertAcademyReaderCold\(page\);[\s\S]*navigateToAcademyShell\(page\);[\s\S]*assertAcademyTitleAnnotation\(page\);/u,
         );
         expect(coldAssertion).toContain(".academy-root').waitFor({ state: 'visible' })");
+        expect(titleAssertion).toContain("assertHostedRuntimeOrder(page, { surface: 'Academy', annotationSelector })");
+        expect(titleAssertion).toContain('range.getClientRects()');
         expect(runtimeAssertion).toContain("data-yomu-runtime-health=\"ready\"");
         expect(runtimeAssertion).toContain("waitFor({ state: 'visible', timeout: 20_000 })");
         expect(runtimeAssertion).toContain("script.state === 'loaded'");
