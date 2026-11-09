@@ -92,9 +92,16 @@ describe('smoke script wiring', () => {
             // must never join a chain CI runs; a chain link is one plain node
             // entry point under scripts/, with no build or install step to
             // race the other CI jobs.
-            expect(body, name).toMatch(/^node scripts\/[\w.-]+\.mjs$/);
-            expect(() => readFileSync(body.replace('node ', ''), 'utf8'), name).not.toThrow();
+            const entry = /^node (scripts\/[\w.-]+\.mjs)(?: --browser=webkit)?$/.exec(body);
+            if (!entry) throw new Error(`Invalid CI smoke entry for ${name}: ${body}`);
+            expect(() => readFileSync(entry[1], 'utf8'), name).not.toThrow();
         }
+    });
+
+    it('runs Google Search in the CI jobs that provide each browser', () => {
+        expect(PACKAGE.scripts['smoke:p0']).toContain('npm run smoke:google-search-reader -- --browser=chromium');
+        expect(PACKAGE.scripts['smoke:layout-regressions']).toContain('npm run smoke:google-search-reader-webkit');
+        expect(PACKAGE.scripts['smoke:google-search-reader-webkit']).toBe('node scripts/google-search-reader-smoke.mjs --browser=webkit');
     });
 });
 

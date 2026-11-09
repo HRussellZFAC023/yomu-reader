@@ -14,7 +14,6 @@ import {
     createSmokePaths,
     jsonHttpResponse,
     launchSmokeBrowser,
-    launchOptionalBrowser,
     mockJpdbApiRequest,
     routeMockedHttpRequests,
     startLoopbackServer,
@@ -175,6 +174,10 @@ h3 { margin: 8px 0 8px; color: #8ab4f8; font-size: 28px; line-height: 1.14; font
 </body>
 </html>`;
 
+const browserFilter = process.argv.find(argument => argument.startsWith('--browser='))?.slice('--browser='.length);
+const engines = Object.entries({ chromium, webkit }).filter(([name]) => !browserFilter || browserFilter === name);
+assert(engines.length > 0, `Unknown Google Search smoke browser: ${browserFilter}`);
+
 const server = await startLoopbackServer((_request, response) => {
     response.writeHead(200, { 'content-type': 'text/plain; charset=utf-8' });
     response.end('ok');
@@ -182,7 +185,7 @@ const server = await startLoopbackServer((_request, response) => {
 
 try {
     const mobileResults = {};
-    for (const [name, browserType] of [['webkit', webkit], ['chromium', chromium]]) {
+    for (const [name, browserType] of engines) {
         const mobileBrowser = await launchSmokeBrowser(browserType, name, { headless: true });
         try {
             mobileResults[name] = await runGoogleAiMobileFixture(mobileBrowser, { settings, scriptPath: SCRIPT_PATH, cssPath: CSS_PATH, mockRequest: mockedYomuBridgeRequest });
@@ -190,6 +193,16 @@ try {
             await mobileBrowser.close();
         }
     }
+    const results = { mobile: mobileResults };
+    if ('chromium' in mobileResults) Object.assign(results, await runChromiumSearchCases());
+    if ('webkit' in mobileResults) results.webkit = await runGoogleSearchCase('webkit', webkit);
+    console.log(JSON.stringify(results, null, 2));
+    console.log('google-search-reader smoke passed');
+} finally {
+    await server.close();
+}
+
+async function runChromiumSearchCases() {
     const chromiumResult = await runGoogleSearchCase('chromium', chromium);
     // The same contract on a slow device. 2.0.8's apply slices failed this case
     // at 4x CPU and on CI, so 2.0.9 reverted them, but the chip never lost its
@@ -199,11 +212,7 @@ try {
     // lag budget bounds how late they may come.
     const slowChromiumResult = await runGoogleSearchCase('chromium', chromium, { cpuThrottle: 4 });
     const keylessPitchResult = await runKeylessGooglePitchCase('chromium', chromium);
-    const webkitResult = await runOptionalGoogleSearchCase('webkit', webkit);
-    console.log(JSON.stringify({ mobile: mobileResults, chromium: chromiumResult, slowChromium: slowChromiumResult, keylessPitch: keylessPitchResult, webkit: webkitResult }, null, 2));
-    console.log('google-search-reader smoke passed');
-} finally {
-    await server.close();
+    return { chromium: chromiumResult, slowChromium: slowChromiumResult, keylessPitch: keylessPitchResult };
 }
 
 async function runKeylessGooglePitchCase(engineName, browserType) {
@@ -249,12 +258,6 @@ async function runKeylessGooglePitchCase(engineName, browserType) {
 async function runGoogleSearchCase(engineName, browserType, pageOptions = {}) {
     const browser = await launchSmokeBrowser(browserType, engineName, { headless: true });
     return runGoogleSearchCaseWithBrowser(engineName, browser, pageOptions);
-}
-
-async function runOptionalGoogleSearchCase(engineName, browserType) {
-    const launch = await launchOptionalBrowser(browserType, engineName, { headless: true });
-    if (launch.skipped) return { skipped: true, reason: launch.reason };
-    return runGoogleSearchCaseWithBrowser(engineName, launch.browser);
 }
 
 async function runGoogleSearchCaseWithBrowser(engineName, browser, pageOptions = {}) {
