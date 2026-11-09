@@ -11,8 +11,8 @@
 // @updateURL https://update.greasyfork.org/scripts/581653/%E3%82%88%E3%82%80.meta.js
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-runtime.b92523c11f63.user.js#sha256=uSUjwR9jeVB40igfcSqbRwzt2DQWunrq581l2r6l3I8=
-// @resource yomuCss  https://yomureader.com/yomu.95df5389e4e2.css#sha256=ld9TieTiWI71U5VET+3pFj8/1duCA0ngHnfm7W2TM3Q=
+// @require https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/b3b3a4e16e29a4ac066f876919203346c0d95437/docs/public/greasyfork/yomu-runtime.b92523c11f63.user.js#sha256=uSUjwR9jeVB40igfcSqbRwzt2DQWunrq581l2r6l3I8=
+// @resource yomuCss  https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/b3b3a4e16e29a4ac066f876919203346c0d95437/docs/public/yomu.95df5389e4e2.css#sha256=ld9TieTiWI71U5VET+3pFj8/1duCA0ngHnfm7W2TM3Q=
 // @connect api.jiten.moe
 // @connect api.tatoeba.org
 // @connect tatoeba.org
