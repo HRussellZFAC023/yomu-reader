@@ -24,7 +24,7 @@ try {
             import { applyTokensToScanTarget, collectTextTargetsIn, collectFragmentTextTargetsIn, projectAdditiveTextMirrors,
                 documentPortalReaderWordScopeForSource, removeNonDestructiveScanMirrors, projectedReadingWordAtPoint } from './src/reader/dom/index.ts';
             import { DEFAULT_SETTINGS } from './src/reader/settings/index.ts';
-            ${[settleProjection, readingOwner, visibleReadings, measureSourceProjection, hasUnderline, findFixtureTarget].map(fn => fn.toString()).join('\n')}
+            ${[afterPaint, settleProjection, readingOwner, visibleReadings, measureSourceProjection, hasUnderline, findFixtureTarget].map(fn => fn.toString()).join('\n')}
             Object.assign(window, { runSourceTypography: ${runSourceTypography.toString()}, runMixedTypography: ${runMixedTypography.toString()} });
         `,
     } })).outputFiles[0].text;
@@ -73,11 +73,14 @@ try {
     }
 } finally { rmSync(temp, { recursive: true, force: true }); }
 
+function afterPaint() {
+    return new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+}
+
 async function settleProjection() {
-    const frames = () => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-    await frames();
+    await afterPaint();
     projectAdditiveTextMirrors(document);
-    await frames();
+    await afterPaint();
 }
 
 function readingOwner(rect) {
@@ -164,13 +167,13 @@ async function runSourceTypography({ size, scale, enabled }) {
         host.remove();
         return { projected, inline };
     }
-    const result = measureSourceProjection(host, source, before, characterRects, portal);
+    const result = await measureSourceProjection(host, source, before, characterRects, portal);
     removeNonDestructiveScanMirrors(host);
     host.remove();
     return { projected, ...result };
 }
 
-function measureSourceProjection(host, source, before, characterRects, portal) {
+async function measureSourceProjection(host, source, before, characterRects, portal) {
     if (!portal) throw new Error('proportional host has no source projection');
     const sourceRetained = host.firstChild === source;
     const after = characterRects();
@@ -196,7 +199,7 @@ function measureSourceProjection(host, source, before, characterRects, portal) {
     });
     host.style.fontFeatureSettings = '"palt" 0';
     projectAdditiveTextMirrors(document);
-    await frames();
+    await afterPaint();
     const styleChangeErrors = fragmentErrors();
     const fontFamily = getComputedStyle(host).fontFamily;
     return { sourceRetained, before, after, fragmentErrors: errors, underlineVisible, readings, styleChangeErrors, fontFamily };
