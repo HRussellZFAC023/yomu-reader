@@ -24,6 +24,7 @@ try {
             import { applyTokensToScanTarget, collectTextTargetsIn, collectFragmentTextTargetsIn, projectAdditiveTextMirrors,
                 documentPortalReaderWordScopeForSource, removeNonDestructiveScanMirrors, projectedReadingWordAtPoint } from './src/reader/dom/index.ts';
             import { DEFAULT_SETTINGS } from './src/reader/settings/index.ts';
+            ${[settleProjection, readingOwner, visibleReadings, measureSourceProjection, hasUnderline, findFixtureTarget].map(fn => fn.toString()).join('\n')}
             Object.assign(window, { runSourceTypography: ${runSourceTypography.toString()}, runMixedTypography: ${runMixedTypography.toString()} });
         `,
     } })).outputFiles[0].text;
@@ -72,6 +73,30 @@ try {
     }
 } finally { rmSync(temp, { recursive: true, force: true }); }
 
+async function settleProjection() {
+    const frames = () => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    await frames();
+    projectAdditiveTextMirrors(document);
+    await frames();
+}
+
+function readingOwner(rect) {
+    return projectedReadingWordAtPoint(document, (rect.left + rect.right) / 2, (rect.top + rect.bottom) / 2)?.dataset.expression;
+}
+
+function visibleReadings() {
+    return Array.from(document.querySelectorAll('[data-yomu-projected-reading]')).filter(reading => {
+        const style = getComputedStyle(reading);
+        return style.display !== 'none' && style.visibility !== 'hidden';
+    });
+}
+
+function findFixtureTarget(candidates, text) {
+    const target = candidates.find(candidate => candidate.text === text);
+    if (!target) throw new Error(`Typography fixture target was not collected: ${text}`);
+    return target;
+}
+
 async function runMixedTypography(enabled) {
     const host = document.createElement('p');
     host.style.cssText = `font-size:20px;font-feature-settings:"palt" ${enabled ? 1 : 0}`;
@@ -81,9 +106,8 @@ async function runMixedTypography(enabled) {
     let clicks = 0;
     link.addEventListener('click', event => { clicks += 1; event.preventDefault(); });
     const text = host.textContent;
-    const target = collectFragmentTextTargetsIn(host, 40, false).find(candidate => candidate.text === text);
-    const linkTarget = collectFragmentTextTargetsIn(link, 40, false).find(candidate => candidate.text === '学校教育');
-    if (!target || !linkTarget) throw new Error('mixed typography target missing');
+    const target = findFixtureTarget(collectFragmentTextTargetsIn(host, 40, false), text);
+    const linkTarget = findFixtureTarget(collectFragmentTextTargetsIn(link, 40, false), '学校教育');
     const token = (spelling, reading, start) => ({
         card: { vid: 1, sid: 1, rid: 0, spelling, reading, frequencyRank: null, partOfSpeech: [], meanings: [],
             cardState: ['new'], pitchAccent: ['LHHHH'], wordWithReading: null, source: 'jpdb' },
@@ -94,20 +118,13 @@ async function runMixedTypography(enabled) {
     const settings = { ...DEFAULT_SETTINGS, showFurigana: true, furiganaMode: 'all', wordColorHiddenStateGroups: [] };
     applyTokensToScanTarget(target, [token('日本語', 'にほんご', 0), token('学校教育', 'がっこうきょういく', 4)], settings);
     if (enabled) applyTokensToScanTarget(linkTarget, [token('学校教育', 'がっこうきょういく', 0)], settings);
-    const frames = () => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-    await frames();
-    projectAdditiveTextMirrors(document);
-    await frames();
+    await settleProjection();
     const schoolOwners = document.querySelectorAll('.jpdb-reader-word[data-expression="学校教育"]').length;
     const japaneseOwners = document.querySelectorAll('.jpdb-reader-word[data-expression="日本語"]').length;
-    const readings = Array.from(document.querySelectorAll('[data-yomu-projected-reading]')).filter(reading => {
-        const style = getComputedStyle(reading);
-        return style.display !== 'none' && style.visibility !== 'hidden';
-    }).map(reading => {
+    const readings = visibleReadings().map(reading => {
         const rect = reading.getBoundingClientRect();
-        const owner = projectedReadingWordAtPoint(document, (rect.left + rect.right) / 2, (rect.top + rect.bottom) / 2);
         const centre = Number(reading.dataset.yomuSourceLeft) + Number(reading.dataset.yomuSourceWidth) / 2;
-        return { expression: owner?.dataset.expression, error: Math.abs((rect.left + rect.right) / 2 - centre) };
+        return { expression: readingOwner(rect), error: Math.abs((rect.left + rect.right) / 2 - centre) };
     });
     const linkRetained = host.querySelector('a') === link;
     link.click();
@@ -131,8 +148,7 @@ async function runSourceTypography({ size, scale, enabled }) {
         return [rect.x, rect.y, rect.width, rect.height];
     });
     const before = characterRects();
-    const target = collectTextTargetsIn(host, 40, false).find(candidate => candidate.text === host.textContent);
-    if (!target) throw new Error('typography fixture target was not collected');
+    const target = findFixtureTarget(collectTextTargetsIn(host, 40, false), host.textContent);
     const card = { vid: 1, sid: 1, rid: 0, spelling: '学習', reading: 'がくしゅう', frequencyRank: null,
         partOfSpeech: [], meanings: [], cardState: ['new'], pitchAccent: ['LHHHH'], wordWithReading: null, source: 'jpdb' };
     applyTokensToScanTarget(target, [{ card, start: 1, end: 3, length: 2,
@@ -140,10 +156,7 @@ async function runSourceTypography({ size, scale, enabled }) {
         ...DEFAULT_SETTINGS, showFurigana: true, furiganaMode: 'all', wordUnderlineColorSource: 'pitch',
         wordHighlightColorSource: 'off', wordTextColorSource: 'off', wordColorHiddenStateGroups: [],
     });
-    const frames = () => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-    await frames();
-    projectAdditiveTextMirrors(document);
-    await frames();
+    await settleProjection();
     const portal = documentPortalReaderWordScopeForSource(host) ?? host.querySelector('.jpdb-reader-additive-text-mirror');
     const projected = Boolean(portal);
     if (!enabled) {
@@ -151,6 +164,13 @@ async function runSourceTypography({ size, scale, enabled }) {
         host.remove();
         return { projected, inline };
     }
+    const result = measureSourceProjection(host, source, before, characterRects, portal);
+    removeNonDestructiveScanMirrors(host);
+    host.remove();
+    return { projected, ...result };
+}
+
+function measureSourceProjection(host, source, before, characterRects, portal) {
     if (!portal) throw new Error('proportional host has no source projection');
     const sourceRetained = host.firstChild === source;
     const after = characterRects();
@@ -168,16 +188,10 @@ async function runSourceTypography({ size, scale, enabled }) {
     };
     const errors = fragmentErrors();
     const fragment = portal.querySelector('.jpdb-reader-source-fragment');
-    const paint = fragment && getComputedStyle(fragment, '::after');
-    const underlineVisible = Boolean(paint && parseFloat(paint.borderBlockEndWidth) > 0 && !/transparent|rgba\([^)]*,\s*0\)/.test(paint.borderBlockEndColor));
-    const readings = Array.from(document.querySelectorAll('[data-yomu-projected-reading]')).filter(reading => {
+    const underlineVisible = hasUnderline(fragment);
+    const readings = visibleReadings().map(reading => {
         const style = getComputedStyle(reading);
-        return style.display !== 'none' && style.visibility !== 'hidden';
-    }).map(reading => {
-        const rect = reading.getBoundingClientRect();
-        const owner = projectedReadingWordAtPoint(document, (rect.left + rect.right) / 2, (rect.top + rect.bottom) / 2);
-        const style = getComputedStyle(reading);
-        return { expression: owner?.dataset.expression, fontSize: parseFloat(style.fontSize),
+        return { expression: readingOwner(reading.getBoundingClientRect()), fontSize: parseFloat(style.fontSize),
             fontFamily: style.fontFamily, fontWeight: style.fontWeight, letterSpacing: style.letterSpacing };
     });
     host.style.fontFeatureSettings = '"palt" 0';
@@ -185,7 +199,11 @@ async function runSourceTypography({ size, scale, enabled }) {
     await frames();
     const styleChangeErrors = fragmentErrors();
     const fontFamily = getComputedStyle(host).fontFamily;
-    removeNonDestructiveScanMirrors(host);
-    host.remove();
-    return { projected, sourceRetained, before, after, fragmentErrors: errors, underlineVisible, readings, styleChangeErrors, fontFamily };
+    return { sourceRetained, before, after, fragmentErrors: errors, underlineVisible, readings, styleChangeErrors, fontFamily };
+}
+
+function hasUnderline(fragment) {
+    if (!fragment) return false;
+    const paint = getComputedStyle(fragment, '::after');
+    return parseFloat(paint.borderBlockEndWidth) > 0 && !/transparent|rgba\([^)]*,\s*0\)/.test(paint.borderBlockEndColor);
 }

@@ -46792,7 +46792,13 @@ function targetRequiresReactiveLeafMirrors(target2) {
   const preservesSource = Boolean(target2.nonDestructive) || uniqueParents.some((parent) => scanHostRequiresSourcePreservingMirror(parent));
   if (!preservesSource) return false;
   const common = uniqueParents.find((parent) => uniqueParents.every((candidate2) => parent.contains(candidate2)));
-  if (common && uniqueParents.every((parent) => parent.closest(PASSIVE_INTERACTION_SELECTOR) === common.closest(PASSIVE_INTERACTION_SELECTOR) && sameSourcePresentation(safeComputedStyle(common), safeComputedStyle(parent)))) return false;
+  if (common) {
+    const styles = uniqueParents.map(safeComputedStyle);
+    if (!styles.some(typographyRequiresSourceProjection)) return false;
+    const commonStyle = safeComputedStyle(common);
+    const interaction = common.closest(PASSIVE_INTERACTION_SELECTOR);
+    if (uniqueParents.every((parent, index) => parent.closest(PASSIVE_INTERACTION_SELECTOR) === interaction && sameSourcePresentation(commonStyle, styles[index]))) return false;
+  }
   return true;
 }
 function applyTokensToReactiveLeafMirrors(target2, tokens, settings) {
@@ -264944,7 +264950,7 @@ function padClockPart(value) {
 const DEFAULT_ACADEMY_STUDY_DURATION_MS = DEFAULT_STUDY_DURATION_MS;
 class StudyRuntimeLoadFailure extends Error {
 }
-function createCanonicalAcademyStudyModule(loadRuntime = () => import("./runtime-BF3kJkB0.js")) {
+function createCanonicalAcademyStudyModule(loadRuntime = () => import("./runtime-DOJwfnc5.js")) {
   return {
     async mount(host2, context2) {
       let runtime;

@@ -2022,8 +2022,14 @@ function targetRequiresReactiveLeafMirrors(target: FragmentTextTarget): boolean 
     // split genuinely independent leaves; otherwise later discontiguous runs on
     // the same outer parent would replace the earlier mirror and lose a glyph.
     const common = uniqueParents.find(parent => uniqueParents.every(candidate => parent.contains(candidate)));
-    if (common && uniqueParents.every(parent => parent.closest(PASSIVE_INTERACTION_SELECTOR) === common.closest(PASSIVE_INTERACTION_SELECTOR)
-        && sameSourcePresentation(safeComputedStyle(common), safeComputedStyle(parent)))) return false;
+    if (common) {
+        const styles = uniqueParents.map(safeComputedStyle);
+        if (!styles.some(typographyRequiresSourceProjection)) return false;
+        const commonStyle = safeComputedStyle(common);
+        const interaction = common.closest(PASSIVE_INTERACTION_SELECTOR);
+        if (uniqueParents.every((parent, index) => parent.closest(PASSIVE_INTERACTION_SELECTOR) === interaction
+            && sameSourcePresentation(commonStyle, styles[index]))) return false;
+    }
     // Explicit non-destructive profiles (including generic dynamic-page
     // adapters) carry the same source-preservation promise even when a
     // framework exposes no private ownership marker. Never flatten their

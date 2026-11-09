@@ -41,7 +41,8 @@ async function translationScenario(browser, scenario, product) {
                 dictionaries: { installed: [], enabled: [], order: [] }, definitionTranslationProviderIds: [] }],
             annotationsPaused: true, subtitleOverlayVisible: true, subtitleOverlayVisibleChosen: true,
             subtitleSecondaryVisible: true, subtitleSecondaryVisibleChosen: true, subtitleNativeBlurred: false,
-            subtitleFontSize: scenario.font, subtitleControlsMode: 'always', subtitleHoverPause: false }),
+            subtitleFontSize: scenario.font, subtitleControlsMode: 'always', subtitleHoverPause: false,
+            subtitleTranscriptVisible: false, subtitlePausePanel: false }),
         onGmRequest: request => request.url.includes('/api/timedtext') ? answer(request.url) : undefined,
     });
     const { context, page } = run;
@@ -87,8 +88,13 @@ async function translationScenario(browser, scenario, product) {
 
 async function waitForTranslationSettlement(page, failed) {
     if (failed) {
-        await page.locator('.jpdb-subtitle-panel-toggle').click();
-        await page.locator('[data-action="panel-tracks"]').click();
+        const drawer = page.locator('.jpdb-subtitle-panel-toggle');
+        // Use keyboard activation here so the translation assertion does not
+        // depend on the recorded watch page's compact player hit regions.
+        if (await drawer.getAttribute('aria-pressed') !== 'true') await drawer.press('Enter');
+        const tracks = page.locator('[data-action="panel-tracks"]');
+        await tracks.waitFor({ state: 'visible', timeout: 5000 });
+        if (await tracks.getAttribute('aria-pressed') !== 'true') await tracks.press('Enter');
         await page.locator('.jpdb-subtitle-track-row').filter({ hasText: 'failed' }).waitFor({ timeout: 15_000 });
     } else await page.waitForFunction(expected => document.querySelector('.jpdb-subtitle-secondary')?.textContent === expected, translation);
 }

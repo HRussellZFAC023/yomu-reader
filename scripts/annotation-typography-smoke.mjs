@@ -186,15 +186,14 @@ async function checkScenario(browser, engine, theme) {
         await page.goto(`${server.origin}/annotation-typography.html`, { waitUntil: 'domcontentloaded' });
         await installUserscriptCssResource(page, CSS_PATH);
         await page.evaluate(() => document.fonts.ready);
+        await page.addScriptTag({ content: `window.findTypographySpan = ${findTypographySpan.toString()}` });
         const sourceSpans = await page.evaluate(definitions => {
             const measured = {};
             for (const [id, before, after, count] of definitions) {
                 const paragraph = document.getElementById(id);
                 const vertical = /^(vertical|sideways)/.test(getComputedStyle(paragraph).writingMode);
                 const text = paragraph.textContent;
-                let start = -1;
-                while ((start = text.indexOf(before, start + 1)) >= 0 && text.slice(start + before.length + count, start + before.length + count + after.length) !== after) {}
-                if (start < 0) throw new Error(`Missing native span ${id}: ${before}/${after}`);
+                const start = window.findTypographySpan(text, id, before, after, count);
                 const nodes = [];
                 const walker = document.createTreeWalker(paragraph, NodeFilter.SHOW_TEXT);
                 for (let node = walker.nextNode(); node; node = walker.nextNode()) nodes.push(node);
@@ -221,16 +220,20 @@ async function checkScenario(browser, engine, theme) {
         await addScriptTagWithCspFallback(page, SCRIPT_PATH);
         await page.addScriptTag({ content: projectionLookupProbe });
         await page.waitForFunction(() => {
+            const hasReadings = selector => Boolean(document.querySelector(`${selector} rt`));
+            const readingFixturesReady = ['#line-head', '#line-tail', '#vertical'].every(hasReadings);
             const sentence = document.querySelector('#sentence');
             const scope = sentence.querySelector('.jpdb-reader-word') ? sentence
                 : Array.from(document.querySelectorAll('.jpdb-reader-text-mirror')).find(mirror => mirror.dataset.sourceText === sentence.textContent);
-            return scope?.querySelectorAll('.jpdb-reader-word').length >= 10
-            && document.querySelectorAll('#linked .jpdb-reader-word').length >= 5
-            && document.querySelectorAll('#overhang rt').length >= 6
-            && document.querySelector('#line-head rt')
-            && document.querySelector('#line-tail rt')
-            && document.querySelector('#vertical rt')
-            && scope.querySelector('.jpdb-reader-word.jpdb-new')?.style.getPropertyValue('--jpdb-reader-word-accessible-underline');
+            const enoughWords = selector => document.querySelectorAll(selector).length >= 5;
+            const ready = [
+                scope?.querySelectorAll('.jpdb-reader-word').length >= 10,
+                enoughWords('#linked .jpdb-reader-word'),
+                document.querySelectorAll('#overhang rt').length >= 6,
+                readingFixturesReady,
+                scope?.querySelector('.jpdb-reader-word.jpdb-new')?.style.getPropertyValue('--jpdb-reader-word-accessible-underline'),
+            ];
+            return ready.every(Boolean);
         },
         null, { timeout: 30_000 });
         await page.waitForTimeout(600);
@@ -275,23 +278,54 @@ function judgeWords(id, measured) {
     if (measured.footnoteWords) fail(`${id}: the footnote marker was annotated.`, measured);
 }
 
+function findTypographySpan(text, id, before, after, count) {
+    let start = text.indexOf(before);
+    while (start >= 0) {
+        const end = start + before.length + count;
+        if (text.startsWith(after, end)) return start;
+        start = text.indexOf(before, start + 1);
+    }
+    throw new Error(`Missing typography span ${id}: ${before}/${after}`);
+}
+
 function judgeReadings(id, measured) {
     for (const paragraph of ['sentence', 'linked']) {
         const readings = measured.readings.filter(reading => reading.paragraph === paragraph);
         if (!readings.length) fail(`${id}: #${paragraph} shows no readings.`, measured);
     }
     for (const reading of measured.readings) {
-        const expectedSize = Math.max(6, reading.baseFontSize * 0.5);
-        if (Math.abs(reading.fontSize - expectedSize) > 0.6) fail(`${id}: reading ${reading.text} is ${reading.fontSize}px over ${reading.baseFontSize}px text, not half.`, reading);
-        if (reading.fontWeight !== '400') fail(`${id}: reading ${reading.text} has weight ${reading.fontWeight}.`, reading);
-        if (reading.fontFamily !== reading.baseFontFamily) fail(`${id}: reading ${reading.text} is set in ${reading.fontFamily}.`, reading);
-        if (reading.letterSpacing !== 'normal' && Number.parseFloat(reading.letterSpacing) !== 0) fail(`${id}: reading ${reading.text} is not set solid (${reading.letterSpacing}).`, reading);
-        if (reading.fontFeatureSettings !== 'normal') fail(`${id}: reading ${reading.text} takes host font features (${reading.fontFeatureSettings}).`, reading);
-        if (reading.color !== reading.baseColor) fail(`${id}: reading ${reading.text} uses ${reading.color}, not its base word's ink (${reading.baseColor}).`, reading);
-        if (reading.inFlow && Math.abs(reading.centre - reading.baseCentre - (reading.marginStart - reading.marginEnd) / 2) > 1.5) fail(`${id}: reading ${reading.text} is off its word's centre by ${(reading.centre - reading.baseCentre).toFixed(1)}px.`, reading);
+        judgeReadingFont(id, reading);
+        judgeReadingInk(id, reading);
     }
+    judgeProjectedLanes(id, measured.readings.filter(reading => !reading.inFlow));
+    judgeReadingNeighbours(id, measured);
+}
+
+function judgeReadingFont(id, reading) {
+    const expectedSize = Math.max(6, reading.baseFontSize * 0.5);
+    if (Math.abs(reading.fontSize - expectedSize) > 0.6) fail(`${id}: reading ${reading.text} is ${reading.fontSize}px over ${reading.baseFontSize}px text, not half.`, reading);
+    if (reading.fontWeight !== '400') fail(`${id}: reading ${reading.text} has weight ${reading.fontWeight}.`, reading);
+    if (reading.fontFamily !== reading.baseFontFamily) fail(`${id}: reading ${reading.text} is set in ${reading.fontFamily}.`, reading);
+}
+
+function judgeReadingInk(id, reading) {
+    if (!hasSolidLetterSpacing(reading.letterSpacing)) fail(`${id}: reading ${reading.text} is not set solid (${reading.letterSpacing}).`, reading);
+    if (reading.fontFeatureSettings !== 'normal') fail(`${id}: reading ${reading.text} takes host font features (${reading.fontFeatureSettings}).`, reading);
+    if (reading.color !== reading.baseColor) fail(`${id}: reading ${reading.text} uses ${reading.color}, not its base word's ink (${reading.baseColor}).`, reading);
+    judgeInFlowReading(id, reading);
+}
+
+function hasSolidLetterSpacing(spacing) {
+    return spacing === 'normal' || Number.parseFloat(spacing) === 0;
+}
+
+function judgeInFlowReading(id, reading) {
+    if (reading.inFlow && Math.abs(reading.centre - reading.baseCentre - (reading.marginStart - reading.marginEnd) / 2) > 1.5) fail(`${id}: reading ${reading.text} is off its word's centre by ${(reading.centre - reading.baseCentre).toFixed(1)}px.`, reading);
+}
+
+function judgeProjectedLanes(id, readings) {
     const lanes = new Map();
-    for (const reading of measured.readings.filter(reading => !reading.inFlow)) {
+    for (const reading of readings) {
         const lane = lanes.get(reading.column) ?? [];
         lane.push(reading);
         lanes.set(reading.column, lane);
@@ -306,6 +340,9 @@ function judgeReadings(id, measured) {
                 || Math.abs(reading.paintScale - placement.scaleX) > .01) fail(`${id}: projected ${reading.text} left its fitted source lane.`, { reading, placement });
         });
     }
+}
+
+function judgeReadingNeighbours(id, measured) {
     for (const [left, right] of measured.readingNeighbours) {
         if (left.inlineEnd > right.inlineStart + 0.5) fail(`${id}: readings ${left.text} and ${right.text} overlap.`, { left, right });
     }
@@ -411,58 +448,90 @@ function measurePage(definitions) {
         while (host?.closest('.jpdb-reader-word')) host = host.parentElement;
         return host;
     };
+    const measureUnderline = word => {
+        const after = getComputedStyle(word.querySelector('.jpdb-reader-source-fragment') ?? word, '::after');
+        const drawn = after.borderBottomWidth !== '0px' && !/rgba\([^)]*, 0\)|transparent/.test(after.borderBottomColor);
+        return drawn ? { style: after.borderBottomStyle, color: after.borderBottomColor, width: after.borderBottomWidth } : { style: 'none' };
+    };
     const wordNodes = Array.from(document.querySelectorAll('main .jpdb-reader-word,main .jpdb-reader-number-bind,.jpdb-reader-document-annotation-portal .jpdb-reader-word'));
     const words = wordNodes.map(word => {
         const base = word.querySelector('.jpdb-reader-ruby-base') ?? word;
         const own = getComputedStyle(base);
         const host = getComputedStyle(hostOf(word));
-        const after = getComputedStyle(word.querySelector('.jpdb-reader-source-fragment') ?? word, '::after');
-        const drawn = after.borderBottomWidth !== '0px' && !/rgba\([^)]*, 0\)|transparent/.test(after.borderBottomColor);
         return {
             text: word.dataset.expression || word.textContent.trim(),
             classes: word.className,
             fontDiff: PROPS.filter(prop => own[prop] !== host[prop]).map(prop => `${prop}: ${host[prop]} -> ${own[prop]}`),
             background: getComputedStyle(word).backgroundImage,
             opacity: getComputedStyle(word).opacity,
-            underline: drawn ? { style: after.borderBottomStyle, color: after.borderBottomColor, width: after.borderBottomWidth } : { style: 'none' },
+            underline: measureUnderline(word),
         };
     });
     const readings = Array.from(document.querySelectorAll('main .jpdb-reader-furi,[data-yomu-projected-reading]')).filter(reading => {
         const style = getComputedStyle(reading);
         return style.display !== 'none' && style.visibility !== 'hidden' && reading.getBoundingClientRect().width > 0;
-    }).map(reading => {
+    }).map(reading => measureReading(reading));
+
+    function readingBase(reading, box, ruby) {
+        const inFlow = reading.tagName === 'RT';
+        if (!inFlow) return projectedBase(reading, box);
+        const word = reading.closest('.jpdb-reader-word');
+        return { word, base: ruby?.querySelector('.jpdb-reader-ruby-base, rb') ?? word };
+    }
+
+    function projectedBase(reading, box) {
+        const word = window.__yomuTypographyReadingOwner(document, (box.left + box.right) / 2, (box.top + box.bottom) / 2);
+        if (!word) throw new Error('Visible projected reading has no hit-resolved source owner');
+        const anchor = readAnchor(reading);
+        const distance = wrapper => {
+            const rect = wrapper.getBoundingClientRect();
+            return Math.hypot((rect.left + rect.right) / 2 - anchor.left - anchor.width / 2, rect.top - anchor.top);
+        };
+        const candidates = Array.from(word.querySelectorAll('.jpdb-reader-detached-ruby'))
+            .filter(wrapper => wrapper.querySelector('.jpdb-reader-detached-furi')?.textContent === reading.textContent);
+        const base = candidates.sort((a, b) => distance(a) - distance(b))[0];
+        if (!base) throw new Error('Visible projected reading has no source base fixture');
+        return { word, base };
+    }
+
+    function readAnchor(reading) {
+        const { yomuSourceLeft, yomuSourceWidth, yomuSourceTop, yomuSourceHeight } = reading.dataset;
+        return yomuSourceLeft ? { left: Number(yomuSourceLeft), width: Number(yomuSourceWidth),
+            top: Number(yomuSourceTop), height: Number(yomuSourceHeight) } : null;
+    }
+
+    function inkBox(reading, readingBox, inFlow) {
+        if (!inFlow) return readingBox;
+        const range = document.createRange();
+        range.selectNodeContents(reading);
+        return range.getBoundingClientRect();
+    }
+
+    function readingGeometry(rect, baseRect, vertical) {
+        const [inlineStart, inlineEnd, baseStart, baseEnd, column] = vertical
+            ? [rect.top, rect.bottom, baseRect.top, baseRect.bottom, rect.left]
+            : [rect.left, rect.right, baseRect.left, baseRect.right, rect.top];
+        return { inlineStart, inlineEnd, centre: (inlineStart + inlineEnd) / 2, baseCentre: (baseStart + baseEnd) / 2,
+            column: Math.round(column), vertical, left: rect.left, right: rect.right, top: Math.round(rect.top) };
+    }
+
+    function measureReading(reading) {
         const readingBox = reading.getBoundingClientRect();
-        let word = reading.closest('.jpdb-reader-word') ?? window.__yomuTypographyReadingOwner(document,
-            (readingBox.left + readingBox.right) / 2, (readingBox.top + readingBox.bottom) / 2);
+        const inFlow = reading.tagName === 'RT';
         const ruby = reading.closest('ruby');
-        let base = ruby?.querySelector('.jpdb-reader-ruby-base, rb') ?? word;
-        if (reading.tagName !== 'RT') {
-            if (!word) throw new Error('Visible projected reading has no hit-resolved source owner');
-            const candidates = Array.from(word.querySelectorAll('.jpdb-reader-detached-ruby'))
-                .filter(wrapper => wrapper.querySelector('.jpdb-reader-detached-furi')?.textContent === reading.textContent)
-                .map(wrapper => ({ word, base: wrapper, box: wrapper.getBoundingClientRect() }));
-            candidates.sort((a, b) => {
-                const distance = candidate => Math.hypot((candidate.box.left + candidate.box.right) / 2 - Number(reading.dataset.yomuSourceLeft) - Number(reading.dataset.yomuSourceWidth) / 2,
-                    candidate.box.top - Number(reading.dataset.yomuSourceTop));
-                return distance(a) - distance(b);
-            });
-            ({ word, base } = candidates[0] ?? {});
-            if (!word || !base) throw new Error('Visible projected reading has no source word/base fixture');
-        }
+        const { word, base } = readingBase(reading, readingBox, ruby);
         const style = getComputedStyle(reading);
         const baseStyle = getComputedStyle(base);
         const vertical = /^(vertical|sideways)/.test(style.writingMode);
         // Where the kana are drawn, not the rt box: WebKit can size the box of
         // an overhanging reading narrower than its text.
-        const inkRange = document.createRange();
-        inkRange.selectNodeContents(reading);
-        const rect = reading.tagName === 'RT' ? inkRange.getBoundingClientRect() : readingBox;
-        const baseRect = (ruby?.firstChild?.nodeType === Node.TEXT_NODE ? ruby : base).getBoundingClientRect();
+        const rect = inkBox(reading, readingBox, inFlow);
+        const baseRect = readingBaseBox(ruby, base);
+        const paint = readingPaint(reading, readingBox, rect, style, inFlow);
         return {
             text: reading.textContent,
-            word: word?.dataset.expression,
-            paragraph: hostOf(word).closest('p')?.id,
-            inFlow: reading.tagName === 'RT',
+            ...readingIdentity(word, hostOf),
+            inFlow,
             color: style.color,
             fontSize: Number.parseFloat(style.fontSize),
             fontWeight: style.fontWeight,
@@ -473,95 +542,126 @@ function measurePage(definitions) {
             baseColor: baseStyle.color,
             baseLetterSpacing: baseStyle.letterSpacing,
             fontFeatureSettings: style.fontFeatureSettings,
-            left: rect.left,
-            right: rect.right,
-            top: Math.round(rect.top),
-            vertical,
-            column: Math.round(vertical ? rect.left : rect.top),
-            inlineStart: vertical ? rect.top : rect.left,
-            inlineEnd: vertical ? rect.bottom : rect.right,
-            centre: vertical ? (rect.top + rect.bottom) / 2 : (rect.left + rect.right) / 2,
-            baseCentre: vertical ? (baseRect.top + baseRect.bottom) / 2 : (baseRect.left + baseRect.right) / 2,
+            ...readingGeometry(rect, baseRect, vertical),
+            ...paint,
             baseBox: baseRect.toJSON(),
             baseHtml: base.outerHTML.slice(0, 1200),
-            readingBox: reading.getBoundingClientRect().toJSON(),
-            readingHtml: reading.tagName === 'RT' ? '' : reading.outerHTML.slice(0, 1600),
-            projectedAnchor: reading.dataset.yomuSourceLeft ? { left: Number(reading.dataset.yomuSourceLeft), width: Number(reading.dataset.yomuSourceWidth),
-                top: Number(reading.dataset.yomuSourceTop), height: Number(reading.dataset.yomuSourceHeight) } : null,
-            paintScale: reading.tagName === 'RT' ? 1 : Math.abs(new DOMMatrix(style.transform).a),
-            naturalWidth: reading.tagName === 'RT' ? rect.width : rect.width / Math.abs(new DOMMatrix(style.transform).a),
             transform: style.transform,
             positionedLeft: style.left,
-            marginStart: Number.parseFloat(style.marginInlineStart) || 0,
-            marginEnd: Number.parseFloat(style.marginInlineEnd) || 0,
+            ...readingMargins(style),
         };
-    });
-    const readingNeighbours = [];
-    const sorted = [...readings].sort((a, b) => Number(a.vertical) - Number(b.vertical) || a.column - b.column || a.inlineStart - b.inlineStart);
-    for (let index = 1; index < sorted.length; index += 1) {
-        if (sorted[index].vertical === sorted[index - 1].vertical && sorted[index].column === sorted[index - 1].column) readingNeighbours.push([sorted[index - 1], sorted[index]]);
     }
+
+    function readingIdentity(word, owner) {
+        return { word: word?.dataset.expression, paragraph: owner(word).closest('p')?.id };
+    }
+
+    function readingBaseBox(ruby, base) {
+        return (ruby?.firstChild?.nodeType === Node.TEXT_NODE ? ruby : base).getBoundingClientRect();
+    }
+
+    function readingPaint(reading, readingBox, rect, style, inFlow) {
+        const paintScale = inFlow ? 1 : Math.abs(new DOMMatrix(style.transform).a);
+        return { readingBox: readingBox.toJSON(), readingHtml: inFlow ? '' : reading.outerHTML.slice(0, 1600),
+            projectedAnchor: readAnchor(reading), paintScale, naturalWidth: rect.width / paintScale };
+    }
+
+    function readingMargins(style) {
+        return { marginStart: Number.parseFloat(style.marginInlineStart) || 0, marginEnd: Number.parseFloat(style.marginInlineEnd) || 0 };
+    }
+
+    function findReadingNeighbours() {
+        const readingNeighbours = [];
+        const sorted = [...readings].sort((a, b) => Number(a.vertical) - Number(b.vertical) || a.column - b.column || a.inlineStart - b.inlineStart);
+        for (let index = 1; index < sorted.length; index += 1) {
+            if (sorted[index].vertical === sorted[index - 1].vertical && sorted[index].column === sorted[index - 1].column) readingNeighbours.push([sorted[index - 1], sorted[index]]);
+        }
+        return readingNeighbours;
+    }
+
     // Plain characters (not readings), in order, with where each one starts and
     // ends; spans[p][ab] is the advance from plain a to the next plain b.
     // Range ink boxes may overlap by one pixel in WebKit, so compare glyph
     // starts in both the original and annotated text, not their ink edges.
-    const spans = {};
-    const advances = {};
-    for (const paragraph of document.querySelectorAll('main p')) {
-        const style = getComputedStyle(paragraph);
-        const vertical = /^(vertical|sideways)/.test(style.writingMode);
-        advances[paragraph.id] = Number.parseFloat(style.fontSize) + (Number.parseFloat(style.letterSpacing) || 0);
+    function measureSpans() {
+        const spans = {};
+        const advances = {};
+        for (const paragraph of document.querySelectorAll('main p')) {
+            const style = getComputedStyle(paragraph);
+            const vertical = /^(vertical|sideways)/.test(style.writingMode);
+            advances[paragraph.id] = Number.parseFloat(style.fontSize) + (Number.parseFloat(style.letterSpacing) || 0);
+            const glyphs = measureGlyphs(paragraph, vertical);
+            spans[paragraph.id] = spanAdvances(paragraph.id, glyphs);
+        }
+        return { spans, advances };
+    }
+
+    function measureGlyphs(paragraph, vertical) {
         const glyphs = [];
         const walker = document.createTreeWalker(paragraph, NodeFilter.SHOW_TEXT);
-        const range = document.createRange();
         for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-            if (node.parentElement.closest('rt,rp,.jpdb-reader-text-mirror')) continue;
-            for (let index = 0; index < node.data.length; index += 1) {
-                range.setStart(node, index);
-                range.setEnd(node, index + 1);
-                const rect = range.getClientRects()[0];
-                if (rect) glyphs.push({ text: node.data[index], left: rect.left, right: rect.right, top: Math.round(rect.top), column: Math.round(vertical ? rect.left : rect.top), inlineStart: vertical ? rect.top : rect.left });
+            if (!node.parentElement.closest('rt,rp,.jpdb-reader-text-mirror')) glyphs.push(...textGlyphs(node, vertical));
+        }
+        return glyphs;
+    }
+
+    function textGlyphs(node, vertical) {
+        const range = document.createRange();
+        const glyphs = [];
+        for (let index = 0; index < node.data.length; index += 1) {
+            range.setStart(node, index);
+            range.setEnd(node, index + 1);
+            const rect = range.getClientRects()[0];
+            if (rect) {
+                const [column, inlineStart] = vertical ? [rect.left, rect.top] : [rect.top, rect.left];
+                glyphs.push({ text: node.data[index], column: Math.round(column), inlineStart });
             }
         }
-        spans[paragraph.id] = {};
+        return glyphs;
+    }
+
+    function spanAdvances(paragraphId, glyphs) {
         const text = glyphs.map(glyph => glyph.text).join('');
-        for (const [id, before, after, count] of definitions) {
-            if (id !== paragraph.id) continue;
-            let start = -1;
-            while ((start = text.indexOf(before, start + 1)) >= 0
-                && text.slice(start + before.length + count, start + before.length + count + after.length) !== after) {}
-            if (start < 0) throw new Error(`Missing annotated span ${id}: ${before}/${after}`);
+        const spans = {};
+        for (const [id, before, after, count] of definitions.filter(([id]) => id === paragraphId)) {
+            const start = window.findTypographySpan(text, id, before, after, count);
             const left = glyphs[start + before.length - 1];
             const right = glyphs[start + before.length + count];
-            if (left.column === right.column) spans[paragraph.id][`${before}${after}`] = right.inlineStart - left.inlineStart;
+            if (left.column === right.column) spans[`${before}${after}`] = right.inlineStart - left.inlineStart;
         }
+        return spans;
     }
-    const lineHeadParagraph = document.querySelector('#line-head');
-    const glyphTop = (node, offset) => {
-        const glyph = document.createRange();
-        glyph.setStart(node, offset);
-        glyph.setEnd(node, offset + 1);
-        return glyph.getBoundingClientRect().top;
-    };
-    const kanjiText = document.createTreeWalker(lineHeadParagraph, NodeFilter.SHOW_TEXT, { acceptNode: node => node.data.includes('間') && !node.parentElement.closest('rt') ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP }).nextNode();
-    const lineHead = {
-        column: lineHeadParagraph.getBoundingClientRect().toJSON(),
-        wrapped: Boolean(kanjiText) && glyphTop(kanjiText, kanjiText.data.indexOf('間')) > glyphTop(document.createTreeWalker(lineHeadParagraph, NodeFilter.SHOW_TEXT).nextNode(), 0) + 10,
-        readings: Array.from(lineHeadParagraph.querySelectorAll('rt')).map(rt => {
-            const ink = document.createRange();
-            ink.selectNodeContents(rt);
-            const rect = ink.getBoundingClientRect();
-            return { text: rt.textContent, left: rect.left, right: rect.right, rubyClasses: rt.parentElement.className };
-        }),
-    };
-    const tail = document.querySelector('#line-tail');
-    const tailRuby = tail.querySelector('ruby');
-    const tailInk = document.createRange();
-    tailInk.selectNodeContents(tail.querySelector('rt'));
-    const lineTail = { column: tail.getBoundingClientRect().toJSON(), reading: tailInk.getBoundingClientRect().toJSON(), edge: tailRuby.classList.contains('jpdb-reader-ruby-line-edge') };
+
+    function measureLineEdges() {
+        const lineHeadParagraph = document.querySelector('#line-head');
+        const glyphTop = (node, offset) => {
+            const glyph = document.createRange();
+            glyph.setStart(node, offset);
+            glyph.setEnd(node, offset + 1);
+            return glyph.getBoundingClientRect().top;
+        };
+        const kanjiText = document.createTreeWalker(lineHeadParagraph, NodeFilter.SHOW_TEXT, { acceptNode: node => node.data.includes('間') && !node.parentElement.closest('rt') ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP }).nextNode();
+        const lineHead = {
+            column: lineHeadParagraph.getBoundingClientRect().toJSON(),
+            wrapped: Boolean(kanjiText) && glyphTop(kanjiText, kanjiText.data.indexOf('間')) > glyphTop(document.createTreeWalker(lineHeadParagraph, NodeFilter.SHOW_TEXT).nextNode(), 0) + 10,
+            readings: Array.from(lineHeadParagraph.querySelectorAll('rt')).map(rt => {
+                const ink = document.createRange();
+                ink.selectNodeContents(rt);
+                const rect = ink.getBoundingClientRect();
+                return { text: rt.textContent, left: rect.left, right: rect.right, rubyClasses: rt.parentElement.className };
+            }),
+        };
+        const tail = document.querySelector('#line-tail');
+        const tailRuby = tail.querySelector('ruby');
+        const tailInk = document.createRange();
+        tailInk.selectNodeContents(tail.querySelector('rt'));
+        const lineTail = { column: tail.getBoundingClientRect().toJSON(), reading: tailInk.getBoundingClientRect().toJSON(), edge: tailRuby.classList.contains('jpdb-reader-ruby-line-edge') };
+        return { lineHead, lineTail };
+    }
+
     return {
-        lineHead,
-        lineTail,
+        ...measureLineEdges(),
+        ...measureSpans(),
         mirrors: Array.from(document.querySelectorAll('.jpdb-reader-text-mirror')).map(mirror => ({
             source: mirror.dataset.sourceText, portal: mirror.classList.contains('jpdb-reader-document-annotation-portal'),
             nativeParent: mirror.parentElement.tagName + '#' + mirror.parentElement.id,
@@ -569,9 +669,7 @@ function measurePage(definitions) {
         })),
         words,
         readings,
-        readingNeighbours,
-        spans,
-        advances,
+        readingNeighbours: findReadingNeighbours(),
         footnoteWords: document.querySelectorAll('sup .jpdb-reader-word').length,
     };
 }

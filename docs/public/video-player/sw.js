@@ -3,7 +3,7 @@ importScripts('../hosted-reader-worker.js');
 const APPEARANCE_REVISION = '820fb1471c7a';
 
 // yomu:runtime-cache:start
-const CACHE_NAME = 'yomu-video-player-4a315385531a';
+const CACHE_NAME = 'yomu-video-player-624e0adad0d3';
 // yomu:runtime-cache:end
 const RUNTIME_GRAPH = [
   // yomu:runtime-companions:start

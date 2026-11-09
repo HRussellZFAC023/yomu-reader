@@ -188,15 +188,23 @@ function measure({ font, size, scale, readings, layout, parsed }) {
     player.style.transform = `scale(${scale})`;
     player.style.transformOrigin = '0 0';
     const internal = ['internal', 'internal-ruby', 'component'].includes(layout);
-    lines.style.width = layout === 'wrapped' || internal ? `${size * 10}px` : `${size * 20}px`;
-    let html = layout === 'multiline' ? `${parsed}<br>${parsed}` : layout === 'wrapped' ? parsed.repeat(3) : parsed;
-    if (internal) {
-        const contents = layout === 'internal-ruby' ? '<ruby class="jpdb-reader-ruby"><span class="jpdb-reader-ruby-base">日</span><rt class="jpdb-reader-furi">にち</rt></ruby>かな'.repeat(12) : 'かな'.repeat(20);
-        const components = layout === 'component' ? 'data-pitch-components="true" style="--jpdb-reader-inline-pitch-gradient:linear-gradient(to right,#359eff 0% 50%,#e94b5a 50% 100%)"' : '';
-        html = `<span class="jpdb-reader-word jpdb-pitch-heiban" ${components}>${contents}</span>`;
-    }
+    const widthFactor = () => layout === 'wrapped' || internal ? 10 : 20;
+    lines.style.width = `${size * widthFactor()}px`;
+    const html = fixtureHtml();
     primary.innerHTML = html;
     row.classList.toggle('jpdb-subtitle-has-kanji', /\p{Script=Han}/u.test(primary.textContent));
+    function fixtureHtml() {
+        if (internal) return internalWordHtml();
+        if (layout === 'multiline') return `${parsed}<br>${parsed}`;
+        return layout === 'wrapped' ? parsed.repeat(3) : parsed;
+    }
+
+    function internalWordHtml() {
+        const contents = layout === 'internal-ruby' ? '<ruby class="jpdb-reader-ruby"><span class="jpdb-reader-ruby-base">日</span><rt class="jpdb-reader-furi">にち</rt></ruby>かな'.repeat(12) : 'かな'.repeat(20);
+        const components = layout === 'component' ? 'data-pitch-components="true" style="--jpdb-reader-inline-pitch-gradient:linear-gradient(to right,#359eff 0% 50%,#e94b5a 50% 100%)"' : '';
+        return `<span class="jpdb-reader-word jpdb-pitch-heiban" ${components}>${contents}</span>`;
+    }
+
     const rect = box => [box.x, box.y, box.width, box.height].map(value => Math.round(value * 1000) / 1000);
     const textRects = () => {
         const walker = document.createTreeWalker(primary, NodeFilter.SHOW_TEXT);
@@ -223,15 +231,20 @@ function measure({ font, size, scale, readings, layout, parsed }) {
     const linePitch = parseFloat(style.lineHeight);
     const readingTop = Math.min(...Array.from(primary.querySelectorAll('rt'), rt => rt.getBoundingClientRect().top));
     window.refreshSubtitleWordUnderlines(player);
-    let repeatedRangeReads = 0;
-    const originalRects = Range.prototype.getClientRects;
-    Range.prototype.getClientRects = function() { repeatedRangeReads += 1; return originalRects.call(this); };
-    const observer = new MutationObserver(() => {});
-    observer.observe(primary, { attributes: true, subtree: true, childList: true });
-    for (let i = 0; i < 10; i += 1) window.refreshSubtitleWordUnderlines(player);
-    const repeatedMutations = observer.takeRecords().length;
-    observer.disconnect();
-    Range.prototype.getClientRects = originalRects;
+    const { repeatedRangeReads, repeatedMutations } = repeatedPaint();
+
+    function repeatedPaint() {
+        let repeatedRangeReads = 0;
+        const originalRects = Range.prototype.getClientRects;
+        Range.prototype.getClientRects = function() { repeatedRangeReads += 1; return originalRects.call(this); };
+        const observer = new MutationObserver(() => {});
+        observer.observe(primary, { attributes: true, subtree: true, childList: true });
+        for (let i = 0; i < 10; i += 1) window.refreshSubtitleWordUnderlines(player);
+        const repeatedMutations = observer.takeRecords().length;
+        observer.disconnect();
+        Range.prototype.getClientRects = originalRects;
+        return { repeatedRangeReads, repeatedMutations };
+    }
     // Suppressing paint is an independent control: the pseudo must never be
     // contributing size, wrapping or line-height to the caption itself.
     const control = document.createElement('style');
@@ -246,15 +259,7 @@ function measure({ font, size, scale, readings, layout, parsed }) {
         const baseline = marker.getBoundingClientRect().top;
         marker.remove();
         const pseudo = getComputedStyle(word, '::after');
-        const walker = document.createTreeWalker(word, NodeFilter.SHOW_TEXT);
-        const lineTops = [];
-        let text;
-        while ((text = walker.nextNode())) {
-            if (text.parentElement.closest('rt,rp')) continue;
-            const range = document.createRange();
-            range.selectNodeContents(text);
-            for (const box of range.getClientRects()) if (!lineTops.includes(box.top)) lineTops.push(box.top);
-        }
+        const lineTops = wordLineTops(word);
         const expectedBottom = baseline + referenceDescent * scale;
         const fragments = Array.from(word.querySelectorAll('[data-yomu-subtitle-fragment]'), (fragment, index) => {
             const box = fragment.getBoundingClientRect();
@@ -269,6 +274,18 @@ function measure({ font, size, scale, readings, layout, parsed }) {
             gradientWidth: parseFloat(word.querySelector('[data-yomu-subtitle-fragment]')?.style.getPropertyValue('--jpdb-reader-source-gradient-width') ?? '0'),
         };
     });
+    function wordLineTops(word) {
+        const walker = document.createTreeWalker(word, NodeFilter.SHOW_TEXT);
+        const lineTops = new Set();
+        let text;
+        while ((text = walker.nextNode())) {
+            if (text.parentElement.closest('rt,rp')) continue;
+            const range = document.createRange();
+            range.selectNodeContents(text);
+            for (const box of range.getClientRects()) lineTops.add(box.top);
+        }
+        return [...lineTops];
+    }
     const lineTops = [...new Set(after.glyphs.map(box => box[1]))];
     const lastGlyphBottom = Math.max(...after.glyphs.map(box => box[1] + box[3]));
     player.classList.toggle('yomu-furi-off', readings);
