@@ -13,6 +13,8 @@ const HOMEPAGE_TRY_ME_LOOKUP_SELECTOR = '.yomu-try-me-text .jpdb-reader-word'
     + '[data-expression="今日"]'
     + '[data-sentence="今日は静かな喫茶店で新しい本を読みました。"]'
     + '[data-token-start="0"][data-token-end="2"]';
+const ACADEMY_TITLE_SELECTOR = '.academy-root .academy-title[data-yomu-runtime-surface]';
+const ACADEMY_JAPANESE_TITLE = 'よむアカデミー';
 const HERO_GEOMETRY_WIDTHS = [320, 375, 600, 601, 900, 901, 1024, 1280];
 const BROWSER_NAME = process.env.YOMU_DOCS_BROWSER || 'chromium';
 const browserType = { chromium, firefox }[BROWSER_NAME];
@@ -129,10 +131,7 @@ try {
     await assertAcademyReaderCold(page);
     await page.evaluate(() => localStorage.setItem('yomu:academy:language:v1', 'ja'));
     await navigateToAcademyShell(page);
-    await assertHostedRuntimeOrder(page, {
-        surface: 'Academy',
-        annotationSelector: '.academy-root .academy-title[data-yomu-runtime-surface] .jpdb-reader-word',
-    });
+    await assertAcademyTitleAnnotation(page);
     assert.deepEqual(hydrationMessages, [], `Vue hydration warning: ${hydrationMessages.join('\n')}`);
     assert.deepEqual(pageErrors, [], `Public page error: ${pageErrors.join('\n')}`);
 
@@ -809,16 +808,35 @@ async function assertAcademyDoesNotContaminateRoot(browser) {
     const origin = new URL(ORIGIN).origin;
     await withLocaleProofPage(browser, 'Academy-first', async page => {
         await navigateLocaleProof(page, '/academy/', 'Japanese-first Academy');
-        await assertHostedRuntimeOrder(page, {
-            surface: 'Academy',
-            annotationSelector: '.academy-root .academy-title[data-yomu-runtime-surface] .jpdb-reader-word',
-        });
+        await assertAcademyTitleAnnotation(page);
         await assertEnglishHostedHomepage(page, 'Academy-to-English homepage', { fresh: true });
     }, context => context.addInitScript(seedLocaleProofStorage, {
         origin,
         local: { 'yomu:academy:language:v1': 'ja' },
         session: {},
     }));
+}
+
+async function assertAcademyTitleAnnotation(page) {
+    const title = page.locator(ACADEMY_TITLE_SELECTOR)
+        .and(page.getByRole('heading', { name: ACADEMY_JAPANESE_TITLE, exact: true }));
+    await title.waitFor({ state: 'visible', timeout: 20_000 });
+    // Proportional Japanese text keeps its native shaping. Its annotation is
+    // projected from the title's text range into a portal.
+    const portal = `.jpdb-reader-document-annotation-portal[data-source-text=${JSON.stringify(ACADEMY_JAPANESE_TITLE)}]`;
+    const annotationSelector = `${portal} .jpdb-reader-word .jpdb-reader-source-fragment`;
+    await assertHostedRuntimeOrder(page, { surface: 'Academy', annotationSelector });
+    const fragment = page.locator(annotationSelector).first();
+    const onTitle = await fragment.evaluate((element, titleSelector) => {
+        const source = document.querySelector(titleSelector);
+        const range = document.createRange();
+        range.selectNodeContents(source);
+        const fragmentBox = element.getBoundingClientRect();
+        return Array.from(range.getClientRects()).some(rect =>
+            rect.left < fragmentBox.right && rect.right > fragmentBox.left
+            && rect.top < fragmentBox.bottom && rect.bottom > fragmentBox.top);
+    }, ACADEMY_TITLE_SELECTOR);
+    assert.ok(onTitle, 'Academy projected annotation does not overlap its title text');
 }
 
 async function navigateToAcademyShell(page, { assertPreviewTransport = false } = {}) {
