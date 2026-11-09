@@ -38755,6 +38755,7 @@ const COPY$c = {
     trackStatusLoading: "loading",
     trackStatusWaiting: "waiting for captions",
     trackStatusFailed: "failed",
+    trackStatusPartial: "partly translated",
     moveSubtitles: "Move subtitles",
     moveSubtitlesAccessible: "Move subtitles. Drag, or use the arrow and Page Up/Page Down keys. Press Home or 0 to reset.",
     moveSubtitleControls: "Subtitle controls. Tap to expand or collapse. Drag, or use the arrow keys, to move. Press Home or 0 to reset.",
@@ -39458,6 +39459,7 @@ trackKindLoadedFile	読み込んだファイル
 trackStatusLoading	読み込み中
 trackStatusWaiting	字幕待機中
 trackStatusFailed	失敗
+trackStatusPartial	一部翻訳済み
 showKanji	漢字を表示
 strokePractice	筆順と練習
 practiceDrawing	手書き練習
@@ -44005,6 +44007,49 @@ function renderedWordCardId(card, source2 = renderedWordCardSource(card)) {
 function renderedWordReadingIndex(card, source2 = renderedWordCardSource(card)) {
   return source2 === "jiten" ? card.jitenReadingIndex ?? card.sid : card.sid;
 }
+function setImportantStyleIfChanged(element2, property, value) {
+  setInlineStyleIfChanged(element2, property, value, "important");
+}
+function setInlineStyleIfChanged(element2, property, value, priority = "") {
+  if (element2.style.getPropertyValue(property) === value && element2.style.getPropertyPriority(property) === priority) return;
+  element2.style.setProperty(property, value, priority);
+}
+const CSS_PIXEL_SIGNIFICANT_DIGITS = 6;
+const CSS_PIXEL_MINIMUM = 1e-6;
+function stableCssPixels(value) {
+  if (!Number.isFinite(value) || Math.abs(value) < CSS_PIXEL_MINIMUM) return "0px";
+  const magnitude = Math.floor(Math.log10(Math.abs(value)));
+  const decimalPlaces = Math.max(0, Math.min(12, CSS_PIXEL_SIGNIFICANT_DIGITS - magnitude - 1));
+  const rounded = Number(value.toFixed(decimalPlaces));
+  return `${Object.is(rounded, -0) ? 0 : rounded}px`;
+}
+const FONT_PROPERTIES = [
+  "font-family",
+  "font-size",
+  "font-style",
+  "font-weight",
+  "font-stretch",
+  "font-variant",
+  "font-feature-settings",
+  "font-kerning",
+  "letter-spacing",
+  "word-spacing"
+];
+const INLINE_PRESENTATION_PROPERTIES = [...FONT_PROPERTIES, "line-height", "color", "direction", "writing-mode"];
+function typographyRequiresSourceProjection(style) {
+  let enabled = false;
+  for (const match of (style.fontFeatureSettings || "normal").matchAll(/["']palt["'](?:\s+(on|off|\d+))?/gu)) {
+    const value = match[1];
+    enabled = value === void 0 || value === "on" || Number(value) > 0;
+  }
+  return enabled;
+}
+function sameSourcePresentation(first, second) {
+  return INLINE_PRESENTATION_PROPERTIES.every((property) => first.getPropertyValue(property) === second.getPropertyValue(property));
+}
+function copySourceTypography(element2, style, priority = "") {
+  FONT_PROPERTIES.forEach((property) => setInlineStyleIfChanged(element2, property, style.getPropertyValue(property), priority));
+}
 function isTargetLanguageText(text2) {
   return activeLearningTarget().isLookupableText(text2);
 }
@@ -44819,22 +44864,6 @@ function detachedReadingLaneLineHeight(style, alreadyReserved) {
   if (alreadyReserved) return `${Math.ceil(Math.max(current, minimum))}px`;
   return current >= minimum ? "" : `${minimum}px`;
 }
-function setImportantStyleIfChanged(element2, property, value) {
-  setInlineStyleIfChanged(element2, property, value, "important");
-}
-function setInlineStyleIfChanged(element2, property, value, priority = "") {
-  if (element2.style.getPropertyValue(property) === value && element2.style.getPropertyPriority(property) === priority) return;
-  element2.style.setProperty(property, value, priority);
-}
-const CSS_PIXEL_SIGNIFICANT_DIGITS = 6;
-const CSS_PIXEL_MINIMUM = 1e-6;
-function stableCssPixels(value) {
-  if (!Number.isFinite(value) || Math.abs(value) < CSS_PIXEL_MINIMUM) return "0px";
-  const magnitude = Math.floor(Math.log10(Math.abs(value)));
-  const decimalPlaces = Math.max(0, Math.min(12, CSS_PIXEL_SIGNIFICANT_DIGITS - magnitude - 1));
-  const rounded = Number(value.toFixed(decimalPlaces));
-  return `${Object.is(rounded, -0) ? 0 : rounded}px`;
-}
 function withProjectedReadingBatch(document2, callback2) {
   const companion = yomuAnnotationsCompanion();
   return companion ? companion.withProjectedReadingBatch(document2, callback2) : callback2();
@@ -44859,7 +44888,7 @@ function styleDetachedReadingElementsWithin(roots, host2) {
   if (!detachedRubies.length) return;
   const hostStyle = safeComputedStyle(host2);
   const hostFontSize = Number.parseFloat(hostStyle.fontSize) || 16;
-  const readingFontSize = Math.max(10, hostFontSize * 0.6);
+  const readingFontSize = typographyRequiresSourceProjection(hostStyle) ? Math.max(8, hostFontSize * 0.5) : Math.max(10, hostFontSize * 0.6);
   for (const wrapper of detachedRubies) {
     setInlineStyleIfChanged(wrapper, "position", "relative", "important");
     setInlineStyleIfChanged(wrapper, "display", "inline-block", "important");
@@ -44910,6 +44939,7 @@ function styleDocumentAnnotationPortalMirror(mirror, host2) {
     ].join(";");
     const paint = documentAnnotationPortalPaint(mirror);
     paint.style.cssText = [
+      "all:inherit!important",
       "display:block!important",
       "position:absolute!important",
       "inset:0 auto auto 0!important",
@@ -44923,11 +44953,8 @@ function styleDocumentAnnotationPortalMirror(mirror, host2) {
     ].join(";");
     structurallyStyledPortalMirrors.add(mirror);
   }
-  mirror.style.setProperty("font", style.font, "important");
-  mirror.style.setProperty("font-size", style.fontSize, "important");
-  mirror.style.setProperty("font-weight", style.fontWeight, "important");
+  copySourceTypography(mirror, style, "important");
   mirror.style.setProperty("line-height", style.lineHeight, "important");
-  mirror.style.setProperty("letter-spacing", style.letterSpacing, "important");
   mirror.style.setProperty("direction", style.direction, "important");
   mirror.style.setProperty("writing-mode", style.writingMode, "important");
   mirror.style.setProperty("color", style.color, "important");
@@ -46709,7 +46736,7 @@ function elementIsFrameworkManaged(element2) {
 }
 function scanHostRequiresSourcePreservingMirror(host2) {
   if (host2.closest('[contenteditable="true"]')) return false;
-  return elementIsFrameworkManaged(host2);
+  return elementIsFrameworkManaged(host2) || typographyRequiresSourceProjection(safeComputedStyle(host2));
 }
 function stampTargetDecoration(target2, host2) {
   const decoration = target2.decoration;
@@ -46741,10 +46768,10 @@ function applyTokensToScanTarget(target2, tokens, settings) {
   }
   const nonDestructiveHost = nonDestructiveScanHost(target2);
   stampTargetDecoration(target2, nonDestructiveHost);
-  const sourcePreservingFrameworkHost = !target2.nonDestructive && scanHostRequiresSourcePreservingMirror(nonDestructiveHost);
-  const repaintLooping = !target2.nonDestructive && !target2.suppressRepaintLoopMirror && !sourcePreservingFrameworkHost ? scanHostIsRepaintLooping(nonDestructiveHost, target2.text) : false;
+  const sourcePreservingHost = !target2.nonDestructive && scanHostRequiresSourcePreservingMirror(nonDestructiveHost);
+  const repaintLooping = !target2.nonDestructive && !target2.suppressRepaintLoopMirror && !sourcePreservingHost ? scanHostIsRepaintLooping(nonDestructiveHost, target2.text) : false;
   const canUseRequestedNonDestructiveMirror = target2.nonDestructive && !nonDestructiveTargetShouldRenderInline(target2, nonDestructiveHost);
-  if ((!target2.forceInlineRender || repaintLooping) && (canUseRequestedNonDestructiveMirror || sourcePreservingFrameworkHost || repaintLooping)) {
+  if ((!target2.forceInlineRender || repaintLooping) && (canUseRequestedNonDestructiveMirror || sourcePreservingHost || repaintLooping)) {
     applyTokensToNonDestructiveScanTarget(target2, tokens, settings);
     return scanTargetPaintRoots(sourceScope, [currentTextMirror(nonDestructiveHost)]);
   }
@@ -46762,13 +46789,22 @@ function targetRequiresReactiveLeafMirrors(target2) {
   const parents = target2.fragments.map((fragment) => fragment.node.parentElement).filter((parent) => Boolean(parent));
   const uniqueParents = [...new Set(parents)];
   if (uniqueParents.length < 2) return false;
-  if (uniqueParents.some((parent) => uniqueParents.every((candidate2) => parent.contains(candidate2)))) return false;
-  return Boolean(target2.nonDestructive) || uniqueParents.some((parent) => scanHostRequiresSourcePreservingMirror(parent));
+  const preservesSource = Boolean(target2.nonDestructive) || uniqueParents.some((parent) => scanHostRequiresSourcePreservingMirror(parent));
+  if (!preservesSource) return false;
+  const common = uniqueParents.find((parent) => uniqueParents.every((candidate2) => parent.contains(candidate2)));
+  if (common) {
+    const styles = uniqueParents.map(safeComputedStyle);
+    if (!styles.some(typographyRequiresSourceProjection)) return false;
+    const commonStyle = safeComputedStyle(common);
+    const interaction = common.closest(PASSIVE_INTERACTION_SELECTOR);
+    if (uniqueParents.every((parent, index) => parent.closest(PASSIVE_INTERACTION_SELECTOR) === interaction && sameSourcePresentation(commonStyle, styles[index]))) return false;
+  }
+  return true;
 }
 function applyTokensToReactiveLeafMirrors(target2, tokens, settings) {
   const mirrors = [];
   const indexed = indexTextFragments(target2.fragments);
-  for (const run of reactiveLeafRuns(indexed)) {
+  for (const run of reactiveLeafRuns(indexed, target2.parent)) {
     const text2 = target2.text.slice(run.globalStart, run.globalEnd);
     const runTokens = tokens.map((token) => tokenPieceForReactiveLeaf(token, run.globalStart, run.globalEnd)).filter((token) => token !== null);
     if (!runTokens.length || !isTargetLanguageText(text2)) continue;
@@ -46795,11 +46831,12 @@ function applyTokensToReactiveLeafMirrors(target2, tokens, settings) {
   }
   return mirrors;
 }
-function reactiveLeafRuns(fragments) {
+function reactiveLeafRuns(fragments, boundary) {
   const runs = [];
   for (const fragment of fragments) {
-    const parent = fragment.node.parentElement;
-    if (!parent) continue;
+    const element2 = fragment.node.parentElement;
+    if (!element2) continue;
+    const parent = sourceInlineOwner(element2, boundary);
     const previous = runs[runs.length - 1];
     if (previous?.parent === parent && previous.globalEnd === fragment.globalStart) {
       previous.fragments.push(fragment);
@@ -46814,6 +46851,19 @@ function reactiveLeafRuns(fragments) {
     }
   }
   return runs;
+}
+function sourceInlineOwner(element2, boundary) {
+  let owner = element2;
+  while (owner !== boundary && owner.parentElement) {
+    const parent = owner.parentElement;
+    const style = safeComputedStyle(owner);
+    const parentStyle = safeComputedStyle(parent);
+    if (style.display && style.display !== "inline" && style.display !== "contents") break;
+    if (/(?:flex|grid|table)/u.test(parentStyle.display)) break;
+    if (owner.closest(PASSIVE_INTERACTION_SELECTOR) !== parent.closest(PASSIVE_INTERACTION_SELECTOR) || !sameSourcePresentation(style, parentStyle)) break;
+    owner = parent;
+  }
+  return owner;
 }
 function tokenPieceForReactiveLeaf(token, runStart, runEnd) {
   const start = Math.max(token.start, runStart);
@@ -48558,11 +48608,8 @@ function styleTextMirror(mirror, host2, hasRuby = false) {
   mirror.style.setProperty("overflow", "visible");
   mirror.style.setProperty("pointer-events", "none");
   mirror.style.setProperty("white-space", style.whiteSpace);
-  mirror.style.setProperty("font", style.font);
-  mirror.style.setProperty("font-size", style.fontSize);
-  mirror.style.setProperty("font-weight", style.fontWeight);
+  copySourceTypography(mirror, style);
   mirror.style.setProperty("line-height", hasRuby ? rubyFriendlyMirrorLineHeight(style) : style.lineHeight);
-  mirror.style.setProperty("letter-spacing", style.letterSpacing);
   mirror.style.setProperty("text-align", style.textAlign);
   mirror.style.setProperty("z-index", "1");
   if (hasRuby) mirror.dataset.jpdbReaderHasRuby = "true";
@@ -264903,7 +264950,7 @@ function padClockPart(value) {
 const DEFAULT_ACADEMY_STUDY_DURATION_MS = DEFAULT_STUDY_DURATION_MS;
 class StudyRuntimeLoadFailure extends Error {
 }
-function createCanonicalAcademyStudyModule(loadRuntime = () => import("./runtime-D9FB327z.js")) {
+function createCanonicalAcademyStudyModule(loadRuntime = () => import("./runtime-DOJwfnc5.js")) {
   return {
     async mount(host2, context2) {
       let runtime;

@@ -1,4 +1,5 @@
 import { setRenderedWordCardStatus } from './rendered-word-state';
+import { copySourceTypography, sameSourcePresentation, typographyRequiresSourceProjection } from './source-preserving-typography';
 import { HAS_JAPANESE_LETTER, READER_ROOT_SELECTOR } from './constants';
 import { isTargetLanguageText, segmentTargetLanguageText } from '../lookup/target-text';
 import {
@@ -1923,7 +1924,7 @@ function scanHostRequiresSourcePreservingMirror(host: HTMLElement): boolean {
     // Replacing even a quiet article Text node can invalidate a later hydration
     // or navigation commit; waiting for a repaint loop is already one
     // destructive write too late.
-    return elementIsFrameworkManaged(host);
+    return elementIsFrameworkManaged(host) || typographyRequiresSourceProjection(safeComputedStyle(host));
 }
 
 // The sealed decision is stamped ONCE, at apply time, on the render host (and
@@ -1978,10 +1979,10 @@ export function applyTokensToScanTarget(target: ScanTextTarget, tokens: JPDBToke
     }
     const nonDestructiveHost = nonDestructiveScanHost(target);
     stampTargetDecoration(target, nonDestructiveHost);
-    const sourcePreservingFrameworkHost = !target.nonDestructive && scanHostRequiresSourcePreservingMirror(nonDestructiveHost);
+    const sourcePreservingHost = !target.nonDestructive && scanHostRequiresSourcePreservingMirror(nonDestructiveHost);
     const repaintLooping = !target.nonDestructive
         && !target.suppressRepaintLoopMirror
-        && !sourcePreservingFrameworkHost
+        && !sourcePreservingHost
         ? scanHostIsRepaintLooping(nonDestructiveHost, target.text)
         : false;
     // Clip-constrained rows are not mirror-rerouted merely because they clip:
@@ -1990,7 +1991,7 @@ export function applyTokensToScanTarget(target: ScanTextTarget, tokens: JPDBToke
     // mirror, while ordinary DOM keeps the simpler in-place render path.
     const canUseRequestedNonDestructiveMirror = target.nonDestructive && !nonDestructiveTargetShouldRenderInline(target, nonDestructiveHost);
     if ((!target.forceInlineRender || repaintLooping)
-        && (canUseRequestedNonDestructiveMirror || sourcePreservingFrameworkHost || repaintLooping)) {
+        && (canUseRequestedNonDestructiveMirror || sourcePreservingHost || repaintLooping)) {
         applyTokensToNonDestructiveScanTarget(target, tokens, settings);
         return scanTargetPaintRoots(sourceScope, [currentTextMirror(nonDestructiveHost)]);
     }
@@ -2012,18 +2013,28 @@ function targetRequiresReactiveLeafMirrors(target: FragmentTextTarget): boolean 
         .filter((parent): parent is HTMLElement => Boolean(parent));
     const uniqueParents = [...new Set(parents)];
     if (uniqueParents.length < 2) return false;
+    const preservesSource = Boolean(target.nonDestructive)
+        || uniqueParents.some(parent => scanHostRequiresSourcePreservingMirror(parent));
+    if (!preservesSource) return false;
     // Inline markup often splits one visual line into an outer Text node and a
     // nested span (登<span>録者</span>). Its outer parent still owns one coherent
     // layout surface, so a single mirror preserves the cross-node word. Only
     // split genuinely independent leaves; otherwise later discontiguous runs on
     // the same outer parent would replace the earlier mirror and lose a glyph.
-    if (uniqueParents.some(parent => uniqueParents.every(candidate => parent.contains(candidate)))) return false;
+    const common = uniqueParents.find(parent => uniqueParents.every(candidate => parent.contains(candidate)));
+    if (common) {
+        const styles = uniqueParents.map(safeComputedStyle);
+        if (!styles.some(typographyRequiresSourceProjection)) return false;
+        const commonStyle = safeComputedStyle(common);
+        const interaction = common.closest(PASSIVE_INTERACTION_SELECTOR);
+        if (uniqueParents.every((parent, index) => parent.closest(PASSIVE_INTERACTION_SELECTOR) === interaction
+            && sameSourcePresentation(commonStyle, styles[index]))) return false;
+    }
     // Explicit non-destructive profiles (including generic dynamic-page
     // adapters) carry the same source-preservation promise even when a
     // framework exposes no private ownership marker. Never flatten their
     // independently laid-out leaves into one common-ancestor overlay.
-    return Boolean(target.nonDestructive)
-        || uniqueParents.some(parent => scanHostRequiresSourcePreservingMirror(parent));
+    return true;
 }
 
 interface ReactiveLeafRun {
@@ -2037,7 +2048,7 @@ interface ReactiveLeafRun {
 function applyTokensToReactiveLeafMirrors(target: FragmentTextTarget, tokens: JPDBToken[], settings: ReaderSettings): Array<HTMLElement | null> {
     const mirrors: Array<HTMLElement | null> = [];
     const indexed = indexTextFragments(target.fragments);
-    for (const run of reactiveLeafRuns(indexed)) {
+    for (const run of reactiveLeafRuns(indexed, target.parent)) {
         const text = target.text.slice(run.globalStart, run.globalEnd);
         const runTokens = tokens
             .map(token => tokenPieceForReactiveLeaf(token, run.globalStart, run.globalEnd))
@@ -2068,11 +2079,12 @@ function applyTokensToReactiveLeafMirrors(target: FragmentTextTarget, tokens: JP
     return mirrors;
 }
 
-function reactiveLeafRuns(fragments: IndexedTextFragment[]): ReactiveLeafRun[] {
+function reactiveLeafRuns(fragments: IndexedTextFragment[], boundary: HTMLElement): ReactiveLeafRun[] {
     const runs: ReactiveLeafRun[] = [];
     for (const fragment of fragments) {
-        const parent = fragment.node.parentElement;
-        if (!parent) continue;
+        const element = fragment.node.parentElement;
+        if (!element) continue;
+        const parent = sourceInlineOwner(element, boundary);
         const previous = runs[runs.length - 1];
         if (previous?.parent === parent && previous.globalEnd === fragment.globalStart) {
             previous.fragments.push(fragment);
@@ -2087,6 +2099,23 @@ function reactiveLeafRuns(fragments: IndexedTextFragment[]): ReactiveLeafRun[] {
         }
     }
     return runs;
+}
+
+// Transparent inline markup remains one shaping source, including when a
+// separate link/control elsewhere in the paragraph requires leaf mirrors.
+function sourceInlineOwner(element: HTMLElement, boundary: HTMLElement): HTMLElement {
+    let owner = element;
+    while (owner !== boundary && owner.parentElement) {
+        const parent = owner.parentElement;
+        const style = safeComputedStyle(owner);
+        const parentStyle = safeComputedStyle(parent);
+        if (style.display && style.display !== 'inline' && style.display !== 'contents') break;
+        if (/(?:flex|grid|table)/u.test(parentStyle.display)) break;
+        if (owner.closest(PASSIVE_INTERACTION_SELECTOR) !== parent.closest(PASSIVE_INTERACTION_SELECTOR)
+            || !sameSourcePresentation(style, parentStyle)) break;
+        owner = parent;
+    }
+    return owner;
 }
 
 function tokenPieceForReactiveLeaf(token: JPDBToken, runStart: number, runEnd: number): JPDBToken | null {
@@ -5081,11 +5110,8 @@ function styleTextMirror(mirror: HTMLElement, host: HTMLElement, hasRuby = false
     // the stamped source ranges instead of the overlay's potentially stale box.
     mirror.style.setProperty('pointer-events', 'none');
     mirror.style.setProperty('white-space', style.whiteSpace);
-    mirror.style.setProperty('font', style.font);
-    mirror.style.setProperty('font-size', style.fontSize);
-    mirror.style.setProperty('font-weight', style.fontWeight);
+    copySourceTypography(mirror, style);
     mirror.style.setProperty('line-height', hasRuby ? rubyFriendlyMirrorLineHeight(style) : style.lineHeight);
-    mirror.style.setProperty('letter-spacing', style.letterSpacing);
     mirror.style.setProperty('text-align', style.textAlign);
     mirror.style.setProperty('z-index', '1');
     if (hasRuby) mirror.dataset.jpdbReaderHasRuby = 'true';

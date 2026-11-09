@@ -205,19 +205,23 @@ const VIDEO_BACKDROP = '#808080';
 // without anything failing.
 const HIDE_READING = '.jpdb-subtitle-primary .jpdb-reader-furi { visibility: hidden !important; }';
 const NO_OUTLINE = '.jpdb-subtitle-text, .jpdb-subtitle-primary .jpdb-reader-word, .jpdb-subtitle-primary .jpdb-reader-furi { text-shadow: none !important; -webkit-text-stroke: 0 !important; }';
+const MODE_CSS = {
+    control: HIDE_READING,
+    'base-ink': HIDE_READING + NO_OUTLINE,
+    ink: NO_OUTLINE,
+    reference: `.jpdb-subtitle-primary .jpdb-reader-furi { text-shadow: ${OWNER_TUNED_REFERENCE_SHADOW} !important; }`,
+};
 const fixture = (word, size, backdrop, mode) => `<!doctype html>
 <html><head><meta charset="utf-8"><style>${css}
   html, body { margin: 0; padding: 0; background: ${backdrop}; }
   .jpdb-subtitle-player { --subtitle-font-size-target: ${size}px; --subtitle-background-rgba: transparent; }
   .jpdb-subtitle-text { left: 40px; right: auto; bottom: auto; top: 200px; text-align: left; }
   .probe { display: inline-block; width: 0; height: 0; vertical-align: baseline; }
-  ${mode === 'control' || mode === 'base-ink' ? HIDE_READING : ''}
-  ${mode === 'ink' || mode === 'base-ink' ? NO_OUTLINE : ''}
-  ${mode === 'reference' ? `.jpdb-subtitle-primary .jpdb-reader-furi { text-shadow: ${OWNER_TUNED_REFERENCE_SHADOW} !important; }` : ''}
+  ${MODE_CSS[mode] ?? ''}
 </style></head>
 <body>
   <div class="jpdb-subtitle-player"><div class="jpdb-subtitle-text"><div class="jpdb-subtitle-lines jpdb-subtitle-has-primary">
-    <div class="jpdb-subtitle-primary-row"><div class="jpdb-subtitle-primary"><span
+    <div class="jpdb-subtitle-primary-row jpdb-subtitle-has-kanji"><div class="jpdb-subtitle-primary"><span
       class="jpdb-reader-word jpdb-reader-has-furi" id="word" data-expression="${word.label}"
       ><ruby class="${word.rubyClass}"><span class="jpdb-reader-ruby-base" id="annotated">${word.base}</span><rp>(</rp><rt
       class="jpdb-reader-furi" id="reading">${word.reading}</rt><rp>)</rp></ruby>${word.okurigana}<span class="probe" id="probe"></span></span></div></div>

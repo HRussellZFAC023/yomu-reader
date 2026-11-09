@@ -1346,7 +1346,8 @@ describe('SubtitlePlayerController — parse cache, warmup & seek', () => {
         // A cheap provisional parse is not paintable yet: its token objects
         // can still receive pitch/furigana enrichment.
         internals.render();
-        expect(internals.subtitleEl.querySelector('.jpdb-subtitle-primary')?.textContent).toBe('');
+        expect(internals.subtitleEl.querySelector('.jpdb-subtitle-primary')?.textContent).toBe('読む');
+        expect(internals.subtitleEl.querySelector('.jpdb-subtitle-primary .jpdb-reader-word')).toBeNull();
 
         // A transcript row already hydrated with the pre-enrichment html.
         const rowText = document.createElement('strong');

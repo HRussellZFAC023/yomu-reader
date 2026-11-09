@@ -6767,6 +6767,7 @@ trackKindLoadedFile	読み込んだファイル
 trackStatusLoading	読み込み中
 trackStatusWaiting	字幕待機中
 trackStatusFailed	失敗
+trackStatusPartial	一部翻訳済み
 showKanji	漢字を表示
 strokePractice	筆順と練習
 practiceDrawing	手書き練習

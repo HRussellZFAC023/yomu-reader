@@ -7,6 +7,7 @@ import { createReaderSmokeSettings, mockJpdbApiRequest, readJsonBody } from './l
 import { assertCaptionControls, assertCaptionFontSize } from './lib/subtitle-stability-controls.mjs';
 import { assertCaptionGeometry } from './lib/subtitle-caption-geometry.mjs';
 import { assertPendingCaptionPair } from './lib/subtitle-pending-paint.mjs';
+import { assertSubtitleTranslationPresentation, installManualRecordedYouTubeCaptions } from './lib/subtitle-translation-presentation.mjs';
 
 // Built userscript + its declared @require/@resource graph, on a recorded
 // YouTube page. Caption timings and modal controls are mechanism fixtures.
@@ -36,6 +37,7 @@ for (const [name, engine] of [['webkit', webkit], ['chromium', chromium]]) {
     const pending = new Promise(resolve => { releasePending = resolve; });
     let run;
     try {
+        if (!geometryOnly && !process.argv.includes('--font-size-only')) await assertSubtitleTranslationPresentation(browser, name, out);
         run = await openRecordedPage({ browser, slug:'youtube-watch', navigate:false,
             contextOptions:{ ...devices['iPad Pro 11'], viewport:{ width:834, height:1194 }, isMobile:name==='webkit' },
             hostOptions:{ autoplay:false },
@@ -72,18 +74,8 @@ for (const [name, engine] of [['webkit', webkit], ['chromium', chromium]]) {
                 requestAnimationFrame(sample);
             };
             requestAnimationFrame(sample);
-            let install;
-            Object.defineProperty(window, '__yomuRecordedYouTubePlayer', {
-                configurable: true,
-                set: value => { install = value; },
-                get: () => config => {
-                    const list = config.player.captions.playerCaptionsTracklistRenderer;
-                    list.captionTracks = list.captionTracks.map(({ kind, ...track }) => ({ ...track,
-                        baseUrl: track.baseUrl.replace(/&(kind|caps)=asr/g, ''), vssId: '.ja', name: { simpleText: 'Japanese' } }));
-                    return install.call(window, { ...config, nativeTrack });
-                },
-            });
-        }, track('ja'));
+        });
+        await installManualRecordedYouTubeCaptions(context, track('ja'));
         await context.route('**/api/timedtext?**', route => route.fulfill(response(track(new URL(route.request().url()).searchParams.get('tlang')))));
         await page.goto(run.recording.manifest.url,{waitUntil:'domcontentloaded'});
         // The recording redacted the viewport grammar along with page text.

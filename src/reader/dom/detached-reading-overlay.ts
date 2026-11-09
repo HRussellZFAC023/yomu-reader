@@ -1,4 +1,5 @@
 import { safeComputedStyle } from './decoration-policy';
+import { typographyRequiresSourceProjection } from './source-preserving-typography';
 import { setInlineStyleIfChanged } from './inline-style';
 import { yomuAnnotationsCompanion } from '../companions/registry';
 import type { DetachedReadingProjection } from './detached-reading-overlay-impl';
@@ -57,7 +58,9 @@ export function styleDetachedReadingElementsWithin(roots: readonly Element[], ho
     // Follow the source type size, including enlarged mobile text. The
     // collision pass suppresses readings that cannot fit without covering
     // native text instead of making every reading microscopic.
-    const readingFontSize = Math.max(10, hostFontSize * 0.6);
+    const readingFontSize = typographyRequiresSourceProjection(hostStyle)
+        ? Math.max(8, hostFontSize * 0.5)
+        : Math.max(10, hostFontSize * 0.6);
 
     for (const wrapper of detachedRubies) {
         setInlineStyleIfChanged(wrapper, 'position', 'relative', 'important');

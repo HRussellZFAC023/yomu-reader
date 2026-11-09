@@ -36,7 +36,7 @@ describe('X/Twitter WebVTT cues', () => {
         expect(getTextTrackCueText(lowercaseCue)).toBe('Build useful things');
         expect(getTextTrackCueText({
             text: '<X-word-ms-extra character_ranges=0-5>Keep this wrapper</X-word-ms-extra>',
-        } as VTTCue)).toBe('<X-word-ms-extra character_ranges=0-5>Keep this wrapper</X-word-ms-extra>');
+        } as VTTCue)).toBe('Keep this wrapper');
     });
 
     it('preserves entity-escaped literal angle-bracket dialogue', () => {
