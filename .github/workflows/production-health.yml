@@ -42,3 +42,6 @@ jobs:
           # Read-only: looks up when the latest release was published.
           GITHUB_TOKEN: ${{ github.token }}
         run: node scripts/production-health-check.mjs
+      - name: Verify live userscript installers and pinned dependencies
+        if: ${{ !cancelled() }}
+        run: node scripts/check-userscript-deployment.mjs

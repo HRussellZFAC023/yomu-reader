@@ -166,6 +166,8 @@ https://yomureader.com/yomu.user.js
 
 Deploy Docs publishes that artifact with its pinned runtime and CSS. A raw GitHub `main` URL can update before those files are live. Follow the [Greasy Fork publication checks](docs/operations/production-health-monitoring.md#greasy-fork-updates) before an immediate sync.
 
+`node scripts/check-userscript-deployment.mjs` checks both live installers and verifies their pinned runtime/CSS bytes. The release workflow checks the candidate's dependencies before publication. Missing dependencies stop the userscript entirely, including Tampermonkey's dropdown and right-click commands; a working homepage alone is not proof that the userscript works.
+
 That code sync updates the userscript and its metadata header. The listing's **Additional info** prose has separate sync settings. When a feature release changes product scope or positioning, update that field in the signed-in GreasyFork editor. Verify both the public `.meta.js` and `.user.js` after syncing from the hosted source.
 
 </details>

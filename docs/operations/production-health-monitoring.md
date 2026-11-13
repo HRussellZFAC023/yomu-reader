@@ -99,6 +99,25 @@ Before saving with **Update and sync now** or triggering a manual update:
    report the intended version. Check the runtime URL in both responses and
    the CSS URL in `.user.js` against the hosted header.
 
+Run `node scripts/check-userscript-deployment.mjs` to check both the website and
+Greasy Fork installers against their own runtime and CSS pins. This also runs in
+Production Health, even if a Worker health check fails. A version difference is
+reported but is not itself a failure; a missing dependency or mismatched digest
+is. The release workflow runs `node scripts/check-userscript-deployment.mjs
+--file dist/yomu.user.js` before publishing, checking the actual release artifact
+after it is restored from the extension build. This gate cannot prevent a
+separately configured Greasy Fork auto-sync from reading raw GitHub main: the
+author's source setting still needs to use the deployed website URL above.
+
+If both Tampermonkey dropdown commands and its right-click submenu disappear,
+check these dependencies first. A failed `@require` prevents the entire script
+from executing, including `GM_registerMenuCommand`; changing X's page handlers
+will not fix it. Restore the exact pinned bytes through the normal verified
+Pages deployment, then have the user update/reinstall the script (without
+deleting its saved data) and reload the page so the manager refetches dependencies.
+Do not remove integrity hashes or substitute a mutable runtime URL. Verify both
+current and previously published pins before calling the incident resolved.
+
 Reopen the author form to confirm the saved URL and mode. Public script
 responses do not prove those settings.
 
