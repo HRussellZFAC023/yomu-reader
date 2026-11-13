@@ -192,12 +192,12 @@ describe('reader runtime helpers', () => {
             toggleYoutube,
         });
 
-        commands.get(`${APP_NAME} open Study`)?.();
-        commands.get(`${APP_NAME} annotations`)?.();
-        commands.get(`${APP_NAME} audio`)?.();
-        commands.get(`${APP_NAME} OCR`)?.();
-        commands.get(`${APP_NAME} language`)?.();
-        commands.get(`${APP_NAME} YouTube`)?.();
+        commands.get(`${APP_NAME} open Study`)!();
+        commands.get(`${APP_NAME} annotations`)!();
+        commands.get(`${APP_NAME} audio`)!();
+        commands.get(`${APP_NAME} OCR`)!();
+        commands.get(`${APP_NAME} language`)!();
+        commands.get(`${APP_NAME} YouTube`)!();
 
         expect(open).toHaveBeenCalledWith(NEW_TAB_PAGE_URL, '_blank');
         expect(opened.opener).toBeNull();
