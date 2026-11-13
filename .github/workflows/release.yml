@@ -147,6 +147,8 @@ jobs:
           zip -qr yomureader.com-safari-web-extension.zip yomureader.com-safari-web-extension
       - name: Restore split userscript release artifact
         run: cp "${RUNNER_TEMP:-/tmp}/yomu.user.js" dist/yomu.user.js
+      - name: Verify userscript dependencies are already deployed
+        run: node scripts/check-userscript-deployment.mjs --file dist/yomu.user.js
       - name: Prepare release notes
         run: |
           TAG="${{ github.event.inputs.tag || github.ref_name }}"

@@ -162,11 +162,14 @@ describe('reader runtime helpers', () => {
         expect(documentLooksLikeImageReadingPage()).toBe(false);
     });
 
-    it('registers userscript menu commands and preserves page opener isolation', () => {
+    it.each(['legacy', 'modern'])('registers %s userscript menus on x.com and preserves page opener isolation', api => {
+        vi.stubGlobal('location', new URL('https://x.com/home'));
         const commands = new Map<string, () => void>();
-        vi.stubGlobal('GM_registerMenuCommand', vi.fn((name: string, fn: () => void) => {
+        const register = vi.fn((name: string, fn: () => void) => {
             commands.set(name, fn);
-        }));
+        });
+        vi.stubGlobal('GM_registerMenuCommand', api === 'legacy' ? register : undefined);
+        vi.stubGlobal('GM', api === 'modern' ? { registerMenuCommand: register } : undefined);
         const opened = { opener: window } as Window;
         const open = vi.spyOn(window, 'open').mockReturnValue(opened);
         const cycleOcr = vi.fn();
